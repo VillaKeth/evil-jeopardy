@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Knowledge Base (local DB - don't commit)
+qdrant.db/
+knowledge_base/fallback.jsonl
+knowledge_base/file_hashes.json
+knowledge_base/migration_backup.json
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Artifacts (AI workspace)
+artifacts/
+
+# Environment
+.env
+.env.local
+*.log
+
+# Session state
+.claude/plans/
+.claude/*.local.md
+!.claude/ralph-loop.local.md

@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit",
+      "MultiEdit",
+      "Write",
+      "Bash(make *)",
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Bash(node *)",
+      "Bash(python *)",
+      "Bash(uv *)"
+    ]
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/extract_and_store_knowledge.py"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/extract_and_store_knowledge.py"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/read_knowledge.py"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/extract_and_store_knowledge.py"
+      }
+    ]
+  }
+}

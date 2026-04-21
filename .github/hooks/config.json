@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/read_knowledge.py",
+        "timeout": 30
+      }
+    ],
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/extract_and_store_knowledge.py",
+        "timeout": 30
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/extract_and_store_knowledge.py",
+        "timeout": 30
+      }
+    ],
+    "SessionEnd": [
+      {
+        "type": "command",
+        "command": "python .github/hooks/extract_and_store_knowledge.py",
+        "timeout": 30
+      }
+    ]
+  }
+}
