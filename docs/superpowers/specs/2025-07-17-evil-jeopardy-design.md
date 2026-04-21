@@ -14,6 +14,11 @@ No existing Jeopardy app supports nested games or forced-answer mechanics.
 
 ## 2. Game Rules
 
+### Players
+- Flexible player count — supports any number of players (minimum 2)
+- Host does not play; host controls the game from the dashboard
+- Players can be in-person (WiFi) or remote (ngrok tunnel)
+
 ### Evil Jeopardy² Structure
 - **Main board:** 5 categories × 5 values ($100–$500)
 - **Nested games:** Each main board question triggers a full 5×5 sub-Jeopardy game
@@ -27,10 +32,13 @@ No existing Jeopardy app supports nested games or forced-answer mechanics.
 
 ### Turn Order
 - For each question (nested or main): host opens buzzing → first valid buzz answers first → remaining players answer in order (2nd buzz, 3rd buzz)
+- Players who never buzz (AFK, frozen phone) answer last, in order of connection
 - For main board questions specifically: answer order is determined by nested game placement (1st place answers first)
 
 ### Final Jeopardy
 - Standard simultaneous format: all players wager and submit answers on their phones, host reveals
+- Players can wager any amount (no cap at current score) — they can go negative
+- Minimum wager is $0
 
 ## 3. Architecture
 
