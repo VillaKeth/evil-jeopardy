@@ -30,6 +30,10 @@
       {
         "type": "command",
         "command": "python .github/hooks/read_knowledge.py"
+      },
+      {
+        "type": "command",
+        "command": "python .github/hooks/save_prompt.py"
       }
     ],
     "SessionEnd": [
