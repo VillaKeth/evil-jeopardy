@@ -195,6 +195,7 @@ io.on('connection', (socket) => {
   socket.on('host-mark-correct', ({ socketId }) => {
     const question = gameState.mainBoard.currentQuestion || gameState.nestedGame.currentQuestion;
     const value = question?.value || 0;
+    lockQueue(buzzQueue);
     gameState = updateScore(gameState, socketId, value);
     gameState = recordNestedPlacement(gameState, socketId);
     broadcastGameState();
@@ -203,6 +204,7 @@ io.on('connection', (socket) => {
   socket.on('host-mark-wrong', ({ socketId }) => {
     const question = gameState.mainBoard.currentQuestion || gameState.nestedGame.currentQuestion;
     const value = question?.value || 0;
+    lockQueue(buzzQueue);
     gameState = updateScore(gameState, socketId, -value);
     broadcastGameState();
   });
@@ -250,6 +252,7 @@ io.on('connection', (socket) => {
     gameState = createGameState();
     buzzQueue = createBuzzQueue();
     calibrationSessions.clear();
+    disconnectedPlayers.clear();
     io.emit('game-reset', {});
     console.log('Game reset');
   });

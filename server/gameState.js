@@ -68,12 +68,25 @@ function reconnectPlayer(state, socketId, newSocketId) {
   const player = { ...state.players[socketId], connected: true };
   const { [socketId]: removed, ...otherPlayers } = state.players;
   
+  // Update socket ID in answerPhase order and nestedGame placements
+  const answerPhase = state.answerPhase ? {
+    ...state.answerPhase,
+    order: state.answerPhase.order.map(id => id === socketId ? newSocketId : id)
+  } : state.answerPhase;
+
+  const nestedGame = state.nestedGame ? {
+    ...state.nestedGame,
+    placements: state.nestedGame.placements.map(id => id === socketId ? newSocketId : id)
+  } : state.nestedGame;
+
   return {
     ...state,
     players: {
       ...otherPlayers,
       [newSocketId]: player
-    }
+    },
+    answerPhase,
+    nestedGame
   };
 }
 
@@ -238,7 +251,11 @@ function submitWager(state, socketId, amount) {
     throw new Error('Player not found');
   }
   
-  if (player.score > 0 && (amount < 0 || amount > player.score)) {
+  if (amount < 0) {
+    throw new Error('Wager cannot be negative');
+  }
+  
+  if (player.score > 0 && amount > player.score) {
     throw new Error(`Invalid wager: ${amount}. Must be between 0 and ${player.score}`);
   }
   
