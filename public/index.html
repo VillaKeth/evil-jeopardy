@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy²</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="status-bar">
+    <span id="connection-status" class="connection-dot"></span>
+    <span>Evil Jeopardy²</span>
+  </div>
+
+  <div class="lobby">
+    <h1>Evil Jeopardy²</h1>
+    <div id="join-form">
+      <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+      <button id="join-btn" class="correct-btn">Join Game</button>
+    </div>
+    <div id="waiting-room" style="display:none">
+      <p>Welcome, <strong id="display-name"></strong>!</p>
+      <p>Waiting for host to start...</p>
+    </div>
+    <div class="player-list">
+      <h3>Players (<span id="player-count">0</span>)</h3>
+      <ul id="players"></ul>
+    </div>
+    <div id="lobby-footer" style="text-align:center; padding:1rem; opacity:0.6;">
+      <small>Share this URL with players: <strong id="share-url"></strong></small>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-setup.js"></script>
+  <script>
+    const socket = createSocket();
+    const joinForm = document.getElementById('join-form');
+    const waitingRoom = document.getElementById('waiting-room');
+    const nameInput = document.getElementById('player-name');
+    const joinBtn = document.getElementById('join-btn');
+    const displayName = document.getElementById('display-name');
+    const playersList = document.getElementById('players');
+    const playerCount = document.getElementById('player-count');
+
+    joinBtn.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) return;
+      socket.emit('join', { name });
+    });
+
+    nameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinBtn.click();
+    });
+
+    socket.on('joined', ({ name }) => {
+      sessionStorage.setItem('playerName', name);
+      joinForm.style.display = 'none';
+      waitingRoom.style.display = 'block';
+      displayName.textContent = name;
+    });
+
+    socket.on('player-list', (players) => {
+      playersList.innerHTML = '';
+      playerCount.textContent = players.length;
+      players.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = p.name + (p.connected ? '' : ' (disconnected)');
+        playersList.appendChild(li);
+      });
+    });
+
+    socket.on('game-started', () => {
+      window.location.href = '/play.html';
+    });
+
+    // Latency calibration - respond to pings
+    socket.on('calibration-ping', (data) => {
+      socket.emit('calibration-pong', data);
+    });
+
+    socket.on('join-error', ({ message }) => {
+      alert(message);
+    });
+
+    // Populate share URL
+    document.getElementById('share-url').textContent = window.location.href;
+  </script>
+</body>
+</html>

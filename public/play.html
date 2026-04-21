@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Evil Jeopardy² — Player</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="status-bar">
+    <span id="connection-status" class="connection-dot"></span>
+    <span id="player-name-display">Player</span>
+    <span id="phase-display">—</span>
+  </div>
+
+  <div id="play-join-form" style="display:none; text-align:center; padding:2rem;">
+    <div class="lobby">
+      <h2>Rejoin Game</h2>
+      <input type="text" id="rejoin-name" placeholder="Your name" maxlength="20" autocomplete="off">
+      <button id="rejoin-btn" class="correct-btn">Rejoin</button>
+    </div>
+  </div>
+
+  <!-- Score Display (always visible during game) -->
+  <div id="score-section" style="display:none">
+    <div class="score-box" style="text-align:center; margin:1rem auto; max-width:200px;">
+      <div style="font-size:0.7rem; text-transform:uppercase; opacity:0.7;">Your Score</div>
+      <div id="my-score" style="font-size:2.5rem; font-weight:bold;">$0</div>
+      <div id="my-rank" style="font-size:0.8rem; opacity:0.7;"></div>
+    </div>
+  </div>
+
+  <!-- Waiting for game (after joining, shown in MAIN_BOARD when not buzzing) -->
+  <div id="waiting-section" style="display:none; text-align:center; padding:2rem;">
+    <p id="waiting-message">Waiting for host...</p>
+  </div>
+
+  <!-- Buzz Section (during NESTED_GAME when buzzer is open) -->
+  <div id="buzz-section" style="display:none; text-align:center; padding:2rem;">
+    <p id="buzz-question-info" style="margin-bottom:1rem;"></p>
+    <button id="buzz-btn" class="buzz-btn">BUZZ</button>
+    <p id="buzz-status" style="margin-top:1rem;"></p>
+  </div>
+
+  <!-- Your Turn to Answer (during ANSWER_PHASE when it's your turn) -->
+  <div id="your-turn-section" style="display:none; text-align:center; padding:2rem;">
+    <div class="your-turn">
+      <h2>YOUR TURN!</h2>
+      <p>Answer the question out loud</p>
+      <p>Waiting for host to judge...</p>
+    </div>
+  </div>
+
+  <!-- Answer Phase Watching (during ANSWER_PHASE when it's NOT your turn) -->
+  <div id="watching-section" style="display:none; text-align:center; padding:2rem;">
+    <p><strong id="who-answering">—</strong> is answering...</p>
+  </div>
+
+  <!-- Final Jeopardy -->
+  <div id="final-section" style="display:none">
+    <div class="final-jeopardy" style="padding:1rem;">
+      <h2>Final Jeopardy</h2>
+
+      <div id="wager-form">
+        <label>Your Wager ($):</label>
+        <input type="number" id="wager-input" min="0" placeholder="Enter wager">
+        <p id="wager-limit" style="font-size:0.8rem; opacity:0.7;"></p>
+        <button id="submit-wager-btn" class="correct-btn">Lock In Wager</button>
+        <p id="wager-status"></p>
+      </div>
+
+      <div id="answer-form" style="display:none">
+        <label>Your Answer:</label>
+        <textarea id="answer-input" rows="3" placeholder="What is..."></textarea>
+        <button id="submit-answer-btn" class="correct-btn">Submit Answer</button>
+        <p id="answer-status"></p>
+      </div>
+
+      <div id="fj-waiting" style="display:none; text-align:center;">
+        <p>Waiting for results...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameover-section" style="display:none; text-align:center; padding:2rem;">
+    <h2>🏆 Game Over!</h2>
+    <div class="standings" id="final-standings"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-setup.js"></script>
+  <script>
+    const socket = createSocket();
+    let myName = '';
+    let myId = '';
+    let hasBuzzed = false;
+    let wagerSubmitted = false;
+    let answerSubmitted = false;
+
+    // Get player name from sessionStorage or URL
+    // If redirected from lobby, name is stored
+    myName = sessionStorage.getItem('playerName') || '';
+    myId = socket.id;
+
+    // Show rejoin form if no stored name
+    if (!myName) {
+      document.getElementById('play-join-form').style.display = '';
+    }
+
+    document.getElementById('rejoin-btn')?.addEventListener('click', () => {
+      const name = document.getElementById('rejoin-name').value.trim();
+      if (!name) return;
+      socket.emit('join', { name });
+      document.getElementById('play-join-form').style.display = 'none';
+    });
+
+    socket.on('connect', () => {
+      myId = socket.id;
+      if (myName) {
+        document.getElementById('player-name-display').textContent = myName;
+      }
+    });
+
+    socket.on('joined', ({ name, reconnected }) => {
+      myName = name;
+      myId = socket.id;
+      sessionStorage.setItem('playerName', name);
+      document.getElementById('player-name-display').textContent = name;
+      if (reconnected) {
+        console.log('Reconnected to game!');
+      }
+    });
+
+    // --- Phase Management ---
+    const allSections = ['waiting-section', 'buzz-section', 'your-turn-section',
+                         'watching-section', 'final-section', 'gameover-section'];
+
+    function hideAllSections() {
+      allSections.forEach(id => {
+        document.getElementById(id).style.display = 'none';
+      });
+    }
+
+    // --- Game State Updates ---
+    socket.on('game-state', (state) => {
+      const phase = state.phase;
+      document.getElementById('phase-display').textContent = phase;
+
+      // Show score during game
+      const scoreSection = document.getElementById('score-section');
+      if (phase !== 'LOBBY' && phase !== 'GAME_OVER') {
+        scoreSection.style.display = '';
+        const me = state.players[myId];
+        if (me) {
+          document.getElementById('my-score').textContent = `$${me.score}`;
+          // Calculate rank
+          const sorted = Object.entries(state.players)
+            .sort(([,a], [,b]) => b.score - a.score);
+          const rank = sorted.findIndex(([id]) => id === myId) + 1;
+          document.getElementById('my-rank').textContent =
+            rank === 1 ? '1st Place 🥇' : rank === 2 ? '2nd Place 🥈' : rank === 3 ? '3rd Place 🥉' : `${rank}th Place`;
+        }
+      } else {
+        scoreSection.style.display = 'none';
+      }
+
+      hideAllSections();
+
+      if (phase === 'MAIN_BOARD') {
+        document.getElementById('waiting-section').style.display = '';
+        document.getElementById('waiting-message').textContent = 'Waiting for host to select a question...';
+      } else if (phase === 'NESTED_GAME') {
+        // Show waiting unless buzz is open (handled by buzz-open event)
+        if (!hasBuzzed) {
+          document.getElementById('waiting-section').style.display = '';
+          document.getElementById('waiting-message').textContent = 'Nested game in progress...';
+        } else {
+          document.getElementById('waiting-section').style.display = '';
+          document.getElementById('waiting-message').textContent = 'You already buzzed! Waiting...';
+        }
+      } else if (phase === 'ANSWER_PHASE') {
+        const { order, currentIndex } = state.answerPhase;
+        const currentAnswerer = order[currentIndex];
+        if (currentAnswerer === myId) {
+          document.getElementById('your-turn-section').style.display = '';
+        } else {
+          document.getElementById('watching-section').style.display = '';
+          const player = currentAnswerer ? state.players[currentAnswerer] : null;
+          document.getElementById('who-answering').textContent =
+            player ? player.name : '(waiting)';
+        }
+      } else if (phase === 'FINAL_JEOPARDY') {
+        document.getElementById('final-section').style.display = '';
+        // Set wager limit
+        const me = state.players[myId];
+        if (me) {
+          const limit = me.score > 0 ? me.score : 0;
+          document.getElementById('wager-limit').textContent = `Max wager: $${limit}`;
+          document.getElementById('wager-input').max = limit;
+        }
+      } else if (phase === 'GAME_OVER') {
+        document.getElementById('gameover-section').style.display = '';
+      }
+    });
+
+    // --- Buzz Events ---
+    socket.on('buzz-open', ({ category, value }) => {
+      hasBuzzed = false;
+      hideAllSections();
+      document.getElementById('buzz-section').style.display = '';
+      document.getElementById('buzz-question-info').textContent = `${category} — $${value}`;
+      document.getElementById('buzz-status').textContent = '';
+
+      const buzzBtn = document.getElementById('buzz-btn');
+      buzzBtn.disabled = false;
+      buzzBtn.className = 'buzz-btn';
+    });
+
+    document.getElementById('buzz-btn').addEventListener('click', () => {
+      if (hasBuzzed) return;
+      hasBuzzed = true;
+      socket.emit('buzz');
+
+      const buzzBtn = document.getElementById('buzz-btn');
+      buzzBtn.className = 'buzz-btn buzzed';
+      buzzBtn.disabled = true;
+      document.getElementById('buzz-status').textContent = 'Buzzed! ✓';
+    });
+
+    socket.on('buzz-update', ({ buzzes, winner }) => {
+      // Just show status
+      if (winner && winner.id === myId) {
+        document.getElementById('buzz-status').textContent = '🏆 You buzzed first!';
+      }
+    });
+
+    // --- Final Jeopardy ---
+    document.getElementById('submit-wager-btn').addEventListener('click', () => {
+      if (wagerSubmitted) return;
+      const amount = parseInt(document.getElementById('wager-input').value);
+      if (isNaN(amount) || amount < 0) {
+        document.getElementById('wager-status').textContent = 'Enter a valid wager';
+        return;
+      }
+      socket.emit('submit-wager', { amount });
+    });
+
+    socket.on('wager-accepted', ({ amount }) => {
+      wagerSubmitted = true;
+      document.getElementById('wager-status').textContent = `Wager locked: $${amount} ✓`;
+      document.getElementById('submit-wager-btn').disabled = true;
+      document.getElementById('wager-input').disabled = true;
+      // Show answer form
+      document.getElementById('answer-form').style.display = '';
+    });
+
+    socket.on('wager-error', ({ message }) => {
+      document.getElementById('wager-status').textContent = `Error: ${message}`;
+    });
+
+    document.getElementById('submit-answer-btn').addEventListener('click', () => {
+      if (answerSubmitted) return;
+      const answer = document.getElementById('answer-input').value.trim();
+      if (!answer) {
+        document.getElementById('answer-status').textContent = 'Enter an answer';
+        return;
+      }
+      socket.emit('submit-answer', { answer });
+    });
+
+    socket.on('answer-accepted', () => {
+      answerSubmitted = true;
+      document.getElementById('answer-status').textContent = 'Answer submitted ✓';
+      document.getElementById('submit-answer-btn').disabled = true;
+      document.getElementById('answer-input').disabled = true;
+      // Show waiting
+      document.getElementById('answer-form').style.display = 'none';
+      document.getElementById('fj-waiting').style.display = '';
+    });
+
+    socket.on('answer-error', ({ message }) => {
+      document.getElementById('answer-status').textContent = `Error: ${message}`;
+    });
+
+    // FJ phase events
+    socket.on('fj-phase', ({ step }) => {
+      if (step === 'answer') {
+        // Show answer form even if wager wasn't submitted (use default 0)
+        document.getElementById('answer-form').style.display = '';
+        document.getElementById('wager-form').style.display = 'none';
+      } else if (step === 'reveal') {
+        document.getElementById('answer-form').style.display = 'none';
+        document.getElementById('fj-waiting').style.display = '';
+      }
+    });
+
+    // --- Game Over ---
+    socket.on('game-over', ({ standings }) => {
+      hideAllSections();
+      document.getElementById('gameover-section').style.display = '';
+      document.getElementById('score-section').style.display = 'none';
+      const div = document.getElementById('final-standings');
+      div.innerHTML = '';
+      standings.forEach((s, i) => {
+        const p = document.createElement('p');
+        const medals = ['🥇', '🥈', '🥉'];
+        const isMe = s.name === myName;
+        p.textContent = `${medals[i] || (i + 1 + '.')} ${s.name} — $${s.score}`;
+        if (isMe) p.style.fontWeight = 'bold';
+        div.appendChild(p);
+      });
+    });
+
+    // --- Game Reset ---
+    socket.on('game-reset', () => {
+      window.location.href = '/';
+    });
+
+    // --- Calibration (also handled on play page) ---
+    socket.on('calibration-ping', (data) => {
+      socket.emit('calibration-pong', data);
+    });
+  </script>
+</body>
+</html>
