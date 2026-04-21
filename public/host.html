@@ -313,7 +313,7 @@
       orderList.innerHTML = '';
       buzzes.forEach(b => {
         const li = document.createElement('li');
-        li.textContent = `${b.playerId} (${b.adjustedTime}ms)`;
+        li.textContent = `${b.name} (${b.adjustedTime}ms)`;
         orderList.appendChild(li);
       });
 

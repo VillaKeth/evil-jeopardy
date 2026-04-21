@@ -264,9 +264,10 @@ io.on('connection', (socket) => {
     if (recorded) {
       const winner = getWinner(buzzQueue);
       io.emit('buzz-update', {
-        buzzes: getBuzzOrder(buzzQueue).map(id => ({
-          playerId: id,
-          name: gameState.players[id]?.name
+        buzzes: buzzQueue.buzzes.map(b => ({
+          playerId: b.socketId,
+          name: gameState.players[b.socketId]?.name,
+          adjustedTime: Math.round(b.adjustedTime - buzzQueue.openedAt)
         })),
         winner: winner ? { id: winner.socketId, name: gameState.players[winner.socketId]?.name } : null
       });
@@ -279,6 +280,7 @@ io.on('connection', (socket) => {
       socket.emit('wager-accepted', { amount });
       // Notify host
       io.emit('wager-submitted', { playerId: socket.id, name: gameState.players[socket.id]?.name });
+      broadcastGameState();
       
       // Check if all players have wagered
       const allWagered = Object.keys(gameState.players)
@@ -298,6 +300,7 @@ io.on('connection', (socket) => {
       socket.emit('answer-accepted', {});
       // Notify host
       io.emit('answer-submitted', { playerId: socket.id, name: gameState.players[socket.id]?.name });
+      broadcastGameState();
       
       // Check if all players have answered
       const allAnswered = Object.keys(gameState.players)

@@ -119,6 +119,9 @@
       myId = socket.id;
       if (myName) {
         document.getElementById('player-name-display').textContent = myName;
+        // Auto-rejoin with stored name (reconnection after page redirect)
+        socket.emit('join', { name: myName });
+        document.getElementById('play-join-form').style.display = 'none';
       }
     });
 
