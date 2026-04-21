@@ -15,8 +15,8 @@ const {
   createCalibrationSession, recordPingSent, recordPong
 } = require('./latency');
 const {
-  createBuzzQueue, openQueue, closeQueue, lockQueue,
-  recordBuzz, getWinner, getBuzzOrder, resetQueue
+  createBuzzQueue, open: openQueue, lock: lockQueue,
+  recordBuzz, getBuzzWinner: getWinner, getBuzzOrder, reset: resetQueue
 } = require('./buzzQueue');
 
 const app = express();
@@ -46,10 +46,17 @@ function broadcastPlayerList() {
 
 // Helper: broadcast game state to all clients
 function broadcastGameState() {
+  // Send sanitized state to each player
   Object.keys(gameState.players).forEach(socketId => {
     const sock = io.sockets.sockets.get(socketId);
     if (sock) {
       sock.emit('game-state', getClientState(gameState, socketId));
+    }
+  });
+  // Send full state to non-player sockets (host dashboard)
+  io.sockets.sockets.forEach((sock, socketId) => {
+    if (!gameState.players[socketId]) {
+      sock.emit('game-state', gameState);
     }
   });
 }
@@ -64,6 +71,15 @@ function runCalibration(socket) {
 
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
+
+  // Send current state to newly connected client
+  const players = Object.entries(gameState.players).map(([id, p]) => ({
+    id, name: p.name, score: p.score, connected: p.connected,
+  }));
+  socket.emit('player-list', players);
+  if (gameState.phase !== 'LOBBY') {
+    socket.emit('game-state', getClientState(gameState, socket.id));
+  }
 
   // --- LOBBY EVENTS ---
 
@@ -151,8 +167,8 @@ io.on('connection', (socket) => {
   socket.on('host-start-nested-question', ({ category, value }) => {
     try {
       gameState = startNestedQuestion(gameState, category, value);
-      buzzQueue = resetQueue(buzzQueue);
-      buzzQueue = openQueue(buzzQueue, value);
+      resetQueue(buzzQueue);
+      openQueue(buzzQueue, value);
       broadcastGameState();
       io.emit('buzz-open', { category, value });
     } catch (err) {
@@ -244,13 +260,15 @@ io.on('connection', (socket) => {
     const player = gameState.players[socket.id];
     if (!player) return;
 
-    const result = recordBuzz(buzzQueue, socket.id, Date.now(), player.latency);
-    if (result.recorded) {
-      buzzQueue = result.queue;
+    const recorded = recordBuzz(buzzQueue, socket.id, Date.now(), player.latency);
+    if (recorded) {
       const winner = getWinner(buzzQueue);
       io.emit('buzz-update', {
-        buzzes: getBuzzOrder(buzzQueue),
-        winner: winner ? { id: winner.playerId, name: gameState.players[winner.playerId]?.name } : null
+        buzzes: getBuzzOrder(buzzQueue).map(id => ({
+          playerId: id,
+          name: gameState.players[id]?.name
+        })),
+        winner: winner ? { id: winner.socketId, name: gameState.players[winner.socketId]?.name } : null
       });
     }
   });
