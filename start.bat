@@ -13,4 +13,8 @@ if not exist "node_modules" (
 
 :: Start the server
 echo Starting server...
+echo.
+echo TIP: For remote players, open a second terminal and run:
+echo   npm run tunnel
+echo.
 node server/index.js

@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test tests/"
+    "test": "node --test tests/",
+    "tunnel": "npx lt --port 3000"
   },
   "repository": {
     "type": "git",
@@ -22,5 +23,9 @@
   "dependencies": {
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "localtunnel": "^2.0.2",
+    "ngrok": "^5.0.0-beta.2"
   }
 }
