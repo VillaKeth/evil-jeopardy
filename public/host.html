@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy² — Host</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="status-bar">
+    <span id="connection-status" class="connection-dot"></span>
+    <span>HOST DASHBOARD</span>
+    <span id="phase-display">LOBBY</span>
+  </div>
+
+  <!-- LOBBY PHASE -->
+  <div id="lobby-section" class="lobby">
+    <h1>Evil Jeopardy²</h1>
+    <h2>Host Dashboard</h2>
+    <div class="player-list">
+      <h3>Players (<span id="player-count">0</span>)</h3>
+      <ul id="players"></ul>
+    </div>
+    <button id="start-game-btn" class="correct-btn" disabled>Start Game (need 2+ players)</button>
+  </div>
+
+  <!-- MAIN BOARD PHASE -->
+  <div id="main-board-section" style="display:none">
+    <h2>Main Board</h2>
+    <div class="host-controls">
+      <div>
+        <label>Category:</label>
+        <input type="text" id="main-category" placeholder="Category name">
+      </div>
+      <div>
+        <label>Value:</label>
+        <select id="main-value">
+          <option value="100">$100</option>
+          <option value="200">$200</option>
+          <option value="300">$300</option>
+          <option value="400">$400</option>
+          <option value="500">$500</option>
+        </select>
+      </div>
+      <button id="select-question-btn" class="correct-btn">Select Question → Start Nested Game</button>
+      <button id="start-final-btn" class="wrong-btn">Start Final Jeopardy</button>
+    </div>
+    <div class="scoreboard">
+      <h3>Standings</h3>
+      <table id="standings-table">
+        <thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Latency</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NESTED GAME PHASE -->
+  <div id="nested-section" style="display:none">
+    <h2>Nested Game</h2>
+    <p>Main question: <strong id="parent-question"></strong></p>
+    <div class="host-controls">
+      <div>
+        <label>Nested Category:</label>
+        <input type="text" id="nested-category" placeholder="Category name">
+      </div>
+      <div>
+        <label>Value:</label>
+        <select id="nested-value">
+          <option value="100">$100</option>
+          <option value="200">$200</option>
+          <option value="300">$300</option>
+          <option value="400">$400</option>
+          <option value="500">$500</option>
+        </select>
+      </div>
+      <button id="nested-question-btn" class="correct-btn">Open Buzzer for Question</button>
+      <button id="end-nested-btn" class="wrong-btn">End Nested Game → Answer Phase</button>
+    </div>
+    <div id="buzz-results" class="buzz-result" style="display:none">
+      <h3>Buzz Order</h3>
+      <ol id="buzz-order-list"></ol>
+    </div>
+    <div id="nested-scoring" class="host-controls" style="display:none">
+      <h3>Score: <span id="current-buzzer"></span></h3>
+      <button class="correct-btn" id="nested-correct-btn">✓ Correct</button>
+      <button class="wrong-btn" id="nested-wrong-btn">✗ Wrong</button>
+    </div>
+    <div class="standings">
+      <h3>Nested Placements</h3>
+      <ol id="placements-list"></ol>
+    </div>
+  </div>
+
+  <!-- ANSWER PHASE -->
+  <div id="answer-section" style="display:none">
+    <h2>Answer Phase</h2>
+    <p>Main question: <strong id="answer-question"></strong></p>
+    <div class="your-turn">
+      <h3>Current Answerer: <span id="current-answerer">—</span></h3>
+    </div>
+    <div class="host-controls">
+      <button class="correct-btn" id="answer-correct-btn">✓ Correct</button>
+      <button class="wrong-btn" id="answer-wrong-btn">✗ Wrong</button>
+      <button id="next-answer-btn">Next Player →</button>
+      <button id="end-answer-btn" class="wrong-btn">End Answer Phase → Main Board</button>
+    </div>
+    <div>
+      <h3>Answer Order</h3>
+      <ol id="answer-order-list"></ol>
+    </div>
+  </div>
+
+  <!-- FINAL JEOPARDY -->
+  <div id="final-section" style="display:none">
+    <h2>Final Jeopardy</h2>
+    <div>
+      <h3>Wagers Received</h3>
+      <ul id="wager-status"></ul>
+    </div>
+    <div>
+      <h3>Answers Received</h3>
+      <ul id="answer-status"></ul>
+    </div>
+    <div id="final-scoring" style="display:none">
+      <h3>Score Final Answers</h3>
+      <div id="final-scoring-list"></div>
+      <button id="submit-final-scores-btn" class="correct-btn">Submit Final Scores</button>
+    </div>
+    <button id="reveal-answers-btn" class="correct-btn">Reveal Answers for Scoring</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameover-section" style="display:none">
+    <h2>🏆 Game Over!</h2>
+    <div class="standings" id="final-standings"></div>
+    <button id="reset-btn" class="correct-btn">New Game</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-setup.js"></script>
+  <script>
+    const socket = createSocket();
+
+    // --- DOM Elements ---
+    const sections = {
+      lobby: document.getElementById('lobby-section'),
+      mainBoard: document.getElementById('main-board-section'),
+      nested: document.getElementById('nested-section'),
+      answer: document.getElementById('answer-section'),
+      final: document.getElementById('final-section'),
+      gameOver: document.getElementById('gameover-section'),
+    };
+    const phaseDisplay = document.getElementById('phase-display');
+
+    function showSection(phase) {
+      Object.values(sections).forEach(s => s.style.display = 'none');
+      const map = {
+        'LOBBY': 'lobby',
+        'MAIN_BOARD': 'mainBoard',
+        'NESTED_GAME': 'nested',
+        'ANSWER_PHASE': 'answer',
+        'FINAL_JEOPARDY': 'final',
+        'GAME_OVER': 'gameOver',
+      };
+      const key = map[phase];
+      if (key && sections[key]) sections[key].style.display = '';
+      phaseDisplay.textContent = phase;
+    }
+
+    // --- Player List (Lobby) ---
+    socket.on('player-list', (players) => {
+      const list = document.getElementById('players');
+      const count = document.getElementById('player-count');
+      const startBtn = document.getElementById('start-game-btn');
+
+      list.innerHTML = '';
+      count.textContent = players.length;
+      players.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = `${p.name} ${p.connected ? '🟢' : '🔴'}`;
+        list.appendChild(li);
+      });
+
+      startBtn.disabled = players.length < 2;
+      startBtn.textContent = players.length < 2
+        ? `Start Game (need ${2 - players.length} more)`
+        : `Start Game (${players.length} players)`;
+    });
+
+    // Start Game
+    document.getElementById('start-game-btn').addEventListener('click', () => {
+      socket.emit('host-start-game');
+    });
+
+    // --- Game State Updates ---
+    socket.on('game-state', (state) => {
+      showSection(state.phase);
+      updateStandings(state);
+
+      if (state.phase === 'NESTED_GAME' && state.nestedGame.parentQuestion) {
+        document.getElementById('parent-question').textContent =
+          `${state.nestedGame.parentQuestion.category} - $${state.nestedGame.parentQuestion.value}`;
+        // Show placements
+        const placementsList = document.getElementById('placements-list');
+        placementsList.innerHTML = '';
+        state.nestedGame.placements.forEach(id => {
+          const li = document.createElement('li');
+          const player = state.players[id];
+          li.textContent = player ? player.name : id;
+          placementsList.appendChild(li);
+        });
+      }
+
+      if (state.phase === 'ANSWER_PHASE') {
+        document.getElementById('answer-question').textContent =
+          `${state.mainBoard.currentQuestion?.category} - $${state.mainBoard.currentQuestion?.value}`;
+        const order = state.answerPhase.order;
+        const idx = state.answerPhase.currentIndex;
+        const currentId = order[idx];
+        const currentPlayer = currentId ? state.players[currentId] : null;
+        document.getElementById('current-answerer').textContent =
+          currentPlayer ? currentPlayer.name : '(done)';
+
+        const orderList = document.getElementById('answer-order-list');
+        orderList.innerHTML = '';
+        order.forEach((id, i) => {
+          const li = document.createElement('li');
+          const player = state.players[id];
+          li.textContent = player ? player.name : id;
+          if (i === idx) li.style.fontWeight = 'bold';
+          if (i < idx) li.style.opacity = '0.5';
+          orderList.appendChild(li);
+        });
+      }
+
+      if (state.phase === 'FINAL_JEOPARDY') {
+        // Update wager/answer status
+      }
+    });
+
+    socket.on('game-started', () => {
+      showSection('MAIN_BOARD');
+    });
+
+    // --- Standings ---
+    function updateStandings(state) {
+      const tbody = document.querySelector('#standings-table tbody');
+      if (!tbody) return;
+      const players = Object.entries(state.players)
+        .map(([id, p]) => ({ id, ...p }))
+        .sort((a, b) => b.score - a.score);
+
+      tbody.innerHTML = '';
+      players.forEach((p, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i + 1}</td><td>${p.name}</td><td>$${p.score}</td><td>${p.latency}ms</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // --- Main Board Controls ---
+    document.getElementById('select-question-btn').addEventListener('click', () => {
+      const category = document.getElementById('main-category').value.trim();
+      const value = parseInt(document.getElementById('main-value').value);
+      if (!category) return alert('Enter a category');
+      socket.emit('host-select-question', { category, value });
+    });
+
+    document.getElementById('start-final-btn').addEventListener('click', () => {
+      if (confirm('Start Final Jeopardy?')) {
+        socket.emit('host-start-final');
+      }
+    });
+
+    // --- Nested Game Controls ---
+    document.getElementById('nested-question-btn').addEventListener('click', () => {
+      const category = document.getElementById('nested-category').value.trim();
+      const value = parseInt(document.getElementById('nested-value').value);
+      if (!category) return alert('Enter a category');
+      socket.emit('host-start-nested-question', { category, value });
+    });
+
+    document.getElementById('end-nested-btn').addEventListener('click', () => {
+      socket.emit('host-end-nested');
+    });
+
+    // Buzz results
+    socket.on('buzz-update', ({ buzzes, winner }) => {
+      const resultsDiv = document.getElementById('buzz-results');
+      const orderList = document.getElementById('buzz-order-list');
+      const scoringDiv = document.getElementById('nested-scoring');
+      const currentBuzzer = document.getElementById('current-buzzer');
+
+      resultsDiv.style.display = '';
+      orderList.innerHTML = '';
+      buzzes.forEach(b => {
+        const li = document.createElement('li');
+        li.textContent = `${b.playerId} (${b.adjustedTime}ms)`;
+        orderList.appendChild(li);
+      });
+
+      if (winner) {
+        scoringDiv.style.display = '';
+        currentBuzzer.textContent = winner.name || winner.id;
+        scoringDiv.dataset.playerId = winner.id;
+      }
+    });
+
+    document.getElementById('nested-correct-btn').addEventListener('click', () => {
+      const playerId = document.getElementById('nested-scoring').dataset.playerId;
+      socket.emit('host-mark-correct', { socketId: playerId });
+      document.getElementById('nested-scoring').style.display = 'none';
+      document.getElementById('buzz-results').style.display = 'none';
+    });
+
+    document.getElementById('nested-wrong-btn').addEventListener('click', () => {
+      const playerId = document.getElementById('nested-scoring').dataset.playerId;
+      socket.emit('host-mark-wrong', { socketId: playerId });
+      document.getElementById('nested-scoring').style.display = 'none';
+      document.getElementById('buzz-results').style.display = 'none';
+    });
+
+    // --- Answer Phase Controls ---
+    document.getElementById('answer-correct-btn').addEventListener('click', () => {
+      // Host manually marks from game-state's current answerer
+      socket.emit('host-mark-correct', { socketId: getCurrentAnswererId() });
+    });
+
+    document.getElementById('answer-wrong-btn').addEventListener('click', () => {
+      socket.emit('host-mark-wrong', { socketId: getCurrentAnswererId() });
+    });
+
+    document.getElementById('next-answer-btn').addEventListener('click', () => {
+      socket.emit('host-next-answer');
+    });
+
+    document.getElementById('end-answer-btn').addEventListener('click', () => {
+      socket.emit('host-end-answer-phase');
+    });
+
+    let currentGameState = null;
+    socket.on('game-state', (state) => { currentGameState = state; });
+
+    function getCurrentAnswererId() {
+      if (!currentGameState) return null;
+      const { order, currentIndex } = currentGameState.answerPhase;
+      return order[currentIndex] || null;
+    }
+
+    // --- Final Jeopardy Controls ---
+    socket.on('wager-submitted', ({ playerId, name }) => {
+      const list = document.getElementById('wager-status');
+      const li = document.createElement('li');
+      li.textContent = `${name} — wager submitted ✓`;
+      list.appendChild(li);
+    });
+
+    socket.on('answer-submitted', ({ playerId, name }) => {
+      const list = document.getElementById('answer-status');
+      const li = document.createElement('li');
+      li.textContent = `${name} — answer submitted ✓`;
+      list.appendChild(li);
+    });
+
+    document.getElementById('reveal-answers-btn').addEventListener('click', () => {
+      const scoringDiv = document.getElementById('final-scoring');
+      const scoringList = document.getElementById('final-scoring-list');
+      scoringDiv.style.display = '';
+      document.getElementById('reveal-answers-btn').style.display = 'none';
+
+      if (!currentGameState) return;
+      const { answers, wagers } = currentGameState.finalJeopardy;
+      const players = currentGameState.players;
+
+      scoringList.innerHTML = '';
+      Object.entries(answers).forEach(([id, answer]) => {
+        const player = players[id];
+        const wager = wagers[id] || 0;
+        const div = document.createElement('div');
+        div.className = 'score-box';
+        div.innerHTML = `
+          <strong>${player?.name || id}</strong><br>
+          Wager: $${wager}<br>
+          Answer: "${answer}"<br>
+          <label><input type="checkbox" data-player-id="${id}"> Correct</label>
+        `;
+        scoringList.appendChild(div);
+      });
+    });
+
+    document.getElementById('submit-final-scores-btn').addEventListener('click', () => {
+      const checkboxes = document.querySelectorAll('#final-scoring-list input[type="checkbox"]');
+      const results = {};
+      checkboxes.forEach(cb => {
+        results[cb.dataset.playerId] = cb.checked;
+      });
+      socket.emit('host-score-final', { results });
+    });
+
+    // --- Game Over ---
+    socket.on('game-over', ({ standings }) => {
+      showSection('GAME_OVER');
+      const div = document.getElementById('final-standings');
+      div.innerHTML = '<h3>Final Standings</h3>';
+      standings.forEach((s, i) => {
+        const p = document.createElement('p');
+        const medals = ['🥇', '🥈', '🥉'];
+        p.textContent = `${medals[i] || (i + 1 + '.')} ${s.name} — $${s.score}`;
+        div.appendChild(p);
+      });
+    });
+
+    document.getElementById('reset-btn').addEventListener('click', () => {
+      socket.emit('host-reset');
+    });
+
+    socket.on('game-reset', () => {
+      window.location.reload();
+    });
+
+    // --- Host Error ---
+    socket.on('host-error', ({ message }) => {
+      alert('Error: ' + message);
+    });
+  </script>
+</body>
+</html>
