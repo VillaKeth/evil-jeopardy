@@ -261,6 +261,18 @@
       document.getElementById('answer-status').textContent = `Error: ${message}`;
     });
 
+    // FJ phase events
+    socket.on('fj-phase', ({ step }) => {
+      if (step === 'answer') {
+        // Show answer form even if wager wasn't submitted (use default 0)
+        document.getElementById('answer-form').style.display = '';
+        document.getElementById('wager-form').style.display = 'none';
+      } else if (step === 'reveal') {
+        document.getElementById('answer-form').style.display = 'none';
+        document.getElementById('fj-waiting').style.display = '';
+      }
+    });
+
     // --- Game Over ---
     socket.on('game-over', ({ standings }) => {
       hideAllSections();

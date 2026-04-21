@@ -126,7 +126,8 @@
       <div id="final-scoring-list"></div>
       <button id="submit-final-scores-btn" class="correct-btn">Submit Final Scores</button>
     </div>
-    <button id="reveal-answers-btn" class="correct-btn">Reveal Answers for Scoring</button>
+    <button id="reveal-answers-btn" class="correct-btn" style="display:none">Reveal Answers for Scoring</button>
+    <button id="advance-to-answers-btn" class="correct-btn" style="display:none">All Wagers In — Start Answer Phase</button>
   </div>
 
   <!-- GAME OVER -->
@@ -395,6 +396,20 @@
         results[cb.dataset.playerId] = cb.checked;
       });
       socket.emit('host-score-final', { results });
+    });
+
+    // FJ phase listeners
+    socket.on('all-wagers-in', () => {
+      document.getElementById('advance-to-answers-btn').style.display = '';
+    });
+
+    document.getElementById('advance-to-answers-btn').addEventListener('click', () => {
+      socket.emit('host-fj-advance', { step: 'answer' });
+      document.getElementById('advance-to-answers-btn').style.display = 'none';
+    });
+
+    socket.on('all-answers-in', () => {
+      document.getElementById('reveal-answers-btn').style.display = '';
     });
 
     // --- Game Over ---

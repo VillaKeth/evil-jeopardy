@@ -191,8 +191,18 @@ io.on('connection', (socket) => {
     try {
       gameState = startFinalJeopardy(gameState);
       broadcastGameState();
+      // Notify players to submit wagers
+      io.emit('fj-phase', { step: 'wager' });
     } catch (err) {
       socket.emit('host-error', { message: err.message });
+    }
+  });
+
+  socket.on('host-fj-advance', ({ step }) => {
+    if (step === 'answer') {
+      io.emit('fj-phase', { step: 'answer' });
+    } else if (step === 'reveal') {
+      io.emit('fj-phase', { step: 'reveal' });
     }
   });
 
@@ -237,6 +247,14 @@ io.on('connection', (socket) => {
       socket.emit('wager-accepted', { amount });
       // Notify host
       io.emit('wager-submitted', { playerId: socket.id, name: gameState.players[socket.id]?.name });
+      
+      // Check if all players have wagered
+      const allWagered = Object.keys(gameState.players)
+        .filter(id => gameState.players[id].connected)
+        .every(id => gameState.finalJeopardy.wagers[id] !== undefined);
+      if (allWagered) {
+        io.emit('all-wagers-in', {});
+      }
     } catch (err) {
       socket.emit('wager-error', { message: err.message });
     }
@@ -248,6 +266,14 @@ io.on('connection', (socket) => {
       socket.emit('answer-accepted', {});
       // Notify host
       io.emit('answer-submitted', { playerId: socket.id, name: gameState.players[socket.id]?.name });
+      
+      // Check if all players have answered
+      const allAnswered = Object.keys(gameState.players)
+        .filter(id => gameState.players[id].connected)
+        .every(id => gameState.finalJeopardy.answers[id] !== undefined);
+      if (allAnswered) {
+        io.emit('all-answers-in', {});
+      }
     } catch (err) {
       socket.emit('answer-error', { message: err.message });
     }
