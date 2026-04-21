@@ -26,6 +26,9 @@
       <h3>Players (<span id="player-count">0</span>)</h3>
       <ul id="players"></ul>
     </div>
+    <div id="lobby-footer" style="text-align:center; padding:1rem; opacity:0.6;">
+      <small>Share this URL with players: <strong id="share-url"></strong></small>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -79,6 +82,9 @@
     socket.on('join-error', ({ message }) => {
       alert(message);
     });
+
+    // Populate share URL
+    document.getElementById('share-url').textContent = window.location.href;
   </script>
 </body>
 </html>

@@ -52,6 +52,10 @@
         <tbody></tbody>
       </table>
     </div>
+    <div id="used-questions" style="margin-top:1rem;">
+      <h4>Used Questions</h4>
+      <ul id="used-questions-list" style="font-size:0.8rem; opacity:0.7;"></ul>
+    </div>
   </div>
 
   <!-- NESTED GAME PHASE -->
@@ -197,6 +201,19 @@
     socket.on('game-state', (state) => {
       showSection(state.phase);
       updateStandings(state);
+
+      // Update used questions list
+      if (state.mainBoard && state.mainBoard.usedQuestions) {
+        const usedList = document.getElementById('used-questions-list');
+        if (usedList) {
+          usedList.innerHTML = '';
+          state.mainBoard.usedQuestions.forEach(q => {
+            const li = document.createElement('li');
+            li.textContent = `${q.category} — $${q.value}`;
+            usedList.appendChild(li);
+          });
+        }
+      }
 
       if (state.phase === 'NESTED_GAME' && state.nestedGame.parentQuestion) {
         document.getElementById('parent-question').textContent =

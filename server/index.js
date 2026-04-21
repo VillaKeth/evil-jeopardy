@@ -29,6 +29,7 @@ const PORT = process.env.PORT || 3000;
 let gameState = createGameState();
 let buzzQueue = createBuzzQueue();
 const calibrationSessions = new Map(); // socketId -> session
+const disconnectedPlayers = new Map(); // name -> { oldSocketId, disconnectTime }
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -73,6 +74,19 @@ io.on('connection', (socket) => {
     }
 
     const trimmedName = name.trim().substring(0, 20);
+
+    // Check for reconnection
+    const disconnected = disconnectedPlayers.get(trimmedName.toLowerCase());
+    if (disconnected && gameState.phase !== 'LOBBY') {
+      gameState = reconnectPlayer(gameState, disconnected.oldSocketId, socket.id);
+      disconnectedPlayers.delete(trimmedName.toLowerCase());
+      socket.emit('joined', { name: trimmedName, reconnected: true });
+      broadcastPlayerList();
+      broadcastGameState();
+      console.log(`${trimmedName} reconnected (${socket.id})`);
+      runCalibration(socket);
+      return;
+    }
 
     // Check for duplicate names
     const existingNames = Object.values(gameState.players).map(p => p.name.toLowerCase());
@@ -295,6 +309,11 @@ io.on('connection', (socket) => {
             [socket.id]: { ...player, connected: false }
           }
         };
+        // Store disconnection info for potential reconnection
+        disconnectedPlayers.set(player.name.toLowerCase(), {
+          oldSocketId: socket.id,
+          disconnectTime: Date.now()
+        });
       }
       broadcastPlayerList();
       console.log(`${player.name} disconnected`);

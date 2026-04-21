@@ -13,6 +13,14 @@
     <span id="phase-display">—</span>
   </div>
 
+  <div id="play-join-form" style="display:none; text-align:center; padding:2rem;">
+    <div class="lobby">
+      <h2>Rejoin Game</h2>
+      <input type="text" id="rejoin-name" placeholder="Your name" maxlength="20" autocomplete="off">
+      <button id="rejoin-btn" class="correct-btn">Rejoin</button>
+    </div>
+  </div>
+
   <!-- Score Display (always visible during game) -->
   <div id="score-section" style="display:none">
     <div class="score-box" style="text-align:center; margin:1rem auto; max-width:200px;">
@@ -95,6 +103,18 @@
     myName = sessionStorage.getItem('playerName') || '';
     myId = socket.id;
 
+    // Show rejoin form if no stored name
+    if (!myName) {
+      document.getElementById('play-join-form').style.display = '';
+    }
+
+    document.getElementById('rejoin-btn')?.addEventListener('click', () => {
+      const name = document.getElementById('rejoin-name').value.trim();
+      if (!name) return;
+      socket.emit('join', { name });
+      document.getElementById('play-join-form').style.display = 'none';
+    });
+
     socket.on('connect', () => {
       myId = socket.id;
       if (myName) {
@@ -102,11 +122,13 @@
       }
     });
 
-    // If coming from lobby redirect, rejoin with stored name
-    socket.on('connect', () => {
-      const storedName = sessionStorage.getItem('playerName');
-      if (storedName) {
-        // Already joined via lobby, server knows us
+    socket.on('joined', ({ name, reconnected }) => {
+      myName = name;
+      myId = socket.id;
+      sessionStorage.setItem('playerName', name);
+      document.getElementById('player-name-display').textContent = name;
+      if (reconnected) {
+        console.log('Reconnected to game!');
       }
     });
 
