@@ -39,3 +39,6 @@ artifacts/
 .claude/plans/
 .claude/*.local.md
 !.claude/ralph-loop.local.md
+
+# Git worktrees
+.worktrees/
