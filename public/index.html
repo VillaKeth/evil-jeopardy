@@ -51,6 +51,7 @@
     });
 
     socket.on('joined', ({ name }) => {
+      sessionStorage.setItem('playerName', name);
       joinForm.style.display = 'none';
       waitingRoom.style.display = 'block';
       displayName.textContent = name;
