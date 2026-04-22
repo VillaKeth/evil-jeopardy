@@ -178,6 +178,7 @@ io.on('connection', (socket) => {
   socket.on('host-start-game', () => {
     try {
       gameState = startGame(gameState);
+      if (currentGameId) { endGame(currentGameId); }
       currentGameId = crypto.randomUUID();
       createGame(currentGameId, Object.keys(gameState.players).length);
       logEvent(currentGameId, 'game-start', {
@@ -242,10 +243,12 @@ io.on('connection', (socket) => {
       playerId: socketId, playerName: gameState.players[socketId]?.name, points: value
     });
     gameState = recordNestedPlacement(gameState, socketId);
-    if (currentGameId) logEvent(currentGameId, 'nested-placement', {
-      playerId: socketId, playerName: gameState.players[socketId]?.name,
-      position: gameState.nestedGame.placements.length
-    });
+    if (currentGameId && gameState.nestedGame?.active) {
+      logEvent(currentGameId, 'nested-placement', {
+        playerId: socketId, playerName: gameState.players[socketId]?.name,
+        position: gameState.nestedGame.placements.length
+      });
+    }
     broadcastGameState();
   });
 
@@ -423,11 +426,19 @@ io.on('connection', (socket) => {
 });
 
 app.get('/api/games', (req, res) => {
-  res.json(listGames());
+  try {
+    res.json(listGames());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/games/:gameId/events', (req, res) => {
-  res.json(getGameEvents(req.params.gameId));
+  try {
+    res.json(getGameEvents(req.params.gameId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
