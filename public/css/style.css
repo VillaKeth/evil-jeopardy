@@ -827,3 +827,79 @@ input:focus, textarea:focus, select:focus {
 .mute-btn:hover {
   background: var(--accent-15);
 }
+
+/* Point Popup */
+.point-popup {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 1.5rem;
+  pointer-events: none;
+  animation: pointRise 1.2s ease-out forwards;
+  z-index: 100;
+}
+.point-popup-positive { color: var(--correct); }
+.point-popup-negative { color: var(--wrong); }
+@keyframes pointRise {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
+}
+
+/* Rank Change */
+.rank-up { animation: rankUpPulse 0.6s ease-out; }
+.rank-down { animation: rankDownPulse 0.6s ease-out; }
+@keyframes rankUpPulse {
+  0%, 100% { text-shadow: none; }
+  50% { text-shadow: 0 0 12px var(--accent); color: var(--accent); }
+}
+@keyframes rankDownPulse {
+  0%, 100% { text-shadow: none; }
+  50% { text-shadow: 0 0 12px var(--wrong); color: var(--wrong); }
+}
+
+/* Confetti Particles */
+.confetti-particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 200;
+  animation: confettiFly 0.8s ease-out forwards;
+}
+@keyframes confettiFly {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% {
+    transform: translate(
+      calc(cos(var(--angle)) * 80px),
+      calc(sin(var(--angle)) * 80px)
+    ) scale(0);
+    opacity: 0;
+  }
+}
+
+/* FJ Reveal */
+.reveal-item {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  padding: 12px 0;
+  opacity: 0;
+  transform: translateX(-30px);
+  animation: revealSlide 0.6s ease-out forwards;
+}
+.reveal-medal { font-size: 2rem; }
+.reveal-name { color: var(--accent); }
+.reveal-score { color: var(--text-primary); }
+@keyframes revealSlide {
+  0% { opacity: 0; transform: translateX(-30px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Phase Transitions */
+.phase-exit { animation: phaseOut 0.2s ease-in forwards; }
+.phase-enter { animation: phaseIn 0.3s ease-out forwards; }
+@keyframes phaseOut { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes phaseIn { 0% { opacity: 0; } 100% { opacity: 1; } }

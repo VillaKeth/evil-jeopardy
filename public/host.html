@@ -143,6 +143,7 @@
     <button id="reset-btn" class="correct-btn">New Game</button>
   </div>
 
+  <script src="/js/animations.js"></script>
   <script src="/js/sounds.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -491,14 +492,7 @@
     // --- Game Over ---
     socket.on('game-over', ({ standings }) => {
       showSection('GAME_OVER');
-      const div = document.getElementById('final-standings');
-      div.innerHTML = '<h3>Final Standings</h3>';
-      standings.forEach((s, i) => {
-        const p = document.createElement('p');
-        const medals = ['🥇', '🥈', '🥉'];
-        p.textContent = `${medals[i] || (i + 1 + '.')} ${s.name} — $${s.score}`;
-        div.appendChild(p);
-      });
+      Animations.revealStandings(document.getElementById('final-standings'), standings);
     });
 
     document.getElementById('reset-btn').addEventListener('click', () => {
