@@ -13,10 +13,12 @@
   </div>
 
   <div class="lobby">
-    <h1>Evil Jeopardy²</h1>
-    <div id="join-form">
+    <h1 class="lobby-title">Evil Jeopardy²</h1>
+    <p class="lobby-subtitle">IT'S BACK BABY!</p>
+    <div class="lobby-card">
+    <div id="join-form" class="lobby-form">
       <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
-      <button id="join-btn" class="correct-btn">Join Game</button>
+      <button id="join-btn">Join Game</button>
     </div>
     <div id="waiting-room" style="display:none">
       <p>Welcome, <strong id="display-name"></strong>!</p>
@@ -25,6 +27,7 @@
     <div class="player-list">
       <h3>Players (<span id="player-count">0</span>)</h3>
       <ul id="players"></ul>
+    </div>
     </div>
     <div id="lobby-footer" style="text-align:center; padding:1rem; opacity:0.6;">
       <small>Share this URL with players: <strong id="share-url"></strong></small>
