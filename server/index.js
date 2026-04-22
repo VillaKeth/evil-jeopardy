@@ -36,6 +36,8 @@ const BUZZ_TIMER_SECONDS = 10;
 let buzzTimerInterval = null;
 let buzzTimerRemaining = 0;
 let currentGameId = null;
+let spectatorCount = 0;
+const chatReactions = {};
 
 function startBuzzTimer() {
   clearBuzzTimer();
@@ -95,6 +97,8 @@ function broadcastGameState() {
       sock.emit('game-state', gameState);
     }
   });
+  // Send to spectators
+  io.to('spectators').emit('game-state', gameState);
 }
 
 // Helper: run latency calibration for a socket
@@ -409,9 +413,46 @@ io.on('connection', (socket) => {
     }
   });
 
+  // --- SPECTATOR EVENTS ---
+
+  socket.on('spectator-join', ({ name }) => {
+    socket.join('spectators');
+    socket.data.spectatorName = name;
+    spectatorCount++;
+    io.emit('spectator-count', { count: spectatorCount });
+    socket.emit('game-state', gameState);
+  });
+
+  socket.on('spectator-chat', ({ message }) => {
+    if (!socket.data.spectatorName) return;
+    const now = Date.now();
+    if (socket.data.lastChatTime && now - socket.data.lastChatTime < 2000) return;
+    socket.data.lastChatTime = now;
+
+    io.to('spectators').emit('chat-message', {
+      id: crypto.randomUUID(),
+      name: socket.data.spectatorName,
+      message: message.substring(0, 200),
+      timestamp: now
+    });
+  });
+
+  socket.on('chat-reaction', ({ messageId, emoji }) => {
+    if (!chatReactions[messageId]) chatReactions[messageId] = {};
+    if (!chatReactions[messageId][emoji]) chatReactions[messageId][emoji] = 0;
+    chatReactions[messageId][emoji]++;
+    io.to('spectators').emit('reaction-update', {
+      messageId, emoji, count: chatReactions[messageId][emoji]
+    });
+  });
+
   // --- DISCONNECT ---
 
   socket.on('disconnect', () => {
+    if (socket.data.spectatorName) {
+      spectatorCount--;
+      io.emit('spectator-count', { count: spectatorCount });
+    }
     const player = gameState.players[socket.id];
     if (player) {
       if (gameState.phase === 'LOBBY') {

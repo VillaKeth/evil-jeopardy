@@ -11,7 +11,8 @@
     <span id="connection-status" class="connection-dot"></span>
     <span>HOST DASHBOARD</span>
     <span id="phase-display">LOBBY</span>
-    <button id="mute-btn" class="mute-btn" onclick="Sounds.toggleMute(); this.textContent = Sounds.muted ? '🔇' : '🔊'">🔊</button>
+    <span id="spectator-count" style="margin-left:auto;opacity:0.7;"></span>
+    <button id="mute-btn"class="mute-btn" onclick="Sounds.toggleMute(); this.textContent = Sounds.muted ? '🔇' : '🔊'">🔊</button>
   </div>
 
   <!-- LOBBY PHASE -->
@@ -553,6 +554,10 @@
     // --- Host Error ---
     socket.on('host-error', ({ message }) => {
       alert('Error: ' + message);
+    });
+
+    socket.on('spectator-count', ({ count }) => {
+      document.getElementById('spectator-count').textContent = count > 0 ? `👀 ${count} spectator${count > 1 ? 's' : ''}` : '';
     });
   </script>
 </body>

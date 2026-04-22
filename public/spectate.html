@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy² — Spectator</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="status-bar">
+    <span id="connection-status" class="connection-dot"></span>
+    <span>SPECTATOR</span>
+    <span id="phase-display">—</span>
+  </div>
+
+  <!-- Name Entry Modal -->
+  <div id="name-modal" style="display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:300;">
+    <div style="background:var(--bg-secondary); padding:2rem; border-radius:12px; border:2px solid var(--accent); text-align:center;">
+      <h2>Enter Display Name</h2>
+      <input type="text" id="spectator-name" placeholder="Your name" maxlength="20"
+        style="padding:8px 12px; font-size:1rem; border-radius:6px; border:1px solid var(--accent-25); background:var(--card-bg); color:var(--text-primary); margin:12px 0;">
+      <br>
+      <button id="join-spectator-btn" class="correct-btn" style="margin-top:8px;">Watch Game</button>
+    </div>
+  </div>
+
+  <!-- Spectator Layout -->
+  <div class="spectator-layout" style="display:none;" id="spectator-main">
+    <!-- Game View -->
+    <div class="spectator-game">
+      <div id="game-phase" style="text-align:center; padding:1rem;">
+        <h2 id="game-phase-title">Waiting for game...</h2>
+      </div>
+
+      <!-- Standings -->
+      <div id="standings-section" class="standings" style="margin:1rem 0;">
+        <h3>Standings</h3>
+        <div id="standings-list"></div>
+      </div>
+
+      <!-- Current Action -->
+      <div id="action-section" style="padding:1rem; text-align:center;">
+        <div id="current-action"></div>
+      </div>
+
+      <!-- Timer -->
+      <div id="timer-section" style="display:none; text-align:center; padding:1rem;">
+        <div class="buzz-timer" id="buzzTimer">
+          <div class="timer-bar" id="timerBar"></div>
+        </div>
+        <span id="timer-text"></span>
+      </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="spectator-chat">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="reaction-bar">
+        <button class="reaction-btn" data-emoji="👏">👏</button>
+        <button class="reaction-btn" data-emoji="😂">😂</button>
+        <button class="reaction-btn" data-emoji="🔥">🔥</button>
+        <button class="reaction-btn" data-emoji="😱">😱</button>
+        <button class="reaction-btn" data-emoji="💀">💀</button>
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Say something..." maxlength="200">
+        <button id="chat-send" class="chat-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/animations.js"></script>
+  <script src="/js/sounds.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let spectatorName = '';
+
+    // Name entry
+    document.getElementById('join-spectator-btn').addEventListener('click', () => {
+      const name = document.getElementById('spectator-name').value.trim();
+      if (!name) return;
+      spectatorName = name;
+      socket.emit('spectator-join', { name });
+      document.getElementById('name-modal').style.display = 'none';
+      document.getElementById('spectator-main').style.display = 'flex';
+    });
+
+    document.getElementById('spectator-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('join-spectator-btn').click();
+    });
+
+    // Game state updates
+    socket.on('game-state', (state) => {
+      const phase = state.phase;
+      document.getElementById('phase-display').textContent = phase;
+      document.getElementById('game-phase-title').textContent = getPhaseTitle(phase);
+
+      // Render standings
+      const standingsList = document.getElementById('standings-list');
+      standingsList.innerHTML = '';
+      const players = Object.entries(state.players || {})
+        .map(([id, p]) => ({ id, ...p }))
+        .sort((a, b) => b.score - a.score);
+      players.forEach((p, i) => {
+        const div = document.createElement('div');
+        div.style.padding = '4px 8px';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.gap = '8px';
+        const medals = ['🥇', '🥈', '🥉'];
+        div.innerHTML = `<span>${medals[i] || (i+1)+'.'}</span> <span>${p.name}</span> <span style="margin-left:auto;color:var(--accent);">$${p.score}</span>`;
+        standingsList.appendChild(div);
+      });
+    });
+
+    socket.on('buzz-update', (data) => {
+      const action = document.getElementById('current-action');
+      if (data.winner) {
+        action.innerHTML = `<span style="font-size:1.5rem;">🔔</span> <strong>${data.winner.name}</strong> buzzed first!`;
+      }
+      if (data.buzzes && data.buzzes.length > 0) {
+        const list = data.buzzes.map(b => `${b.name} (${b.adjustedTime}ms)`).join(', ');
+        action.innerHTML += `<div style="font-size:0.8rem;opacity:0.7;margin-top:4px;">${list}</div>`;
+      }
+    });
+
+    socket.on('buzz-open', ({ category, value }) => {
+      document.getElementById('current-action').innerHTML =
+        `<div style="font-size:1.2rem;">Buzzer open! <strong>${category} — $${value}</strong></div>`;
+      document.getElementById('timer-section').style.display = '';
+    });
+
+    socket.on('timer-update', ({ remaining }) => {
+      const timerBar = document.getElementById('timerBar');
+      const pct = (remaining / 10) * 100;
+      timerBar.style.width = pct + '%';
+      document.getElementById('timer-text').textContent = remaining + 's';
+      if (remaining <= 0) {
+        document.getElementById('timer-section').style.display = 'none';
+      }
+    });
+
+    socket.on('game-over', ({ standings }) => {
+      document.getElementById('game-phase-title').textContent = '🏆 Game Over!';
+      Animations.revealStandings(document.getElementById('standings-list'), standings);
+    });
+
+    // Chat
+    document.getElementById('chat-send').addEventListener('click', sendChat);
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendChat();
+    });
+
+    function sendChat() {
+      const input = document.getElementById('chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
+      socket.emit('spectator-chat', { message: msg });
+      input.value = '';
+    }
+
+    socket.on('chat-message', ({ id, name, message, timestamp }) => {
+      const container = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'chat-message';
+      div.dataset.msgId = id;
+      div.innerHTML = `<span class="chat-name">${name}:</span> ${escapeHtml(message)}`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    });
+
+    // Reactions
+    document.querySelectorAll('.reaction-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        socket.emit('spectator-chat', { message: btn.dataset.emoji });
+      });
+    });
+
+    function getPhaseTitle(phase) {
+      const titles = {
+        'LOBBY': '⏳ Waiting in Lobby',
+        'MAIN_BOARD': '🎯 Main Board',
+        'NESTED_GAME': '🔔 Nested Game',
+        'ANSWER_PHASE': '💬 Answer Phase',
+        'FINAL_JEOPARDY': '🎵 Final Jeopardy!',
+        'GAME_OVER': '🏆 Game Over!'
+      };
+      return titles[phase] || phase;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
