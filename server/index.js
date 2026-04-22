@@ -28,7 +28,33 @@ const PORT = process.env.PORT || 3000;
 // Game state
 let gameState = createGameState();
 let buzzQueue = createBuzzQueue();
-const calibrationSessions = new Map(); // socketId -> session
+const BUZZ_TIMER_SECONDS = 10;
+let buzzTimerInterval = null;
+let buzzTimerRemaining = 0;
+
+function startBuzzTimer() {
+  clearBuzzTimer();
+  buzzTimerRemaining = BUZZ_TIMER_SECONDS;
+  io.emit('timer-update', { remaining: buzzTimerRemaining });
+  buzzTimerInterval = setInterval(() => {
+    buzzTimerRemaining--;
+    io.emit('timer-update', { remaining: buzzTimerRemaining });
+    if (buzzTimerRemaining <= 0) {
+      clearBuzzTimer();
+      lockQueue(buzzQueue);
+      broadcastGameState();
+    }
+  }, 1000);
+}
+
+function clearBuzzTimer() {
+  if (buzzTimerInterval) {
+    clearInterval(buzzTimerInterval);
+    buzzTimerInterval = null;
+  }
+}
+
+const calibrationSessions = new Map();// socketId -> session
 const disconnectedPlayers = new Map(); // name -> { oldSocketId, disconnectTime }
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -171,6 +197,7 @@ io.on('connection', (socket) => {
       openQueue(buzzQueue, value);
       broadcastGameState();
       io.emit('buzz-open', { category, value });
+      startBuzzTimer();
     } catch (err) {
       socket.emit('host-error', { message: err.message });
     }
@@ -195,6 +222,7 @@ io.on('connection', (socket) => {
   socket.on('host-mark-correct', ({ socketId }) => {
     const question = gameState.mainBoard.currentQuestion || gameState.nestedGame.currentQuestion;
     const value = question?.value || 0;
+    clearBuzzTimer();
     lockQueue(buzzQueue);
     gameState = updateScore(gameState, socketId, value);
     gameState = recordNestedPlacement(gameState, socketId);
@@ -204,6 +232,7 @@ io.on('connection', (socket) => {
   socket.on('host-mark-wrong', ({ socketId }) => {
     const question = gameState.mainBoard.currentQuestion || gameState.nestedGame.currentQuestion;
     const value = question?.value || 0;
+    clearBuzzTimer();
     lockQueue(buzzQueue);
     gameState = updateScore(gameState, socketId, -value);
     broadcastGameState();
@@ -251,6 +280,7 @@ io.on('connection', (socket) => {
   socket.on('host-reset', () => {
     gameState = createGameState();
     buzzQueue = createBuzzQueue();
+    clearBuzzTimer();
     calibrationSessions.clear();
     disconnectedPlayers.clear();
     io.emit('game-reset', {});
