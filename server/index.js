@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const crypto = require('crypto');
+const { initDB, createGame, endGame, logEvent, listGames, getGameEvents } = require('./db');
 const {
   createGameState, addPlayer, removePlayer, reconnectPlayer,
   setPlayerLatency, setPlayerAfk, startGame, getStandings,
@@ -25,12 +27,15 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
+initDB();
+
 // Game state
 let gameState = createGameState();
 let buzzQueue = createBuzzQueue();
 const BUZZ_TIMER_SECONDS = 10;
 let buzzTimerInterval = null;
 let buzzTimerRemaining = 0;
+let currentGameId = null;
 
 function startBuzzTimer() {
   clearBuzzTimer();
@@ -173,6 +178,12 @@ io.on('connection', (socket) => {
   socket.on('host-start-game', () => {
     try {
       gameState = startGame(gameState);
+      currentGameId = crypto.randomUUID();
+      createGame(currentGameId, Object.keys(gameState.players).length);
+      logEvent(currentGameId, 'game-start', {
+        players: Object.entries(gameState.players).map(([id, p]) => ({ name: p.name, id }))
+      });
+      logEvent(currentGameId, 'phase-change', { from: 'LOBBY', to: 'MAIN_BOARD' });
       io.emit('game-started', {});
       broadcastGameState();
       console.log('Game started!');
@@ -184,6 +195,7 @@ io.on('connection', (socket) => {
   socket.on('host-select-question', ({ category, value }) => {
     try {
       gameState = selectMainQuestion(gameState, category, value);
+      if (currentGameId) logEvent(currentGameId, 'question-select', { category, value });
       broadcastGameState();
     } catch (err) {
       socket.emit('host-error', { message: err.message });
@@ -197,6 +209,7 @@ io.on('connection', (socket) => {
       openQueue(buzzQueue, value);
       broadcastGameState();
       io.emit('buzz-open', { category, value });
+      if (currentGameId) logEvent(currentGameId, 'question-select', { category, value, nested: true });
       startBuzzTimer();
     } catch (err) {
       socket.emit('host-error', { message: err.message });
@@ -225,7 +238,14 @@ io.on('connection', (socket) => {
     clearBuzzTimer();
     lockQueue(buzzQueue);
     gameState = updateScore(gameState, socketId, value);
+    if (currentGameId) logEvent(currentGameId, 'mark-correct', {
+      playerId: socketId, playerName: gameState.players[socketId]?.name, points: value
+    });
     gameState = recordNestedPlacement(gameState, socketId);
+    if (currentGameId) logEvent(currentGameId, 'nested-placement', {
+      playerId: socketId, playerName: gameState.players[socketId]?.name,
+      position: gameState.nestedGame.placements.length
+    });
     broadcastGameState();
   });
 
@@ -235,6 +255,9 @@ io.on('connection', (socket) => {
     clearBuzzTimer();
     lockQueue(buzzQueue);
     gameState = updateScore(gameState, socketId, -value);
+    if (currentGameId) logEvent(currentGameId, 'mark-wrong', {
+      playerId: socketId, playerName: gameState.players[socketId]?.name, points: value
+    });
     broadcastGameState();
   });
 
@@ -251,6 +274,7 @@ io.on('connection', (socket) => {
   socket.on('host-start-final', () => {
     try {
       gameState = startFinalJeopardy(gameState);
+      if (currentGameId) logEvent(currentGameId, 'phase-change', { from: 'MAIN_BOARD', to: 'FINAL_JEOPARDY' });
       broadcastGameState();
       // Notify players to submit wagers
       io.emit('fj-phase', { step: 'wager' });
@@ -271,6 +295,18 @@ io.on('connection', (socket) => {
     try {
       gameState = scoreFinalJeopardy(gameState, results);
       broadcastGameState();
+      if (currentGameId) {
+        Object.entries(results).forEach(([playerId, { correct }]) => {
+          const wager = gameState.finalJeopardy.wagers[playerId] || 0;
+          const player = gameState.players[playerId];
+          logEvent(currentGameId, 'final-score', {
+            playerId, playerName: player?.name, correct, wager, newScore: player?.score
+          });
+        });
+        logEvent(currentGameId, 'game-over', { standings: getStandings(gameState) });
+        endGame(currentGameId);
+        currentGameId = null;
+      }
       io.emit('game-over', { standings: getStandings(gameState) });
     } catch (err) {
       socket.emit('host-error', { message: err.message });
@@ -278,6 +314,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('host-reset', () => {
+    if (currentGameId) { endGame(currentGameId); currentGameId = null; }
     gameState = createGameState();
     buzzQueue = createBuzzQueue();
     clearBuzzTimer();
@@ -295,6 +332,10 @@ io.on('connection', (socket) => {
 
     const recorded = recordBuzz(buzzQueue, socket.id, Date.now(), player.latency);
     if (recorded) {
+      if (currentGameId) logEvent(currentGameId, 'buzz', {
+        playerId: socket.id, playerName: player.name,
+        adjustedTime: Math.round(buzzQueue.buzzes[buzzQueue.buzzes.length-1].adjustedTime - buzzQueue.openedAt)
+      });
       const winner = getWinner(buzzQueue);
       io.emit('buzz-update', {
         buzzes: buzzQueue.buzzes.map(b => ({
@@ -310,6 +351,9 @@ io.on('connection', (socket) => {
   socket.on('submit-wager', ({ amount }) => {
     try {
       gameState = submitWager(gameState, socket.id, amount);
+      if (currentGameId) logEvent(currentGameId, 'wager-submit', {
+        playerId: socket.id, playerName: gameState.players[socket.id]?.name, amount
+      });
       socket.emit('wager-accepted', { amount });
       // Notify host
       io.emit('wager-submitted', { playerId: socket.id, name: gameState.players[socket.id]?.name });
@@ -330,6 +374,9 @@ io.on('connection', (socket) => {
   socket.on('submit-answer', ({ answer }) => {
     try {
       gameState = submitAnswer(gameState, socket.id, answer);
+      if (currentGameId) logEvent(currentGameId, 'answer-submit', {
+        playerId: socket.id, playerName: gameState.players[socket.id]?.name
+      });
       socket.emit('answer-accepted', {});
       // Notify host
       io.emit('answer-submitted', { playerId: socket.id, name: gameState.players[socket.id]?.name });
@@ -373,6 +420,14 @@ io.on('connection', (socket) => {
       console.log(`${player.name} disconnected`);
     }
   });
+});
+
+app.get('/api/games', (req, res) => {
+  res.json(listGames());
+});
+
+app.get('/api/games/:gameId/events', (req, res) => {
+  res.json(getGameEvents(req.params.gameId));
 });
 
 server.listen(PORT, '0.0.0.0', () => {

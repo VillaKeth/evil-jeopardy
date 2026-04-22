@@ -42,3 +42,7 @@ artifacts/
 
 # Git worktrees
 .worktrees/
+
+# SQLite data
+data/
+data-test/
