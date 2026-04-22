@@ -24,6 +24,19 @@
       <ul id="players"></ul>
     </div>
     <button id="start-game-btn" class="correct-btn" disabled>Start Game (need 2+ players)</button>
+    <div class="question-bank-panel" style="margin-top:1.5rem; padding:1rem; background:var(--card-bg); border-radius:8px; border:1px solid var(--accent-25);">
+      <h3>📚 Question Bank</h3>
+      <div id="pack-list" style="margin:8px 0;"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+        <input type="text" id="ai-topic" placeholder="Topic for AI generation" style="flex:1; padding:6px 8px; border-radius:4px; border:1px solid var(--accent-25); background:var(--card-bg); color:var(--text-primary);">
+        <button id="generate-btn" class="correct-btn" style="padding:6px 12px;">🤖 Generate</button>
+      </div>
+      <div style="margin-top:8px;">
+        <label for="import-file" style="cursor:pointer; font-size:0.85rem; color:var(--accent);">📂 Import JSON Pack</label>
+        <input type="file" id="import-file" accept=".json" style="display:none;">
+      </div>
+      <div id="pack-status" style="margin-top:8px; font-size:0.85rem; opacity:0.7;"></div>
+    </div>
   </div>
 
   <!-- MAIN BOARD PHASE -->
@@ -80,6 +93,12 @@
         </select>
       </div>
       <button id="nested-question-btn" class="correct-btn">Open Buzzer for Question</button>
+      <div id="question-display" style="display:none; margin:8px 0; padding:12px; background:var(--card-bg); border-radius:8px; border:1px solid var(--accent-25);">
+        <div style="font-size:0.8rem; opacity:0.7;">Question:</div>
+        <div id="question-text" style="font-size:1.1rem; margin:4px 0;"></div>
+        <div style="font-size:0.8rem; opacity:0.7;">Answer:</div>
+        <div id="question-answer" style="font-size:1rem; color:var(--accent);"></div>
+      </div>
       <div class="buzz-timer" id="buzzTimer" style="display:none">⏱ <span id="countdown">10</span>s</div>
       <button id="end-nested-btn" class="wrong-btn">End Nested Game → Answer Phase</button>
     </div>
@@ -559,6 +578,91 @@
     socket.on('spectator-count', ({ count }) => {
       document.getElementById('spectator-count').textContent = count > 0 ? `👀 ${count} spectator${count > 1 ? 's' : ''}` : '';
     });
+
+    // --- Question Bank ---
+    let activePackId = null;
+
+    function loadPacks() {
+      fetch('/api/question-packs')
+        .then(r => r.json())
+        .then(packs => {
+          const list = document.getElementById('pack-list');
+          list.innerHTML = '';
+          if (packs.length === 0) {
+            list.innerHTML = '<div style="font-size:0.85rem;opacity:0.5;">No question packs yet</div>';
+            return;
+          }
+          packs.forEach(p => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;';
+            const isActive = activePackId === p.pack_id;
+            div.innerHTML = `<span>${p.name} (${p.question_count} Qs)</span>
+              <button onclick="selectPack('${p.pack_id}')" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--accent-25);background:${isActive ? 'var(--accent)' : 'none'};color:${isActive ? 'var(--bg-primary)' : 'var(--text-primary)'};cursor:pointer;font-size:0.8rem;">
+                ${isActive ? '✓ Active' : 'Select'}
+              </button>`;
+            list.appendChild(div);
+          });
+        });
+    }
+
+    window.selectPack = function(packId) {
+      activePackId = packId;
+      loadPacks();
+      document.getElementById('pack-status').textContent = 'Pack selected!';
+    };
+
+    document.getElementById('generate-btn').addEventListener('click', () => {
+      const topic = document.getElementById('ai-topic').value.trim();
+      if (!topic) return;
+      const status = document.getElementById('pack-status');
+      status.textContent = '⏳ Generating questions with AI...';
+      document.getElementById('generate-btn').disabled = true;
+      fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) { status.textContent = '❌ ' + data.error; }
+          else { status.textContent = '✅ Pack generated!'; loadPacks(); }
+        })
+        .catch(err => { status.textContent = '❌ ' + err.message; })
+        .finally(() => { document.getElementById('generate-btn').disabled = false; });
+    });
+
+    document.getElementById('import-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          fetch('/api/import-questions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          })
+            .then(r => r.json())
+            .then(result => {
+              if (result.error) document.getElementById('pack-status').textContent = '❌ ' + result.error;
+              else { document.getElementById('pack-status').textContent = '✅ Pack imported!'; loadPacks(); }
+            });
+        } catch { document.getElementById('pack-status').textContent = '❌ Invalid JSON file'; }
+      };
+      reader.readAsText(file);
+    });
+
+    async function loadQuestionFromPack(category, value) {
+      if (!activePackId) return null;
+      try {
+        const res = await fetch(`/api/question-packs/${activePackId}/question?category=${encodeURIComponent(category)}&value=${value}`);
+        if (res.ok) return await res.json();
+      } catch {}
+      return null;
+    }
+
+    loadPacks();
   </script>
 </body>
 </html>

@@ -65,6 +65,7 @@ const calibrationSessions = new Map();// socketId -> session
 const disconnectedPlayers = new Map(); // name -> { oldSocketId, disconnectTime }
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.json());
 
 const avatarRouter = require('./avatars');
 app.use(avatarRouter);
@@ -476,6 +477,59 @@ io.on('connection', (socket) => {
       console.log(`${player.name} disconnected`);
     }
   });
+});
+
+const { importPack, listPacks, getPackQuestions, getUnusedQuestion, markQuestionUsed, generateWithOllama } = require('./questions');
+
+app.get('/api/question-packs', (req, res) => {
+  try {
+    res.json(listPacks());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/question-packs/:packId/questions', (req, res) => {
+  try {
+    res.json(getPackQuestions(req.params.packId));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/import-questions', (req, res) => {
+  try {
+    const packId = importPack(req.body);
+    res.json({ packId, message: 'Pack imported successfully' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/generate-questions', async (req, res) => {
+  try {
+    const { topic, categories, questionsPerCategory } = req.body;
+    const pack = await generateWithOllama(topic, categories, questionsPerCategory);
+    const packId = importPack(pack);
+    res.json({ packId, pack: { ...pack, packId } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/question-packs/:packId/question', (req, res) => {
+  try {
+    const { category, value } = req.query;
+    const q = getUnusedQuestion(req.params.packId, category, parseInt(value));
+    if (q) {
+      markQuestionUsed(q.question_id);
+      res.json(q);
+    } else {
+      res.status(404).json({ error: 'No unused questions available' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/games', (req, res) => {
