@@ -25,6 +25,7 @@
   <!-- Score Display (always visible during game) -->
   <div id="score-section" style="display:none">
     <div class="score-box" style="text-align:center; margin:1rem auto; max-width:200px;">
+      <div id="my-avatar" style="margin:0 auto 0.5rem;"></div>
       <div style="font-size:0.7rem; text-transform:uppercase; opacity:0.7;">Your Score</div>
       <div id="my-score" style="font-size:2.5rem; font-weight:bold;">$0</div>
       <div id="my-rank" style="font-size:0.8rem; opacity:0.7;"></div>
@@ -148,6 +149,34 @@
       }
     });
 
+    function createAvatarElement(player, sizeClass) {
+      if (player.avatar) {
+        const img = document.createElement('img');
+        img.src = player.avatar;
+        img.className = sizeClass;
+        img.alt = player.name;
+        return img;
+      }
+      const div = document.createElement('div');
+      const size = sizeClass === 'avatar-medium' ? '32px' : '24px';
+      div.className = 'avatar-default ' + sizeClass;
+      div.style.width = size;
+      div.style.height = size;
+      div.style.fontSize = sizeClass === 'avatar-medium' ? '0.8rem' : '0.65rem';
+      let hash = 0;
+      for (let i = 0; i < player.name.length; i++) {
+        hash = player.name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      div.style.backgroundColor = `hsl(${hue}, 60%, 45%)`;
+      const parts = player.name.trim().split(/\s+/);
+      const initials = parts.length > 1
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : player.name.substring(0, 2).toUpperCase();
+      div.textContent = initials;
+      return div;
+    }
+
     // --- Phase Management ---
     const allSections = ['waiting-section', 'buzz-section', 'your-turn-section',
                          'watching-section', 'final-section', 'gameover-section'];
@@ -170,6 +199,12 @@
         scoreSection.style.display = '';
         const me = state.players[myId];
         if (me) {
+          // Update avatar display
+          const avatarContainer = document.getElementById('my-avatar');
+          if (avatarContainer && !avatarContainer.hasChildNodes()) {
+            avatarContainer.appendChild(createAvatarElement(me, 'avatar-medium'));
+          }
+
           const newScore = me.score;
           if (previousScore !== newScore) {
             const scoreCard = document.getElementById('score-section').querySelector('.score-box');

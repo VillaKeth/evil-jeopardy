@@ -49,7 +49,7 @@
     <div class="scoreboard">
       <h3>Standings</h3>
       <table id="standings-table">
-        <thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Latency</th></tr></thead>
+        <thead><tr><th></th><th>Rank</th><th>Player</th><th>Score</th><th>Latency</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -192,7 +192,12 @@
       count.textContent = players.length;
       players.forEach(p => {
         const li = document.createElement('li');
-        li.textContent = `${p.name} ${p.connected ? '🟢' : '🔴'}`;
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.appendChild(createAvatarElement(p, 'avatar-small'));
+        const span = document.createElement('span');
+        span.textContent = `${p.name} ${p.connected ? '🟢' : '🔴'}`;
+        li.appendChild(span);
         list.appendChild(li);
       });
 
@@ -201,6 +206,34 @@
         ? `Start Game (need ${2 - players.length} more)`
         : `Start Game (${players.length} players)`;
     });
+
+    function createAvatarElement(player, sizeClass) {
+      if (player.avatar) {
+        const img = document.createElement('img');
+        img.src = player.avatar;
+        img.className = sizeClass;
+        img.alt = player.name;
+        return img;
+      }
+      const div = document.createElement('div');
+      const size = sizeClass === 'avatar-medium' ? '32px' : '24px';
+      div.className = 'avatar-default ' + sizeClass;
+      div.style.width = size;
+      div.style.height = size;
+      div.style.fontSize = sizeClass === 'avatar-medium' ? '0.8rem' : '0.65rem';
+      let hash = 0;
+      for (let i = 0; i < player.name.length; i++) {
+        hash = player.name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      div.style.backgroundColor = `hsl(${hue}, 60%, 45%)`;
+      const parts = player.name.trim().split(/\s+/);
+      const initials = parts.length > 1
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : player.name.substring(0, 2).toUpperCase();
+      div.textContent = initials;
+      return div;
+    }
 
     // Start Game
     document.getElementById('start-game-btn').addEventListener('click', () => {
@@ -295,7 +328,21 @@
       tbody.innerHTML = '';
       players.forEach((p, i) => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${i + 1}</td><td>${p.name}</td><td>$${p.score}</td><td>${p.latency}ms</td>`;
+        const avatarTd = document.createElement('td');
+        avatarTd.appendChild(createAvatarElement(p, 'avatar-small'));
+        const rankTd = document.createElement('td');
+        rankTd.textContent = i + 1;
+        const nameTd = document.createElement('td');
+        nameTd.textContent = p.name;
+        const scoreTd = document.createElement('td');
+        scoreTd.textContent = `$${p.score}`;
+        const latencyTd = document.createElement('td');
+        latencyTd.textContent = `${p.latency}ms`;
+        tr.appendChild(avatarTd);
+        tr.appendChild(rankTd);
+        tr.appendChild(nameTd);
+        tr.appendChild(scoreTd);
+        tr.appendChild(latencyTd);
         tbody.appendChild(tr);
       });
     }

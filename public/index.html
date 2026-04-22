@@ -18,6 +18,12 @@
     <div class="lobby-card">
     <div id="join-form" class="lobby-form">
       <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+      <div style="margin-top:8px;">
+        <label for="avatar-input" style="font-size:0.8rem;opacity:0.7;cursor:pointer;">
+          📷 Upload avatar (optional)
+        </label>
+        <input type="file" id="avatar-input" accept="image/*" style="display:none;">
+      </div>
       <button id="join-btn">Join Game</button>
     </div>
     <div id="waiting-room" style="display:none">
@@ -61,6 +67,17 @@
       joinForm.style.display = 'none';
       waitingRoom.style.display = 'block';
       displayName.textContent = name;
+
+      const avatarFile = document.getElementById('avatar-input').files[0];
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append('image', avatarFile);
+        formData.append('name', name);
+        fetch('/api/avatar', { method: 'POST', body: formData })
+          .then(r => r.json())
+          .then(data => sessionStorage.setItem('playerAvatar', data.avatar))
+          .catch(console.error);
+      }
     });
 
     socket.on('player-list', (players) => {
@@ -68,7 +85,12 @@
       playerCount.textContent = players.length;
       players.forEach(p => {
         const li = document.createElement('li');
-        li.textContent = p.name + (p.connected ? '' : ' (disconnected)');
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.appendChild(createAvatarElement(p, 'avatar-small'));
+        const span = document.createElement('span');
+        span.textContent = p.name + (p.connected ? '' : ' (disconnected)');
+        li.appendChild(span);
         playersList.appendChild(li);
       });
     });
@@ -88,6 +110,34 @@
 
     // Populate share URL
     document.getElementById('share-url').textContent = window.location.href;
+
+    function createAvatarElement(player, sizeClass) {
+      if (player.avatar) {
+        const img = document.createElement('img');
+        img.src = player.avatar;
+        img.className = sizeClass;
+        img.alt = player.name;
+        return img;
+      }
+      const div = document.createElement('div');
+      const size = sizeClass === 'avatar-medium' ? '32px' : '24px';
+      div.className = 'avatar-default ' + sizeClass;
+      div.style.width = size;
+      div.style.height = size;
+      div.style.fontSize = sizeClass === 'avatar-medium' ? '0.8rem' : '0.65rem';
+      let hash = 0;
+      for (let i = 0; i < player.name.length; i++) {
+        hash = player.name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      div.style.backgroundColor = `hsl(${hue}, 60%, 45%)`;
+      const parts = player.name.trim().split(/\s+/);
+      const initials = parts.length > 1
+        ? (parts[0][0] + parts[1][0]).toUpperCase()
+        : player.name.substring(0, 2).toUpperCase();
+      div.textContent = initials;
+      return div;
+    }
   </script>
 </body>
 </html>

@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const crypto = require('crypto');
-const { initDB, createGame, endGame, logEvent, listGames, getGameEvents } = require('./db');
+const { initDB, getDB, createGame, endGame, logEvent, listGames, getGameEvents } = require('./db');
 const {
   createGameState, addPlayer, removePlayer, reconnectPlayer,
   setPlayerLatency, setPlayerAfk, startGame, getStandings,
@@ -64,6 +64,10 @@ const disconnectedPlayers = new Map(); // name -> { oldSocketId, disconnectTime 
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+const avatarRouter = require('./avatars');
+app.use(avatarRouter);
+app.use('/avatars', express.static(path.join(__dirname, '..', 'data', 'avatars')));
+
 // Helper: broadcast player list to all clients
 function broadcastPlayerList() {
   const players = Object.entries(gameState.players).map(([id, p]) => ({
@@ -71,6 +75,7 @@ function broadcastPlayerList() {
     name: p.name,
     score: p.score,
     connected: p.connected,
+    avatar: p.avatar || null,
   }));
   io.emit('player-list', players);
 }
@@ -106,6 +111,7 @@ io.on('connection', (socket) => {
   // Send current state to newly connected client
   const players = Object.entries(gameState.players).map(([id, p]) => ({
     id, name: p.name, score: p.score, connected: p.connected,
+    avatar: p.avatar || null,
   }));
   socket.emit('player-list', players);
   if (gameState.phase !== 'LOBBY') {
@@ -144,6 +150,12 @@ io.on('connection', (socket) => {
 
     try {
       gameState = addPlayer(gameState, socket.id, trimmedName);
+
+      const profile = getDB().prepare('SELECT avatar_path FROM player_profiles WHERE name = ?').get(trimmedName);
+      if (profile?.avatar_path) {
+        gameState.players[socket.id].avatar = profile.avatar_path;
+      }
+
       socket.emit('joined', { name: trimmedName });
       broadcastPlayerList();
       console.log(`${trimmedName} joined (${socket.id})`);
