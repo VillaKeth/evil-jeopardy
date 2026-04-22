@@ -11,6 +11,7 @@
     <span id="connection-status" class="connection-dot"></span>
     <span id="player-name-display">Player</span>
     <span id="phase-display">—</span>
+    <button id="mute-btn" class="mute-btn" onclick="Sounds.toggleMute(); this.textContent = Sounds.muted ? '🔇' : '🔊'">🔊</button>
   </div>
 
   <div id="play-join-form" style="display:none; text-align:center; padding:2rem;">
@@ -90,6 +91,12 @@
   </div>
 
   <script src="/js/sounds.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const muteBtn = document.getElementById('mute-btn');
+      if (muteBtn && Sounds.muted) muteBtn.textContent = '🔇';
+    });
+  </script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/socket-setup.js"></script>
   <script>

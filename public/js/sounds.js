@@ -5,8 +5,18 @@
     return audioCtx;
   }
 
+  let muted = localStorage.getItem('ej-muted') === 'true';
+
   window.Sounds = {
+    get muted() { return muted; },
+
+    toggleMute() {
+      muted = !muted;
+      localStorage.setItem('ej-muted', muted);
+      return muted;
+    },
     buzzDing() {
+      if (muted) return;
       const ctx = getCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -20,6 +30,7 @@
     },
 
     correctChime() {
+      if (muted) return;
       const ctx = getCtx();
       [523.25, 659.25].forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -35,6 +46,7 @@
     },
 
     wrongBuzzer() {
+      if (muted) return;
       const ctx = getCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -47,6 +59,7 @@
     },
 
     tick() {
+      if (muted) return;
       const ctx = getCtx();
       const bufferSize = ctx.sampleRate * 0.05;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -62,6 +75,7 @@
     },
 
     tickWarning() {
+      if (muted) return;
       const ctx = getCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -75,6 +89,7 @@
 
     _fjInterval: null,
     startFJMusic() {
+      if (muted) return;
       if (this._fjInterval) return;
       const notes = [523.25, 587.33, 659.25, 698.46, 783.99, 698.46, 659.25, 587.33];
       let i = 0;
@@ -99,6 +114,7 @@
     },
 
     victoryFanfare() {
+      if (muted) return;
       const ctx = getCtx();
       [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
         const osc = ctx.createOscillator();

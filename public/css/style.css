@@ -383,9 +383,11 @@ button, input, select, textarea {
   border-bottom: 3px solid var(--accent);
   z-index: 100;
   font-weight: 700;
-  text-align: center;
   font-size: clamp(0.875rem, 2vw, 1rem);
   color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 /* 10. Buzz Result Display */
@@ -809,4 +811,19 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
   }
+}
+
+/* Mute Button */
+.mute-btn {
+  background: none;
+  border: 1px solid var(--accent-25);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  margin-left: auto;
+}
+.mute-btn:hover {
+  background: var(--accent-15);
 }
