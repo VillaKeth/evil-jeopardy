@@ -97,6 +97,7 @@
     let myName = '';
     let myId = '';
     let hasBuzzed = false;
+    let buzzIsOpen = false;
     let wagerSubmitted = false;
     let answerSubmitted = false;
     let previousScore = 0;
@@ -190,16 +191,19 @@
       hideAllSections();
 
       if (phase === 'MAIN_BOARD') {
+        buzzIsOpen = false;
         document.getElementById('waiting-section').style.display = '';
         document.getElementById('waiting-message').textContent = 'Waiting for host to select a question...';
       } else if (phase === 'NESTED_GAME') {
-        // Show waiting unless buzz is open (handled by buzz-open event)
-        if (!hasBuzzed) {
-          document.getElementById('waiting-section').style.display = '';
-          document.getElementById('waiting-message').textContent = 'Nested game in progress...';
-        } else {
+        if (buzzIsOpen && !hasBuzzed) {
+          // Buzz is open — keep showing the buzz section, not waiting
+          document.getElementById('buzz-section').style.display = '';
+        } else if (hasBuzzed) {
           document.getElementById('waiting-section').style.display = '';
           document.getElementById('waiting-message').textContent = 'You already buzzed! Waiting...';
+        } else {
+          document.getElementById('waiting-section').style.display = '';
+          document.getElementById('waiting-message').textContent = 'Nested game in progress...';
         }
       } else if (phase === 'ANSWER_PHASE') {
         const { order, currentIndex } = state.answerPhase;
@@ -229,6 +233,7 @@
     // --- Buzz Events ---
     socket.on('buzz-open', ({ category, value }) => {
       hasBuzzed = false;
+      buzzIsOpen = true;
       hideAllSections();
       document.getElementById('buzz-section').style.display = '';
       document.getElementById('buzz-question-info').textContent = `${category} — $${value}`;
@@ -236,6 +241,7 @@
 
       const buzzBtn = document.getElementById('buzz-btn');
       buzzBtn.disabled = false;
+      buzzBtn.textContent = 'BUZZ';
       buzzBtn.className = 'buzz-btn';
       buzzBtn.classList.add('buzz-active');
       document.getElementById('buzzTimer').style.display = '';
@@ -279,6 +285,7 @@
       } else {
         countdownEl.textContent = '0';
         timerEl.classList.add('timer-warning');
+        buzzIsOpen = false;
         const buzzBtn = document.getElementById('buzz-btn');
         buzzBtn.disabled = true;
         buzzBtn.classList.add('buzz-locked');
