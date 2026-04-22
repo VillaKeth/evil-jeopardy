@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy² — Game History</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .history-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    .history-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .history-header h1 {
+      color: var(--accent);
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .back-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.9rem;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    .back-link:hover { opacity: 1; }
+    .games-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--accent-25);
+    }
+    .games-table th {
+      background: var(--bg-secondary);
+      color: var(--accent);
+      padding: 12px 16px;
+      text-align: left;
+      font-family: var(--font-heading);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .games-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--accent-15);
+      color: var(--text-primary);
+    }
+    .games-table tr:last-child td { border-bottom: none; }
+    .games-table tr:hover td {
+      background: var(--accent-15);
+    }
+    .replay-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+      padding: 4px 12px;
+      border: 1px solid var(--accent-25);
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .replay-link:hover {
+      background: var(--accent);
+      color: var(--bg-primary);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-secondary);
+    }
+    .empty-state h2 { margin-bottom: 0.5rem; }
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="status-bar">
+    <span>📼 GAME HISTORY</span>
+  </div>
+
+  <div class="history-container">
+    <div class="history-header">
+      <h1>📼 Game History</h1>
+      <a href="/" class="back-link">← Back to Lobby</a>
+    </div>
+
+    <div id="loading" class="loading">Loading games...</div>
+    <div id="empty" class="empty-state" style="display:none">
+      <h2>No games yet</h2>
+      <p>Play a game first, then come back to watch replays!</p>
+    </div>
+    <table id="games-table" class="games-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Players</th>
+          <th>Winner</th>
+          <th>Score</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="games-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    (async function() {
+      const loading = document.getElementById('loading');
+      const empty = document.getElementById('empty');
+      const table = document.getElementById('games-table');
+      const tbody = document.getElementById('games-body');
+
+      try {
+        const res = await fetch('/api/games');
+        const games = await res.json();
+        loading.style.display = 'none';
+
+        if (!games.length) {
+          empty.style.display = 'block';
+          return;
+        }
+
+        table.style.display = 'table';
+        games.forEach(game => {
+          const tr = document.createElement('tr');
+          const date = new Date(game.created_at || game.started_at);
+          const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          const players = game.players || [];
+          const playerNames = players.map(p => p.name).join(', ') || '—';
+
+          let winner = '—';
+          let topScore = '—';
+          if (players.length) {
+            const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+            winner = sorted[0].name;
+            topScore = '$' + (sorted[0].score || 0);
+          }
+
+          tr.innerHTML =
+            '<td>' + dateStr + '</td>' +
+            '<td>' + playerNames + '</td>' +
+            '<td style="color:var(--accent);font-weight:700">' + winner + '</td>' +
+            '<td>' + topScore + '</td>' +
+            '<td><a href="/replay.html?gameId=' + game.id + '" class="replay-link">▶ Replay</a></td>';
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        loading.textContent = 'Failed to load games: ' + err.message;
+      }
+    })();
+  </script>
+</body>
+</html>

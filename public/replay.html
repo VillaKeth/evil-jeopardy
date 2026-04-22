@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy² — Replay</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .replay-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem;
+      padding-bottom: 100px;
+    }
+    .replay-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .replay-header h1 {
+      color: var(--accent);
+      font-size: 1.3rem;
+    }
+    .back-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+    .back-link:hover { opacity: 1; }
+
+    /* Phase banner */
+    .phase-banner {
+      text-align: center;
+      padding: 1rem;
+      background: var(--card-bg);
+      border: 1px solid var(--accent-25);
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .phase-label {
+      font-family: var(--font-heading);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+    }
+    .phase-value {
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+
+    /* Scoreboard */
+    .scoreboard {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .player-card {
+      flex: 1;
+      min-width: 120px;
+      background: var(--card-bg);
+      border: 1px solid var(--accent-25);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .player-card.winner {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-25);
+    }
+    .player-name {
+      font-family: var(--font-heading);
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .player-score {
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: var(--accent);
+    }
+
+    /* Event display */
+    .event-display {
+      background: var(--card-bg);
+      border: 1px solid var(--accent-25);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      min-height: 120px;
+    }
+    .event-type-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-family: var(--font-heading);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--accent-25);
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .event-content {
+      font-size: 1.1rem;
+      line-height: 1.6;
+    }
+    .event-content .highlight {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .correct-text { color: var(--correct); font-weight: 700; }
+    .wrong-text { color: var(--wrong); font-weight: 700; }
+
+    /* Question display */
+    .question-box {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+    .question-category {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+    .question-value {
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    /* Final standings */
+    .standings-list {
+      list-style: none;
+      padding: 0;
+    }
+    .standings-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--accent-15);
+    }
+    .standings-list li:last-child { border-bottom: none; }
+    .standings-rank {
+      font-family: var(--font-heading);
+      font-size: 1.2rem;
+      color: var(--accent);
+      width: 40px;
+    }
+    .standings-name { flex: 1; }
+    .standings-score { font-weight: 900; color: var(--accent); }
+
+    /* Playback controls */
+    .playback-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-primary);
+      border-top: 2px solid var(--accent-25);
+      padding: 12px 16px;
+      z-index: 100;
+    }
+    .playback-timeline {
+      width: 100%;
+      margin-bottom: 8px;
+      accent-color: var(--accent);
+    }
+    .playback-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .playback-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--accent-25);
+      color: var(--text-primary);
+      font-size: 1.2rem;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .playback-btn:hover {
+      background: var(--accent);
+      color: var(--bg-primary);
+    }
+    .playback-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .speed-select {
+      background: var(--card-bg);
+      border: 1px solid var(--accent-25);
+      color: var(--text-primary);
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .event-counter {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      min-width: 100px;
+      text-align: center;
+    }
+
+    .loading-overlay {
+      text-align: center;
+      padding: 4rem;
+      color: var(--text-secondary);
+    }
+    .error-msg {
+      text-align: center;
+      padding: 3rem;
+      color: var(--wrong);
+    }
+  </style>
+</head>
+<body>
+  <div class="status-bar">
+    <span>📼 REPLAY</span>
+    <span id="status-phase" style="margin-left:auto">—</span>
+  </div>
+
+  <div class="replay-container">
+    <div class="replay-header">
+      <h1>📼 Game Replay</h1>
+      <a href="/history.html" class="back-link">← Back to History</a>
+    </div>
+
+    <div id="loading" class="loading-overlay">Loading game events...</div>
+    <div id="error" class="error-msg" style="display:none"></div>
+
+    <div id="replay-content" style="display:none">
+      <div class="phase-banner">
+        <div class="phase-label">Current Phase</div>
+        <div class="phase-value" id="phase-display">LOBBY</div>
+      </div>
+
+      <div class="scoreboard" id="scoreboard"></div>
+
+      <div class="event-display" id="event-display">
+        <div class="event-type-badge" id="event-badge">—</div>
+        <div class="event-content" id="event-content">
+          Press ▶ Play or ⏭ Forward to begin the replay.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="playback-bar" id="playback-bar" style="display:none">
+    <input type="range" class="playback-timeline" id="timeline" min="0" max="0" value="0">
+    <div class="playback-controls">
+      <button class="playback-btn" id="btn-back" title="Step Back">⏮</button>
+      <button class="playback-btn" id="btn-play" title="Play">▶</button>
+      <button class="playback-btn" id="btn-forward" title="Step Forward">⏭</button>
+      <select class="speed-select" id="speed-select">
+        <option value="1">1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+      </select>
+      <span class="event-counter" id="event-counter">Event 0 of 0</span>
+    </div>
+  </div>
+
+  <script src="/js/replay-engine.js"></script>
+  <script src="/js/animations.js"></script>
+  <script>
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const gameId = params.get('gameId');
+      const loading = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const content = document.getElementById('replay-content');
+      const playbackBar = document.getElementById('playback-bar');
+
+      if (!gameId) {
+        loading.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'No gameId specified. Go back to history.';
+        return;
+      }
+
+      let engine;
+      try {
+        const res = await fetch('/api/games/' + gameId + '/events');
+        if (!res.ok) throw new Error('Game not found');
+        const events = await res.json();
+        if (!events.length) throw new Error('No events for this game');
+        engine = ReplayEngine.create(events);
+      } catch (err) {
+        loading.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorEl.textContent = 'Error: ' + err.message;
+        return;
+      }
+
+      loading.style.display = 'none';
+      content.style.display = 'block';
+      playbackBar.style.display = 'block';
+
+      // UI elements
+      const phaseDisplay = document.getElementById('phase-display');
+      const statusPhase = document.getElementById('status-phase');
+      const scoreboard = document.getElementById('scoreboard');
+      const eventBadge = document.getElementById('event-badge');
+      const eventContent = document.getElementById('event-content');
+      const timeline = document.getElementById('timeline');
+      const btnBack = document.getElementById('btn-back');
+      const btnPlay = document.getElementById('btn-play');
+      const btnForward = document.getElementById('btn-forward');
+      const speedSelect = document.getElementById('speed-select');
+      const eventCounter = document.getElementById('event-counter');
+
+      timeline.max = engine.totalEvents - 1;
+
+      // State
+      let players = {};
+      let currentPhase = 'LOBBY';
+
+      function updateUI(event) {
+        if (!event) return;
+        eventBadge.textContent = event.event_type;
+        timeline.value = engine.currentIndex;
+        eventCounter.textContent = 'Event ' + (engine.currentIndex + 1) + ' of ' + engine.totalEvents;
+
+        const data = event.data;
+
+        switch (event.event_type) {
+          case 'game-start':
+            currentPhase = 'LOBBY';
+            if (data.players) {
+              players = {};
+              data.players.forEach(p => {
+                players[p.id || p.name] = { name: p.name, score: p.score || 0 };
+              });
+            }
+            eventContent.innerHTML = '<span class="highlight">Game Started!</span><br>' +
+              Object.values(players).map(p => p.name).join(', ') + ' joined the game.';
+            break;
+
+          case 'phase-change':
+            currentPhase = data.to || data.phase || currentPhase;
+            eventContent.innerHTML = 'Phase: <span class="highlight">' + (data.from || '?') +
+              '</span> → <span class="highlight">' + currentPhase + '</span>';
+            break;
+
+          case 'question-select':
+            eventContent.innerHTML = '<div class="question-box">' +
+              '<div class="question-category">' + (data.category || '?') + '</div>' +
+              '<div class="question-value">$' + (data.value || '?') + '</div>' +
+              (data.question ? '<div style="margin-top:8px">' + data.question + '</div>' : '') +
+              '</div>';
+            break;
+
+          case 'buzz':
+            eventContent.innerHTML = '🔔 <span class="highlight">' +
+              (data.playerName || data.player || '?') + '</span> buzzed in!' +
+              (data.latency ? ' <small>(' + data.latency + 'ms)</small>' : '');
+            break;
+
+          case 'mark-correct': {
+            const pName = data.playerName || data.player || '?';
+            const pts = data.points || data.value || 0;
+            const key = data.playerId || pName;
+            if (players[key]) players[key].score += pts;
+            eventContent.innerHTML = '<span class="correct-text">✓ CORRECT!</span> ' +
+              '<span class="highlight">' + pName + '</span> +$' + pts;
+            break;
+          }
+
+          case 'mark-wrong': {
+            const pName = data.playerName || data.player || '?';
+            const pts = data.points || data.value || 0;
+            const key = data.playerId || pName;
+            if (players[key]) players[key].score -= pts;
+            eventContent.innerHTML = '<span class="wrong-text">✗ WRONG!</span> ' +
+              '<span class="highlight">' + pName + '</span> -$' + pts;
+            break;
+          }
+
+          case 'game-over':
+            currentPhase = 'GAME_OVER';
+            if (data.standings && data.standings.length) {
+              let html = '<span class="highlight">🏆 Game Over — Final Standings</span>' +
+                '<ul class="standings-list">';
+              data.standings.forEach((p, i) => {
+                html += '<li>' +
+                  '<span class="standings-rank">#' + (i + 1) + '</span>' +
+                  '<span class="standings-name">' + p.name + '</span>' +
+                  '<span class="standings-score">$' + (p.score || 0) + '</span>' +
+                  '</li>';
+              });
+              html += '</ul>';
+              eventContent.innerHTML = html;
+            } else {
+              eventContent.innerHTML = '<span class="highlight">🏆 Game Over!</span>';
+            }
+            break;
+
+          default:
+            eventContent.innerHTML = '<pre style="white-space:pre-wrap;font-size:0.85rem;color:var(--text-secondary)">' +
+              JSON.stringify(data, null, 2) + '</pre>';
+        }
+
+        phaseDisplay.textContent = currentPhase;
+        statusPhase.textContent = currentPhase;
+        renderScoreboard();
+      }
+
+      function renderScoreboard() {
+        const entries = Object.values(players);
+        if (!entries.length) { scoreboard.innerHTML = ''; return; }
+        const sorted = [...entries].sort((a, b) => b.score - a.score);
+        scoreboard.innerHTML = sorted.map((p, i) =>
+          '<div class="player-card' + (i === 0 ? ' winner' : '') + '">' +
+          '<div class="player-name">' + p.name + '</div>' +
+          '<div class="player-score">$' + p.score + '</div>' +
+          '</div>'
+        ).join('');
+      }
+
+      function onPlayEvent(event) {
+        updateUI(event);
+      }
+
+      // Controls
+      btnForward.addEventListener('click', () => {
+        engine.pause();
+        btnPlay.textContent = '▶';
+        const ev = engine.stepForward();
+        updateUI(ev);
+      });
+
+      btnBack.addEventListener('click', () => {
+        engine.pause();
+        btnPlay.textContent = '▶';
+        const ev = engine.stepBack();
+        updateUI(ev);
+      });
+
+      btnPlay.addEventListener('click', () => {
+        if (engine.playing) {
+          engine.pause();
+          btnPlay.textContent = '▶';
+        } else {
+          btnPlay.textContent = '⏸';
+          engine.play(onPlayEvent);
+        }
+      });
+
+      speedSelect.addEventListener('change', () => {
+        engine.setSpeed(Number(speedSelect.value));
+      });
+
+      timeline.addEventListener('input', () => {
+        engine.pause();
+        btnPlay.textContent = '▶';
+        engine.seekTo(Number(timeline.value));
+        // Replay all events up to this point to rebuild state
+        const targetIndex = engine.currentIndex;
+        players = {};
+        currentPhase = 'LOBBY';
+        for (let i = 0; i <= targetIndex; i++) {
+          rebuildState(engine.events[i]);
+        }
+        updateUI(engine.events[targetIndex]);
+      });
+
+      function rebuildState(event) {
+        const data = event.data;
+        switch (event.event_type) {
+          case 'game-start':
+            if (data.players) {
+              players = {};
+              data.players.forEach(p => {
+                players[p.id || p.name] = { name: p.name, score: p.score || 0 };
+              });
+            }
+            break;
+          case 'phase-change':
+            currentPhase = data.to || data.phase || currentPhase;
+            break;
+          case 'mark-correct': {
+            const key = data.playerId || data.playerName || data.player;
+            if (players[key]) players[key].score += (data.points || data.value || 0);
+            break;
+          }
+          case 'mark-wrong': {
+            const key = data.playerId || data.playerName || data.player;
+            if (players[key]) players[key].score -= (data.points || data.value || 0);
+            break;
+          }
+          case 'game-over':
+            currentPhase = 'GAME_OVER';
+            break;
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
