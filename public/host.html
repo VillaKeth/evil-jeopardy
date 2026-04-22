@@ -15,7 +15,7 @@
 
   <!-- LOBBY PHASE -->
   <div id="lobby-section" class="lobby">
-    <h1>Evil Jeopardy²</h1>
+    <h1 class="lobby-title">Evil Jeopardy²</h1>
     <h2>Host Dashboard</h2>
     <div class="player-list">
       <h3>Players (<span id="player-count">0</span>)</h3>
@@ -78,6 +78,7 @@
         </select>
       </div>
       <button id="nested-question-btn" class="correct-btn">Open Buzzer for Question</button>
+      <div class="buzz-timer" id="buzzTimer" style="display:none">⏱ <span id="countdown">10</span>s</div>
       <button id="end-nested-btn" class="wrong-btn">End Nested Game → Answer Phase</button>
     </div>
     <div id="buzz-results" class="buzz-result" style="display:none">
@@ -141,6 +142,7 @@
     <button id="reset-btn" class="correct-btn">New Game</button>
   </div>
 
+  <script src="/js/sounds.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/socket-setup.js"></script>
   <script>
@@ -199,6 +201,20 @@
 
     // --- Game State Updates ---
     socket.on('game-state', (state) => {
+      // Phase-based sounds
+      if (!window._prevPhase) window._prevPhase = 'LOBBY';
+      if (state.phase !== window._prevPhase) {
+        if (state.phase === 'FINAL_JEOPARDY') Sounds.startFJMusic();
+        else if (window._prevPhase === 'FINAL_JEOPARDY') Sounds.stopFJMusic();
+        if (state.phase === 'GAME_OVER') Sounds.victoryFanfare();
+        window._prevPhase = state.phase;
+      }
+
+      // Hide timer when not in nested game
+      if (state.phase !== 'NESTED_GAME') {
+        document.getElementById('buzzTimer').style.display = 'none';
+      }
+
       showSection(state.phase);
       updateStandings(state);
 
@@ -304,6 +320,7 @@
 
     // Buzz results
     socket.on('buzz-update', ({ buzzes, winner }) => {
+      Sounds.buzzDing();
       const resultsDiv = document.getElementById('buzz-results');
       const orderList = document.getElementById('buzz-order-list');
       const scoringDiv = document.getElementById('nested-scoring');
@@ -321,6 +338,26 @@
         scoringDiv.style.display = '';
         currentBuzzer.textContent = winner.name || winner.id;
         scoringDiv.dataset.playerId = winner.id;
+      }
+    });
+
+    // --- Timer ---
+    socket.on('timer-update', ({ remaining }) => {
+      const timerEl = document.getElementById('buzzTimer');
+      const countdownEl = document.getElementById('countdown');
+      if (remaining > 0) {
+        timerEl.style.display = '';
+        countdownEl.textContent = remaining;
+        if (remaining <= 3) {
+          timerEl.classList.add('timer-warning');
+          Sounds.tickWarning();
+        } else {
+          timerEl.classList.remove('timer-warning');
+          Sounds.tick();
+        }
+      } else {
+        countdownEl.textContent = '0';
+        timerEl.classList.add('timer-warning');
       }
     });
 
