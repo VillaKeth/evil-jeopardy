@@ -39,6 +39,7 @@
   <div id="buzz-section" style="display:none; text-align:center; padding:2rem;">
     <p id="buzz-question-info" style="margin-bottom:1rem;"></p>
     <button id="buzz-btn" class="buzz-btn">BUZZ</button>
+    <div class="buzz-timer" id="buzzTimer" style="display:none">⏱ <span id="countdown">10</span>s</div>
     <p id="buzz-status" style="margin-top:1rem;"></p>
   </div>
 
@@ -88,6 +89,7 @@
     <div class="standings" id="final-standings"></div>
   </div>
 
+  <script src="/js/sounds.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/socket-setup.js"></script>
   <script>
@@ -97,6 +99,7 @@
     let hasBuzzed = false;
     let wagerSubmitted = false;
     let answerSubmitted = false;
+    let previousScore = 0;
 
     // Get player name from sessionStorage or URL
     // If redirected from lobby, name is stored
@@ -143,6 +146,7 @@
       allSections.forEach(id => {
         document.getElementById(id).style.display = 'none';
       });
+      document.getElementById('buzzTimer').style.display = 'none';
     }
 
     // --- Game State Updates ---
@@ -156,7 +160,22 @@
         scoreSection.style.display = '';
         const me = state.players[myId];
         if (me) {
-          document.getElementById('my-score').textContent = `$${me.score}`;
+          const newScore = me.score;
+          if (previousScore !== newScore) {
+            const scoreCard = document.getElementById('score-section').querySelector('.score-box');
+            if (newScore > previousScore) {
+              scoreCard.classList.add('score-flash-correct');
+              Sounds.correctChime();
+            } else {
+              scoreCard.classList.add('score-flash-wrong');
+              Sounds.wrongBuzzer();
+            }
+            setTimeout(() => {
+              scoreCard.classList.remove('score-flash-correct', 'score-flash-wrong');
+            }, 600);
+            previousScore = newScore;
+          }
+          document.getElementById('my-score').textContent = `$${newScore}`;
           // Calculate rank
           const sorted = Object.entries(state.players)
             .sort(([,a], [,b]) => b.score - a.score);
@@ -218,12 +237,17 @@
       const buzzBtn = document.getElementById('buzz-btn');
       buzzBtn.disabled = false;
       buzzBtn.className = 'buzz-btn';
+      buzzBtn.classList.add('buzz-active');
+      document.getElementById('buzzTimer').style.display = '';
+      document.getElementById('buzzTimer').classList.remove('timer-warning');
+      document.getElementById('countdown').textContent = '10';
     });
 
     document.getElementById('buzz-btn').addEventListener('click', () => {
       if (hasBuzzed) return;
       hasBuzzed = true;
       socket.emit('buzz');
+      Sounds.buzzDing();
 
       const buzzBtn = document.getElementById('buzz-btn');
       buzzBtn.className = 'buzz-btn buzzed';
@@ -235,6 +259,31 @@
       // Just show status
       if (winner && winner.id === myId) {
         document.getElementById('buzz-status').textContent = '🏆 You buzzed first!';
+      }
+    });
+
+    // --- Timer ---
+    socket.on('timer-update', ({ remaining }) => {
+      const timerEl = document.getElementById('buzzTimer');
+      const countdownEl = document.getElementById('countdown');
+      if (remaining > 0) {
+        timerEl.style.display = '';
+        countdownEl.textContent = remaining;
+        if (remaining <= 3) {
+          timerEl.classList.add('timer-warning');
+          Sounds.tickWarning();
+        } else {
+          timerEl.classList.remove('timer-warning');
+          Sounds.tick();
+        }
+      } else {
+        countdownEl.textContent = '0';
+        timerEl.classList.add('timer-warning');
+        const buzzBtn = document.getElementById('buzz-btn');
+        buzzBtn.disabled = true;
+        buzzBtn.classList.add('buzz-locked');
+        buzzBtn.classList.remove('buzz-active');
+        buzzBtn.textContent = 'LOCKED';
       }
     });
 
