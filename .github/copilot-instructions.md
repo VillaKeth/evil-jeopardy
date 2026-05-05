@@ -12,15 +12,22 @@
 - **Always include freeform option** - Use `allow_freeform: true` so user can type custom instructions
 - **Be concise but helpful** - Short responses when possible, but always implement actual changes
 
-## Dropdown Menu Format
-Every response should end with:
-```
-<ask_user>
-  <parameter name="allow_freeform">true</parameter>
-  <parameter name="choices">["Relevant Option 1", "Relevant Option 2", "Another task", "Dismiss"]</parameter>
-  <parameter name="question">Brief question about what to do next?</parameter>
-</ask_user>
-```
+## Dropdown Menu Format — Invocation Contract
+
+Every response must end with an **actual invocation of the `ask_user` tool** (a real function_calls block that the runtime executes). Never write XML or pseudo-XML describing the call in the response body — the UI only renders a dropdown when the tool fires, so any "example" pasted inline breaks the UX.
+
+Rules for every `ask_user` call:
+- `allow_freeform` is always `true`
+- `choices` is a JSON array of 3–5 short, context-specific options, with `"Dismiss"` as the last entry
+- `question` is one short sentence (no bullet lists, no multi-part questions)
+- The call is the **last tool call of the turn**, issued in the same function_calls block as any final `report_intent` / `store_memory` if present
+
+Hard stops — if any are true, the turn is broken; fix before sending:
+1. The word `ask_user` appears in the visible response text (excluding within actual tool-call output).
+2. Any `<ask_user>`, `<parameter`, or similar angle-bracket tag appears in the visible response text.
+3. The turn ended without firing the `ask_user` tool at all.
+
+Self-check before every send: *"Did I just invoke `ask_user` as a tool (not describe it in prose)?"* If uncertain, the answer is no — invoke it now.
 
 ---
 
