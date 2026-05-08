@@ -3,6 +3,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const { initDb } = require('./db');
+const { startBaking, getTimeRemaining, completePhase, getPhaseScores, getTeamExtraTime, calculateVirtualCakeScores } = require('./baking');
 
 // Valid phase transitions
 const PHASES = ['LOBBY', 'TRIVIA', 'SHOP', 'BAKING', 'JUDGING', 'RESULTS'];
@@ -41,6 +42,9 @@ function createApp(options = {}) {
   
   // Serve static files from public directory
   app.use(express.static(path.join(__dirname, '../public')));
+  
+  // Baking timer interval
+  let bakingTimerInterval = null;
   
   // Socket.io connection handling
   io.on('connection', (socket) => {
@@ -233,6 +237,172 @@ function createApp(options = {}) {
         socket.emit('error', { message: 'Server error starting game.' });
       }
     });
+    
+    // ===== BAKING HANDLERS =====
+    
+    // Handle baking start (host only)
+    socket.on('baking:start', (data) => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can start baking timer.' });
+          return;
+        }
+        
+        const { durationSec } = data;
+        
+        if (typeof durationSec !== 'number' || durationSec <= 0) {
+          socket.emit('error', { message: 'Invalid duration. Must be a positive number.' });
+          return;
+        }
+        
+        // Start baking timer
+        startBaking(db.db, durationSec);
+        console.log(`Baking timer started: ${durationSec} seconds`);
+        
+        // Clear any existing interval
+        if (bakingTimerInterval) {
+          clearInterval(bakingTimerInterval);
+        }
+        
+        // Start broadcasting timer ticks every second
+        bakingTimerInterval = setInterval(() => {
+          const timeRemaining = getTimeRemaining(db.db);
+          
+          io.emit('baking:timer-tick', { timeRemaining });
+          
+          // Check if time is up
+          if (timeRemaining === 0) {
+            clearInterval(bakingTimerInterval);
+            bakingTimerInterval = null;
+            io.emit('baking:time-up');
+            console.log('Baking timer completed');
+          }
+        }, 1000);
+        
+        // Broadcast initial state
+        const timeRemaining = getTimeRemaining(db.db);
+        io.emit('baking:started', { durationSec, timeRemaining });
+        
+      } catch (err) {
+        console.error('Failed to start baking timer:', err);
+        socket.emit('error', { message: 'Server error starting baking timer.' });
+      }
+    });
+    
+    // Handle baking pause (host only)
+    socket.on('baking:pause', () => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can pause baking timer.' });
+          return;
+        }
+        
+        if (bakingTimerInterval) {
+          clearInterval(bakingTimerInterval);
+          bakingTimerInterval = null;
+          console.log('Baking timer paused');
+          
+          const timeRemaining = getTimeRemaining(db.db);
+          io.emit('baking:paused', { timeRemaining });
+        }
+      } catch (err) {
+        console.error('Failed to pause baking timer:', err);
+        socket.emit('error', { message: 'Server error pausing baking timer.' });
+      }
+    });
+    
+    // Handle baking resume (host only)
+    socket.on('baking:resume', () => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can resume baking timer.' });
+          return;
+        }
+        
+        // Check if timer is already running
+        if (bakingTimerInterval) {
+          socket.emit('error', { message: 'Timer is already running.' });
+          return;
+        }
+        
+        const timeRemaining = getTimeRemaining(db.db);
+        
+        if (timeRemaining === 0) {
+          socket.emit('error', { message: 'Timer has already expired.' });
+          return;
+        }
+        
+        console.log('Baking timer resumed');
+        
+        // Restart the interval
+        bakingTimerInterval = setInterval(() => {
+          const timeRemaining = getTimeRemaining(db.db);
+          
+          io.emit('baking:timer-tick', { timeRemaining });
+          
+          // Check if time is up
+          if (timeRemaining === 0) {
+            clearInterval(bakingTimerInterval);
+            bakingTimerInterval = null;
+            io.emit('baking:time-up');
+            console.log('Baking timer completed');
+          }
+        }, 1000);
+        
+        io.emit('baking:resumed', { timeRemaining });
+        
+      } catch (err) {
+        console.error('Failed to resume baking timer:', err);
+        socket.emit('error', { message: 'Server error resuming baking timer.' });
+      }
+    });
+    
+    // Handle phase complete (from players)
+    socket.on('baking:phase-complete', (data) => {
+      try {
+        const { teamId, phase, score, details } = data;
+        
+        // Validate input
+        if (!teamId || typeof teamId !== 'number') {
+          socket.emit('error', { message: 'Invalid teamId.' });
+          return;
+        }
+        
+        if (!phase || typeof phase !== 'string') {
+          socket.emit('error', { message: 'Invalid phase.' });
+          return;
+        }
+        
+        if (typeof score !== 'number' || score < 0 || score > 100) {
+          socket.emit('error', { message: 'Invalid score. Must be between 0 and 100.' });
+          return;
+        }
+        
+        // Record phase completion
+        completePhase(db.db, teamId, phase, score, details);
+        console.log(`Phase completed: team ${teamId}, phase ${phase}, score ${score}`);
+        
+        // Get updated phase scores for this team
+        const phaseScores = getPhaseScores(db.db, teamId);
+        
+        // Broadcast to all clients
+        io.emit('baking:phase-completed', {
+          teamId,
+          phase,
+          score,
+          phaseScores
+        });
+        
+      } catch (err) {
+        console.error('Failed to complete phase:', err);
+        socket.emit('error', { message: 'Server error completing phase.' });
+      }
+    });
+    
+    // ===== END BAKING HANDLERS =====
     
     // Handle disconnection
     socket.on('disconnect', () => {

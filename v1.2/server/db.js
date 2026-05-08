@@ -50,9 +50,9 @@ function initDb(dbPath) {
     CREATE TABLE IF NOT EXISTS scores (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       team_id INTEGER NOT NULL,
-      dimension TEXT NOT NULL,
-      value INTEGER NOT NULL,
-      source TEXT NOT NULL CHECK(source IN ('virtual', 'physical')),
+      phase TEXT NOT NULL,
+      score REAL NOT NULL,
+      details TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (team_id) REFERENCES teams(id)
     );
