@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy 1.2 - Screen Display</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="screen-view">
+  <!-- Header -->
+  <header class="screen-header">
+    <h1 class="screen-title">Evil Jeopardy 1.2</h1>
+    <div class="phase-indicator" id="phase-indicator">
+      <span id="phase-text">LOBBY</span>
+    </div>
+  </header>
+
+  <!-- Connection Status -->
+  <div id="connection-status" class="status status-info" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <span style="font-size: 0.75rem;">Connecting...</span>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="screen-content">
+    
+    <!-- LOBBY PHASE -->
+    <section id="lobby-section" class="phase-section active">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; margin-bottom: 2rem; color: var(--color-lobby);">
+          Waiting for Teams...
+        </h2>
+        
+        <div id="teams-display">
+          <ul id="teams-list" class="team-list" style="max-width: 800px; margin: 0 auto;">
+            <li class="text-muted text-center" style="font-size: 1.5rem;">
+              No teams connected yet
+            </li>
+          </ul>
+        </div>
+
+        <p class="text-muted mt-3" style="font-size: 1.25rem;">
+          Host will start the game when ready
+        </p>
+      </div>
+    </section>
+
+    <!-- TRIVIA PHASE (placeholder) -->
+    <section id="trivia-section" class="phase-section">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; color: var(--color-trivia);">
+          Trivia Round
+        </h2>
+        <p class="text-muted" style="font-size: 1.25rem;">
+          Trivia display will be added in Task 4...
+        </p>
+      </div>
+    </section>
+
+    <!-- SHOP PHASE (placeholder) -->
+    <section id="shop-section" class="phase-section">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; color: var(--color-shop);">
+          Shop Phase
+        </h2>
+        <p class="text-muted" style="font-size: 1.25rem;">
+          Shop display will be added in later tasks...
+        </p>
+      </div>
+    </section>
+
+    <!-- BAKING PHASE (placeholder) -->
+    <section id="baking-section" class="phase-section">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; color: var(--color-baking);">
+          Baking Phase
+        </h2>
+        <p class="text-muted" style="font-size: 1.25rem;">
+          Baking display will be added in later tasks...
+        </p>
+      </div>
+    </section>
+
+    <!-- JUDGING PHASE (placeholder) -->
+    <section id="judging-section" class="phase-section">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; color: var(--color-judging);">
+          Judging Phase
+        </h2>
+        <p class="text-muted" style="font-size: 1.25rem;">
+          Judging display will be added in later tasks...
+        </p>
+      </div>
+    </section>
+
+    <!-- RESULTS PHASE (placeholder) -->
+    <section id="results-section" class="phase-section">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; color: var(--color-results);">
+          Final Results
+        </h2>
+        <p class="text-muted" style="font-size: 1.25rem;">
+          Results display will be added in later tasks...
+        </p>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/screen.js"></script>
+</body>
+</html>

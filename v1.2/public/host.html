@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy 1.2 - Host Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="flex flex-between mb-3">
+      <h1>Evil Jeopardy 1.2</h1>
+      <div class="phase-indicator" id="phase-indicator">
+        <span id="phase-text">LOBBY</span>
+      </div>
+    </header>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="status status-info">
+      <span>Connecting to server...</span>
+    </div>
+
+    <!-- LOBBY PHASE -->
+    <section id="lobby-section" class="phase-section active">
+      <div class="card">
+        <div class="card-header">
+          <h2>Lobby - Team Management</h2>
+        </div>
+        <div class="card-body">
+          <!-- Add Team Form -->
+          <div class="form-group">
+            <label class="form-label" for="team-name">Team Name</label>
+            <div class="flex gap-md">
+              <input 
+                type="text" 
+                id="team-name" 
+                class="form-input" 
+                placeholder="Enter team name..."
+                style="flex: 1;"
+              >
+              <button class="btn btn-primary" id="add-team-btn">Add Team</button>
+            </div>
+          </div>
+
+          <div class="form-checkbox">
+            <input type="checkbox" id="team-virtual">
+            <label for="team-virtual">Virtual Team (remote player)</label>
+          </div>
+
+          <!-- Connected Teams -->
+          <div class="mt-3">
+            <h3>Connected Teams</h3>
+            <ul id="teams-list" class="team-list">
+              <li class="text-muted text-center">No teams connected yet...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Control -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Game Control</h2>
+        </div>
+        <div class="card-body">
+          <button class="btn btn-primary btn-large w-full" id="start-game-btn" disabled>
+            Start Game
+          </button>
+          <p class="text-muted text-small text-center mt-2">
+            Add at least one team to start the game
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRIVIA PHASE (placeholder) -->
+    <section id="trivia-section" class="phase-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Trivia Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Trivia controls will be added in Task 4...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHOP PHASE (placeholder) -->
+    <section id="shop-section" class="phase-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Shop Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Shop controls will be added in later tasks...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- BAKING PHASE (placeholder) -->
+    <section id="baking-section" class="phase-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Baking Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Baking controls will be added in later tasks...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- JUDGING PHASE (placeholder) -->
+    <section id="judging-section" class="phase-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Judging Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Judging controls will be added in later tasks...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS PHASE (placeholder) -->
+    <section id="results-section" class="phase-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Results Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Results display will be added in later tasks...</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/host.js"></script>
+</body>
+</html>

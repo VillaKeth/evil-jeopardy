@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy 1.2 - Player View</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Mobile-friendly adjustments */
+    body {
+      touch-action: manipulation;
+    }
+    
+    .player-view {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: var(--spacing-lg);
+    }
+    
+    .player-header {
+      text-align: center;
+      margin-bottom: var(--spacing-lg);
+    }
+    
+    .player-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body class="player-view">
+  <!-- Header -->
+  <header class="player-header">
+    <h1 style="font-size: 1.75rem;">Evil Jeopardy 1.2</h1>
+    <div class="phase-indicator" id="phase-indicator">
+      <span id="phase-text">LOBBY</span>
+    </div>
+  </header>
+
+  <!-- Connection Status -->
+  <div id="connection-status" class="status status-info">
+    <span>Connecting to server...</span>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="player-content">
+    
+    <!-- LOBBY PHASE -->
+    <section id="lobby-section" class="phase-section active">
+      <div class="card">
+        <div class="card-header text-center">
+          <h2>Team Registration</h2>
+        </div>
+        <div class="card-body">
+          <!-- Team Assignment Display -->
+          <div id="team-display" class="hidden">
+            <div class="text-center">
+              <p class="text-muted mb-2">You are registered as:</p>
+              <h3 id="team-name" style="font-size: 1.75rem; color: var(--color-lobby);"></h3>
+              <p class="text-muted mt-3" style="font-size: 1.125rem;">
+                Waiting for host to start the game...
+              </p>
+            </div>
+          </div>
+
+          <!-- Join Form -->
+          <div id="join-form">
+            <div class="form-group">
+              <label class="form-label" for="player-team-name">Team Name</label>
+              <input 
+                type="text" 
+                id="player-team-name" 
+                class="form-input" 
+                placeholder="Enter your team name..."
+              >
+            </div>
+
+            <button class="btn btn-primary btn-large w-full" id="join-team-btn">
+              Join Game
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Other Teams -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Other Teams</h3>
+        </div>
+        <div class="card-body">
+          <ul id="other-teams-list" class="team-list">
+            <li class="text-muted text-center">No other teams yet...</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRIVIA PHASE (placeholder) -->
+    <section id="trivia-section" class="phase-section">
+      <div class="card">
+        <div class="card-header text-center">
+          <h2>Trivia Round</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted text-center">
+            Trivia interface will be added in Task 4...
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHOP PHASE (placeholder) -->
+    <section id="shop-section" class="phase-section">
+      <div class="card">
+        <div class="card-header text-center">
+          <h2>Shop Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted text-center">
+            Shop interface will be added in later tasks...
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- BAKING PHASE (placeholder) -->
+    <section id="baking-section" class="phase-section">
+      <div class="card">
+        <div class="card-header text-center">
+          <h2>Baking Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted text-center">
+            Baking interface will be added in later tasks...
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- JUDGING PHASE (placeholder) -->
+    <section id="judging-section" class="phase-section">
+      <div class="card">
+        <div class="card-header text-center">
+          <h2>Judging Phase</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted text-center">
+            Judging interface will be added in later tasks...
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS PHASE (placeholder) -->
+    <section id="results-section" class="phase-section">
+      <div class="card">
+        <div class="card-header text-center">
+          <h2>Final Results</h2>
+        </div>
+        <div class="card-body">
+          <p class="text-muted text-center">
+            Results display will be added in later tasks...
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>

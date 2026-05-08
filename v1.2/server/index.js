@@ -119,13 +119,118 @@ function createApp(options = {}) {
         const phase = db.getState('phase');
         const teams = db.getTeams();
         
+        // Transform teams to match client expectations
+        const transformedTeams = teams.map(team => ({
+          id: team.id,
+          name: team.name,
+          money: team.money,
+          isVirtual: team.is_virtual_team === 1,
+          createdAt: team.created_at
+        }));
+        
         socket.emit('state', {
           phase,
-          teams
+          teams: transformedTeams
         });
       } catch (err) {
         console.error('Failed to get state:', err);
         socket.emit('error', { message: 'Server error retrieving state.' });
+      }
+    });
+    
+    // Handle team joining (lobby phase)
+    socket.on('join-team', (data) => {
+      try {
+        const { name, isVirtual } = data;
+        
+        // Validate input
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+          socket.emit('error', { message: 'Team name is required.' });
+          return;
+        }
+        
+        if (name.trim().length > 50) {
+          socket.emit('error', { message: 'Team name must be 50 characters or less.' });
+          return;
+        }
+        
+        // Create team in database
+        const team = db.createTeam(name.trim(), isVirtual || false);
+        console.log(`Team created: ${team.name} (${team.is_virtual_team ? 'virtual' : 'physical'})`);
+        
+        // Transform team data for client
+        const transformedTeam = {
+          id: team.id,
+          name: team.name,
+          money: team.money,
+          isVirtual: team.is_virtual_team === 1,
+          createdAt: team.created_at
+        };
+        
+        // Log event
+        db.logEvent('team-joined', { teamId: team.id, name: team.name, isVirtual: team.is_virtual_team === 1 });
+        
+        // Broadcast to all clients that a team joined
+        io.emit('team-joined', transformedTeam);
+        
+        // Get all teams and broadcast updated list
+        const teams = db.getTeams();
+        const transformedTeams = teams.map(t => ({
+          id: t.id,
+          name: t.name,
+          money: t.money,
+          isVirtual: t.is_virtual_team === 1,
+          createdAt: t.created_at
+        }));
+        
+        io.emit('teams-updated', transformedTeams);
+      } catch (err) {
+        console.error('Failed to create team:', err);
+        
+        // Check for unique constraint violation
+        if (err.message && err.message.includes('UNIQUE constraint failed')) {
+          socket.emit('error', { message: 'A team with that name already exists.' });
+        } else {
+          socket.emit('error', { message: 'Server error creating team.' });
+        }
+      }
+    });
+    
+    // Handle start game (host only, transitions from LOBBY to TRIVIA)
+    socket.on('start-game', () => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can start the game.' });
+          return;
+        }
+        
+        // Check current phase
+        const currentPhase = db.getState('phase');
+        if (currentPhase !== 'LOBBY') {
+          socket.emit('error', { message: 'Game can only be started from LOBBY phase.' });
+          return;
+        }
+        
+        // Check if there are teams
+        const teams = db.getTeams();
+        if (teams.length === 0) {
+          socket.emit('error', { message: 'At least one team is required to start the game.' });
+          return;
+        }
+        
+        // Transition to TRIVIA phase (use set-phase logic)
+        db.setState('phase', 'TRIVIA');
+        console.log('Game started: LOBBY → TRIVIA');
+        
+        // Log event
+        db.logEvent('game-started', { teamCount: teams.length });
+        
+        // Broadcast to all clients
+        io.emit('phase-changed', { phase: 'TRIVIA', previousPhase: 'LOBBY' });
+      } catch (err) {
+        console.error('Failed to start game:', err);
+        socket.emit('error', { message: 'Server error starting game.' });
       }
     });
     
