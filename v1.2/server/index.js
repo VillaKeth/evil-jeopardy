@@ -249,6 +249,9 @@ function createApp(options = {}) {
         
         // Transition to TRIVIA phase (use set-phase logic)
         db.setState('phase', 'TRIVIA');
+        db.setState('currentSlideIndex', '-1');
+        db.setState('triviaMode', 'SLIDE');
+        resetAnswered();
         console.log('Game started: LOBBY → TRIVIA');
         
         // Log event
@@ -553,6 +556,11 @@ function createApp(options = {}) {
         
         // Get updated team balance
         const team = db.db.prepare('SELECT id, name, money FROM teams WHERE id = ?').get(teamId);
+        
+        if (!team) {
+          socket.emit('error', { message: 'Team not found after scoring.' });
+          return;
+        }
         
         // Broadcast result
         io.emit('trivia:answer-result', {

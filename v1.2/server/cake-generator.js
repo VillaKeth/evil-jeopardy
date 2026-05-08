@@ -203,6 +203,11 @@ async function generateGallery(cakeType, scores, ingredients = [], events = [], 
  * @returns {Promise<Buffer>} Random fallback image buffer with light post-processing
  */
 async function getFallbackImage(scoreTier) {
+  const validTiers = ['good', 'medium', 'bad', 'catastrophic'];
+  if (!validTiers.includes(scoreTier)) {
+    scoreTier = 'bad';
+  }
+  
   try {
     const fallbackDir = path.join(__dirname, '..', 'public', 'assets', 'cake-fallbacks');
     
@@ -211,7 +216,8 @@ async function getFallbackImage(scoreTier) {
     const tierFiles = files.filter(f => f.startsWith(`tier-${scoreTier}-`) && f.endsWith('.png'));
     
     if (tierFiles.length === 0) {
-      throw new Error(`No fallback images found for tier: ${scoreTier}`);
+      console.error(`No fallback images found for tier: ${scoreTier}`);
+      return null;
     }
     
     // Select a random image
@@ -222,21 +228,19 @@ async function getFallbackImage(scoreTier) {
     const imageBuffer = await fs.readFile(imagePath);
     
     // Apply light post-processing for variety
-    let pipeline = sharp(imageBuffer);
-    
-    // Random slight hue shift (±10 degrees)
-    const hueShift = Math.floor(Math.random() * 20) - 10;
-    
-    // Random slight saturation shift (0.9 to 1.1)
-    const saturationShift = 0.9 + Math.random() * 0.2;
-    
-    pipeline = pipeline
-      .modulate({ hue: hueShift, saturation: saturationShift });
-    
-    return await pipeline.toBuffer();
+    try {
+      let pipeline = sharp(imageBuffer);
+      const hueShift = Math.floor(Math.random() * 20) - 10;
+      const saturationShift = 0.9 + Math.random() * 0.2;
+      pipeline = pipeline.modulate({ hue: hueShift, saturation: saturationShift });
+      return await pipeline.toBuffer();
+    } catch (sharpError) {
+      console.error('Sharp post-processing failed, returning raw image:', sharpError.message);
+      return imageBuffer;
+    }
   } catch (error) {
-    console.error('Error getting fallback image:', error.message);
-    throw error;
+    console.error(`Error getting fallback image for tier ${scoreTier}:`, error.message);
+    return null;
   }
 }
 
@@ -251,12 +255,14 @@ async function getFallbackImage(scoreTier) {
  */
 async function generateGalleryWithFallback(cakeType, scores, ingredients = [], events = [], count = 4) {
   if (!scores || typeof scores.total !== 'number') {
-    // If scores are invalid, return all fallbacks
-    const scoreTier = 'bad'; // default to bad for invalid scores
     const results = [];
     for (let i = 0; i < count; i++) {
-      const fallback = await getFallbackImage(scoreTier);
-      results.push(fallback);
+      try {
+        const fallback = await getFallbackImage('bad');
+        results.push(fallback);
+      } catch {
+        results.push(null);
+      }
     }
     return results;
   }
@@ -270,9 +276,12 @@ async function generateGalleryWithFallback(cakeType, scores, ingredients = [], e
   const finalResults = [];
   for (let i = 0; i < galleryResults.length; i++) {
     if (galleryResults[i] === null) {
-      // Use fallback
-      const fallback = await getFallbackImage(scoreTier);
-      finalResults.push(fallback);
+      try {
+        const fallback = await getFallbackImage(scoreTier);
+        finalResults.push(fallback);
+      } catch {
+        finalResults.push(null);
+      }
     } else {
       finalResults.push(galleryResults[i]);
     }

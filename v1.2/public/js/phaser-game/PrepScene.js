@@ -331,12 +331,14 @@ class PrepScene extends Phaser.Scene {
     this.meterCenterX = meterX;
     this.currentShelfItem = shelfItem;
     
-    // Click to stop meter
-    this.input.once('pointerdown', () => {
+    // Click to stop meter — remove previous listener first
+    this.input.off('pointerdown', this._meterClickHandler);
+    this._meterClickHandler = () => {
       if (this.meterActive) {
         this.stopPrecisionMeter();
       }
-    });
+    };
+    this.input.once('pointerdown', this._meterClickHandler);
   }
 
   stopPrecisionMeter() {
@@ -540,8 +542,21 @@ class PrepScene extends Phaser.Scene {
       this.timerEvent.remove();
     }
     
-    // Stop any active meter
+    // Stop any active meter and clean up its graphics
     this.meterActive = false;
+    if (this.meterGraphics) {
+      this.meterGraphics.destroy();
+      this.meterGraphics = null;
+    }
+    if (this.meterIndicator) {
+      this.meterIndicator.destroy();
+      this.meterIndicator = null;
+    }
+    if (this.meterBg) {
+      this.meterBg.destroy();
+      this.meterBg = null;
+    }
+    this.currentShelfItem = null;
     
     // Calculate final score
     const finalScore = this.calculateFinalScore();
@@ -681,7 +696,27 @@ class PrepScene extends Phaser.Scene {
     if (this.timerEvent) {
       this.timerEvent.remove();
     }
+    this.time.removeAllEvents();
     this.tweens.killAll();
+    
+    // Clean up input listeners
+    this.input.off('pointerdown', this._meterClickHandler);
+    
+    // Clean up meter graphics if still active
+    if (this.meterGraphics) {
+      this.meterGraphics.destroy();
+      this.meterGraphics = null;
+    }
+    if (this.meterIndicator) {
+      this.meterIndicator.destroy();
+      this.meterIndicator = null;
+    }
+    if (this.meterBg) {
+      this.meterBg.destroy();
+      this.meterBg = null;
+    }
+    this.currentShelfItem = null;
+    this.meterActive = false;
     
     console.log('PrepScene shutdown');
   }
