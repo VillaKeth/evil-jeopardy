@@ -524,9 +524,11 @@ Test: `loadShop(path)` returns categories with items. Test: `getDefaultKit()` re
 
 - [ ] **Step 4: Write shop.js**
 
-Export: `loadShop(path)`, `getDefaultKit(shopData)`, `getTeamInventory(db, teamId)`, `purchaseItem(db, teamId, itemKey, shopData)` (returns {success, warning, newBalance}), `getTeamPurchases(db, teamId)`.
+Export: `loadShop(path)`, `getDefaultKit(shopData)`, `getTeamInventory(db, teamId)`, `purchaseItem(db, teamId, itemKey, shopData)`, `forceApprove(db, purchaseId)`, `getTeamPurchases(db, teamId)`.
 
-`purchaseItem` should: check if affordable → if not, return `{success: false, warning: "Cannot afford — host override required"}` → host can call `forceApprove(db, purchaseId)` to override.
+`purchaseItem` should: check if affordable → if yes, deduct balance, add to inventory, return `{success: true, newBalance}`. If not affordable, insert a row into a `pending_purchases` table (id, team_id, item_key, amount, status='pending', created_at) and return `{success: false, purchaseId: row.id, warning: "Cannot afford — host override required"}`.
+
+`forceApprove(db, purchaseId)` should: look up the pending purchase by id, deduct the balance (allowing negative), add item to inventory, set status='approved', return `{success: true, newBalance}`.
 
 - [ ] **Step 5: Run tests — should pass**
 
@@ -656,7 +658,7 @@ git commit -m "feat(1.2): integrate Phaser.js with HUD and phase transition scen
 
 Test: `calculateChaosLevel(teamMoney, maxPossibleMoney)` returns chaos tier (good/medium/bad).
 Test: `selectMinigame(phase, chaosLevel, guaranteedAbsurdRemaining)` returns minigame key.
-Test: at least 1 absurd game is guaranteed across 6 phases.
+Test: at least 1 absurd game is guaranteed across 6 phases (only from phases where `absurdExcluded` is not true).
 Test: `rollChaosEvent(chaosLevel)` returns null or an event object.
 Test: even at chaos level "good", there's a 10-15% chance of events.
 
@@ -692,7 +694,8 @@ Test: even at chaos level "good", there's a 10-15% chance of events.
   "phases": {
     "prep": {
       "normal": ["prep-measure"],
-      "absurd": ["prep-measure"]
+      "absurd": ["prep-measure"],
+      "absurdExcluded": true
     },
     "mix": {
       "normal": ["mix-circular"],
@@ -722,7 +725,7 @@ Test: even at chaos level "good", there's a 10-15% chance of events.
 
 Export: `calculateChaosLevel(teamMoney, maxPossibleMoney)`, `selectMinigamesForSession(chaosLevel, minigamesConfig)` (returns array of 6 minigame keys with ≥1 guaranteed absurd), `rollChaosEvent(chaosLevel, currentPhase, eventsConfig)`.
 
-The guaranteed absurd logic: randomly pick one phase that WILL be absurd. Then roll the rest normally.
+The guaranteed absurd logic: randomly pick one phase that WILL be absurd from phases where `absurdExcluded` is not true (i.e., skip `prep` since it has no distinct absurd variant). Then roll the rest normally.
 
 - [ ] **Step 6: Run tests — should pass**
 
