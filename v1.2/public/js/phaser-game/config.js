@@ -34,7 +34,12 @@ let gameInstance = null;
 window.initGame = function(socket, inventory, cakeGoal, evilLuckConfig) {
   // Destroy existing game if present
   if (gameInstance) {
-    gameInstance.destroy(true);
+    try {
+      gameInstance.destroy(true);
+    } catch (e) {
+      console.warn('Error destroying previous game:', e);
+    }
+    gameInstance = null;
   }
   
   // Show the Phaser container

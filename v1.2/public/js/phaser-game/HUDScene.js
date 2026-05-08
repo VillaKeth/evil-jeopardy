@@ -162,8 +162,8 @@ class HUDScene extends Phaser.Scene {
   }
 
   setupRegistryListeners() {
-    // Listen for registry changes
-    this.registry.events.on('changedata', (parent, key, value) => {
+    // Listen for registry changes — store handler for cleanup
+    this.registryHandler = (parent, key, value) => {
       switch (key) {
         case 'score':
           this.updateScoreDisplay(value);
@@ -176,7 +176,8 @@ class HUDScene extends Phaser.Scene {
           this.updatePhaseDisplay(value);
           break;
       }
-    });
+    };
+    this.registry.events.on('changedata', this.registryHandler);
   }
 
   updateTimerDisplay() {
@@ -263,6 +264,11 @@ class HUDScene extends Phaser.Scene {
       this.socket.off('baking:timer-tick');
       this.socket.off('baking:chaos-event');
       this.socket.off('baking:chaos-end');
+    }
+    
+    // Cleanup registry listener
+    if (this.registryHandler) {
+      this.registry.events.off('changedata', this.registryHandler);
     }
     
     // Stop evil luck tween

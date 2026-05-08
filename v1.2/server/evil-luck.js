@@ -7,11 +7,15 @@ const evilLuckConfig = require('../data/evil-luck.json');
  * @returns {string} - Chaos level: "good", "medium", or "bad"
  */
 function calculateChaosLevel(teamMoney, maxPossibleMoney) {
-  const moneyPercent = (teamMoney / maxPossibleMoney) * 100;
+  if (!maxPossibleMoney || maxPossibleMoney <= 0) {
+    return teamMoney < 0 ? 'bad' : 'medium';
+  }
   
   if (teamMoney < 0) {
     return 'bad';
   }
+  
+  const moneyPercent = (teamMoney / maxPossibleMoney) * 100;
   
   if (moneyPercent >= 50) {
     return 'good';
@@ -37,6 +41,10 @@ function selectMinigamesForSession(chaosLevel, minigamesConfig) {
     return !phaseConfig.absurdExcluded;
   });
   
+  if (eligiblePhases.length === 0) {
+    throw new Error('No eligible phases for absurd minigames');
+  }
+  
   // Pick one random phase for guaranteed absurd
   const guaranteedAbsurdPhase = eligiblePhases[Math.floor(Math.random() * eligiblePhases.length)];
   
@@ -55,6 +63,9 @@ function selectMinigamesForSession(chaosLevel, minigamesConfig) {
     
     // Select from appropriate pool
     const pool = useAbsurd && phaseConfig.absurd ? phaseConfig.absurd : phaseConfig.normal;
+    if (!pool || pool.length === 0) {
+      throw new Error(`Empty minigame pool for phase: ${phase}`);
+    }
     const minigame = pool[Math.floor(Math.random() * pool.length)];
     
     selections.push({ phase, minigame });

@@ -288,6 +288,10 @@ class PhaseSelectScene extends Phaser.Scene {
     );
     placeholder.setOrigin(0.5);
   }
+
+  shutdown() {
+    this.tweens.killAll();
+  }
 }
 
 // Make PhaseSelectScene available globally
