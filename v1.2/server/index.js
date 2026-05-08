@@ -73,50 +73,60 @@ function createApp(options = {}) {
     
     // Handle phase changes (host only)
     socket.on('set-phase', (newPhase) => {
-      // Check if socket is in host room
-      if (!socket.rooms.has('host')) {
-        socket.emit('error', { message: 'Only host can change phases.' });
-        return;
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can change phases.' });
+          return;
+        }
+        
+        // Validate phase
+        if (typeof newPhase !== 'string' || !PHASES.includes(newPhase)) {
+          socket.emit('error', { message: `Invalid phase: ${newPhase}. Valid phases: ${PHASES.join(', ')}` });
+          return;
+        }
+        
+        // Get current phase
+        const currentPhase = db.getState('phase');
+        
+        // Validate transition
+        const allowedTransitions = PHASE_TRANSITIONS[currentPhase] || [];
+        if (!allowedTransitions.includes(newPhase)) {
+          socket.emit('error', { 
+            message: `Invalid transition from ${currentPhase} to ${newPhase}. Allowed: ${allowedTransitions.join(', ')}` 
+          });
+          return;
+        }
+        
+        // Update phase
+        db.setState('phase', newPhase);
+        console.log(`Phase changed: ${currentPhase} → ${newPhase}`);
+        
+        // Log event
+        db.logEvent('phase-changed', { from: currentPhase, to: newPhase });
+        
+        // Broadcast to all clients
+        io.emit('phase-changed', { phase: newPhase, previousPhase: currentPhase });
+      } catch (err) {
+        console.error('Failed to change phase:', err);
+        socket.emit('error', { message: 'Server error. Please try again.' });
       }
-      
-      // Validate phase
-      if (!PHASES.includes(newPhase)) {
-        socket.emit('error', { message: `Invalid phase: ${newPhase}. Valid phases: ${PHASES.join(', ')}` });
-        return;
-      }
-      
-      // Get current phase
-      const currentPhase = db.getState('phase');
-      
-      // Validate transition
-      const allowedTransitions = PHASE_TRANSITIONS[currentPhase] || [];
-      if (!allowedTransitions.includes(newPhase)) {
-        socket.emit('error', { 
-          message: `Invalid transition from ${currentPhase} to ${newPhase}. Allowed: ${allowedTransitions.join(', ')}` 
-        });
-        return;
-      }
-      
-      // Update phase
-      db.setState('phase', newPhase);
-      console.log(`Phase changed: ${currentPhase} → ${newPhase}`);
-      
-      // Log event
-      db.logEvent('phase-changed', { from: currentPhase, to: newPhase });
-      
-      // Broadcast to all clients
-      io.emit('phase-changed', { phase: newPhase, previousPhase: currentPhase });
     });
     
     // Handle state requests
     socket.on('get-state', () => {
-      const phase = db.getState('phase');
-      const teams = db.getTeams();
-      
-      socket.emit('state', {
-        phase,
-        teams
-      });
+      try {
+        const phase = db.getState('phase');
+        const teams = db.getTeams();
+        
+        socket.emit('state', {
+          phase,
+          teams
+        });
+      } catch (err) {
+        console.error('Failed to get state:', err);
+        socket.emit('error', { message: 'Server error retrieving state.' });
+      }
     });
     
     // Handle disconnection
