@@ -38,7 +38,7 @@ function getSlideQuestion(index) {
     return null;
   }
   
-  return questionsData.slides[index];
+  return { ...questionsData.slides[index] };
 }
 
 /**
@@ -62,7 +62,7 @@ function getJeopardyQuestion(categoryName, value) {
   
   const question = category.questions.find(q => q.value === value);
   
-  return question || null;
+  return question ? { ...question } : null;
 }
 
 /**

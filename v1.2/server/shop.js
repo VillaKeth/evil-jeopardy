@@ -53,7 +53,7 @@ function findItem(shopData, itemKey) {
  * @param {object} shopData - Shop data object
  * @returns {Promise<object>} Purchase result with success, newBalance, or purchaseId/warning
  */
-async function purchaseItem(db, teamId, itemKey, shopData) {
+function purchaseItem(db, teamId, itemKey, shopData) {
   const item = findItem(shopData, itemKey);
   if (!item) {
     throw new Error(`Item not found: ${itemKey}`);
@@ -65,13 +65,15 @@ async function purchaseItem(db, teamId, itemKey, shopData) {
   }
 
   if (canAfford(team.money, item.price)) {
-    // Affordable: deduct balance and record purchase
-    const newBalance = team.money - item.price;
-    db.prepare('UPDATE teams SET money = ? WHERE id = ?').run(newBalance, teamId);
-    db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, 1)')
-      .run(teamId, itemKey, item.category, item.price);
-    
-    return { success: true, newBalance };
+    // Affordable: deduct balance and record purchase atomically
+    const executePurchase = db.transaction(() => {
+      const newBalance = team.money - item.price;
+      db.prepare('UPDATE teams SET money = ? WHERE id = ?').run(newBalance, teamId);
+      db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, 1)')
+        .run(teamId, itemKey, item.category, item.price);
+      return { success: true, newBalance };
+    });
+    return executePurchase();
   } else {
     // Not affordable: create pending purchase
     const result = db.prepare('INSERT INTO pending_purchases (team_id, item_key, amount, status) VALUES (?, ?, ?, ?) RETURNING id')
@@ -92,10 +94,14 @@ async function purchaseItem(db, teamId, itemKey, shopData) {
  * @param {object} shopData - Shop data object
  * @returns {Promise<object>} Result with success and newBalance
  */
-async function forceApprove(db, purchaseId, shopData) {
+function forceApprove(db, purchaseId, shopData) {
   const pending = db.prepare('SELECT * FROM pending_purchases WHERE id = ?').get(purchaseId);
   if (!pending) {
     throw new Error(`Pending purchase not found: ${purchaseId}`);
+  }
+
+  if (pending.status !== 'pending') {
+    throw new Error(`Purchase ${purchaseId} has already been ${pending.status}`);
   }
 
   const team = db.prepare('SELECT money FROM teams WHERE id = ?').get(pending.team_id);
@@ -108,18 +114,16 @@ async function forceApprove(db, purchaseId, shopData) {
     throw new Error(`Item not found: ${pending.item_key}`);
   }
 
-  // Deduct balance (allow negative)
-  const newBalance = team.money - pending.amount;
-  db.prepare('UPDATE teams SET money = ? WHERE id = ?').run(newBalance, pending.team_id);
-
-  // Record purchase
-  db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, 1)')
-    .run(pending.team_id, pending.item_key, item.category, pending.amount);
-
-  // Update pending status
-  db.prepare('UPDATE pending_purchases SET status = ? WHERE id = ?').run('approved', purchaseId);
-
-  return { success: true, newBalance };
+  // Atomically: deduct balance (allow negative), record purchase, update pending status
+  const executeApproval = db.transaction(() => {
+    const newBalance = team.money - pending.amount;
+    db.prepare('UPDATE teams SET money = ? WHERE id = ?').run(newBalance, pending.team_id);
+    db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, 1)')
+      .run(pending.team_id, pending.item_key, item.category, pending.amount);
+    db.prepare('UPDATE pending_purchases SET status = ? WHERE id = ?').run('approved', purchaseId);
+    return { success: true, newBalance };
+  });
+  return executeApproval();
 }
 
 /**
