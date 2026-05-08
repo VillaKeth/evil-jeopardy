@@ -9,6 +9,12 @@ const sharp = require('sharp');
  * @returns {string} Generated prompt text
  */
 function buildPrompt(cakeType, scores, ingredients = [], chaosEvents = []) {
+  if (!scores || typeof scores.total !== 'number') {
+    return `Generic cake attempt, ${cakeType || 'unknown'} flavor`;
+  }
+  if (!Array.isArray(ingredients)) ingredients = [];
+  if (!Array.isArray(chaosEvents)) chaosEvents = [];
+
   let basePrompt = '';
   const total = scores.total;
 
@@ -37,7 +43,7 @@ function buildPrompt(cakeType, scores, ingredients = [], chaosEvents = []) {
 
   // Append chaos events
   if (chaosEvents.length > 0) {
-    const eventDescriptions = chaosEvents.map(e => e.description).join(', ');
+    const eventDescriptions = chaosEvents.map(e => e?.description || '').filter(Boolean).join(', ');
     basePrompt += `. Chaos events: ${eventDescriptions}`;
   }
 
@@ -50,9 +56,13 @@ function buildPrompt(cakeType, scores, ingredients = [], chaosEvents = []) {
  * @returns {Promise<Buffer|null>} Image buffer or null on failure
  */
 async function generateCakeImage(prompt) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+    if (!process.env.HF_API_TOKEN) {
+      console.error('HF_API_TOKEN environment variable is not set');
+      return null;
+    }
 
     const response = await fetch('https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell', {
       method: 'POST',
@@ -64,8 +74,6 @@ async function generateCakeImage(prompt) {
       signal: controller.signal
     });
 
-    clearTimeout(timeout);
-
     if (!response.ok) {
       console.error(`HuggingFace API error: ${response.status}`);
       return null;
@@ -76,6 +84,8 @@ async function generateCakeImage(prompt) {
   } catch (error) {
     console.error('Error generating cake image:', error.message);
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -155,6 +165,9 @@ function getScoreTier(totalScore) {
  * @returns {Promise<Array<Buffer|null>>} Array of image buffers or nulls
  */
 async function generateGallery(cakeType, scores, ingredients = [], events = [], count = 4) {
+  if (!scores || typeof scores.total !== 'number') {
+    return Array(count).fill(null);
+  }
   const results = [];
   const scoreTier = getScoreTier(scores.total);
 

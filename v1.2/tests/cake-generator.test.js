@@ -69,6 +69,7 @@ describe('Cake Generator', () => {
 
     afterEach(() => {
       global.fetch = originalFetch;
+      delete process.env.HF_API_TOKEN;
     });
 
     it('calls HuggingFace API with correct payload', async () => {
@@ -79,6 +80,7 @@ describe('Cake Generator', () => {
       };
       
       global.fetch = mock.fn(async () => mockResponse);
+      process.env.HF_API_TOKEN = 'test-token';
 
       const prompt = 'Test cake prompt';
       const result = await generateCakeImage(prompt);
@@ -170,10 +172,12 @@ describe('Cake Generator', () => {
 
     beforeEach(() => {
       originalFetch = global.fetch;
+      process.env.HF_API_TOKEN = 'test-token';
     });
 
     afterEach(() => {
       global.fetch = originalFetch;
+      delete process.env.HF_API_TOKEN;
     });
 
     it('returns array of correct length', async () => {

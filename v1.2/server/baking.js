@@ -84,6 +84,8 @@ function getTeamExtraTime(db, teamId) {
  * @returns {object} {taste, accuracy, creativity, total}
  */
 function calculateVirtualCakeScores(db, teamId, inventory) {
+  if (!Array.isArray(inventory)) inventory = [];
+  
   // Get phase scores
   const phaseScores = getPhaseScores(db, teamId);
   const scoreMap = {};

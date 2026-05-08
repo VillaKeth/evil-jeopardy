@@ -299,14 +299,17 @@ function createApp(options = {}) {
           return;
         }
         
-        if (bakingTimerInterval) {
-          clearInterval(bakingTimerInterval);
-          bakingTimerInterval = null;
-          console.log('Baking timer paused');
-          
-          const timeRemaining = getTimeRemaining(db.db);
-          io.emit('baking:paused', { timeRemaining });
+        if (!bakingTimerInterval) {
+          socket.emit('error', { message: 'Timer is not currently running.' });
+          return;
         }
+        
+        clearInterval(bakingTimerInterval);
+        bakingTimerInterval = null;
+        console.log('Baking timer paused');
+        
+        const timeRemaining = getTimeRemaining(db.db);
+        io.emit('baking:paused', { timeRemaining });
       } catch (err) {
         console.error('Failed to pause baking timer:', err);
         socket.emit('error', { message: 'Server error pausing baking timer.' });
@@ -381,8 +384,13 @@ function createApp(options = {}) {
           return;
         }
         
+        // Validate details is string or null
+        const safeDetails = (details != null && typeof details !== 'string') 
+          ? JSON.stringify(details) 
+          : details || null;
+        
         // Record phase completion
-        completePhase(db.db, teamId, phase, score, details);
+        completePhase(db.db, teamId, phase, score, safeDetails);
         console.log(`Phase completed: team ${teamId}, phase ${phase}, score ${score}`);
         
         // Get updated phase scores for this team
