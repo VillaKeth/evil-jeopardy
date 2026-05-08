@@ -133,6 +133,103 @@ function getSlideCount() {
   return questionsData.slides.length;
 }
 
+/**
+ * Find a question by ID (searches both slides and jeopardy)
+ * @param {string} questionId - Question ID to look up
+ * @returns {object|null} - Question object or null
+ */
+function findQuestionById(questionId) {
+  if (!questionsData) {
+    return null;
+  }
+
+  // Search in slides
+  if (questionsData.slides) {
+    const slide = questionsData.slides.find(s => s.id === questionId);
+    if (slide) {
+      return slide;
+    }
+  }
+
+  // Search in jeopardy categories
+  if (questionsData.jeopardy && questionsData.jeopardy.categories) {
+    for (const category of questionsData.jeopardy.categories) {
+      const question = category.questions.find(q => q.id === questionId);
+      if (question) {
+        return question;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Score an answer for a team
+ * @param {object} db - Database instance (better-sqlite3)
+ * @param {number} teamId - Team ID
+ * @param {string} questionId - Question ID
+ * @param {boolean} correct - Whether the answer was correct
+ */
+function scoreAnswer(db, teamId, questionId, correct) {
+  const question = findQuestionById(questionId);
+  
+  if (!question) {
+    throw new Error(`Question ${questionId} not found`);
+  }
+
+  const value = question.value;
+  const change = correct ? value : -value;
+
+  // Update team money
+  const stmt = db.prepare('UPDATE teams SET money = money + ? WHERE id = ?');
+  stmt.run(change, teamId);
+
+  // If bonus question with ingredient award and correct answer, award the ingredient
+  if (correct && question.awardType === 'ingredient' && question.awardItem) {
+    awardIngredient(db, teamId, question.awardItem);
+  }
+}
+
+/**
+ * Award an ingredient to a team (free item from bonus question)
+ * @param {object} db - Database instance (better-sqlite3)
+ * @param {number} teamId - Team ID
+ * @param {string} itemKey - Item key (e.g., 'eggs-premium')
+ */
+function awardIngredient(db, teamId, itemKey) {
+  const stmt = db.prepare(
+    'INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)'
+  );
+  stmt.run(teamId, itemKey, 'ingredient', 0, 1);
+}
+
+/**
+ * Get list of teams that must answer (forced answer evil rule)
+ * @param {object} db - Database instance (better-sqlite3)
+ * @param {string} questionId - Question ID (for future use)
+ * @param {number|null} buzzedTeamId - Team that buzzed and answered correctly (to exclude)
+ * @returns {array} - Array of team IDs that must answer
+ */
+function forceAllAnswer(db, questionId, buzzedTeamId) {
+  const stmt = db.prepare('SELECT id FROM teams ORDER BY id');
+  const teams = stmt.all();
+  
+  return teams
+    .map(t => t.id)
+    .filter(id => id !== buzzedTeamId);
+}
+
+/**
+ * Get the scoreboard (all teams sorted by money)
+ * @param {object} db - Database instance (better-sqlite3)
+ * @returns {array} - Array of {id, name, money} sorted by money descending
+ */
+function getScoreboard(db) {
+  const stmt = db.prepare('SELECT id, name, money FROM teams ORDER BY money DESC');
+  return stmt.all();
+}
+
 module.exports = {
   loadQuestions,
   getSlideQuestion,
@@ -142,5 +239,9 @@ module.exports = {
   getBoard,
   resetAnswered,
   getAllSlides,
-  getSlideCount
+  getSlideCount,
+  scoreAnswer,
+  awardIngredient,
+  forceAllAnswer,
+  getScoreboard
 };

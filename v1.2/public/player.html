@@ -125,18 +125,10 @@
       </div>
     </section>
 
-    <!-- BAKING PHASE (placeholder) -->
+    <!-- BAKING PHASE -->
     <section id="baking-section" class="phase-section">
-      <div class="card">
-        <div class="card-header text-center">
-          <h2>Baking Phase</h2>
-        </div>
-        <div class="card-body">
-          <p class="text-muted text-center">
-            Baking interface will be added in later tasks...
-          </p>
-        </div>
-      </div>
+      <!-- Phaser Game Container -->
+      <div id="phaser-container" style="display: none; width: 100%; max-width: 1024px; margin: 0 auto;"></div>
     </section>
 
     <!-- JUDGING PHASE (placeholder) -->
@@ -171,6 +163,16 @@
 
   <!-- Socket.io client -->
   <script src="/socket.io/socket.io.js"></script>
+  
+  <!-- Phaser 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  
+  <!-- Phaser Game Scripts -->
+  <script src="/js/phaser-game/config.js"></script>
+  <script src="/js/phaser-game/HUDScene.js"></script>
+  <script src="/js/phaser-game/PhaseSelectScene.js"></script>
+  
+  <!-- Player Client -->
   <script src="/js/player.js"></script>
 </body>
 </html>
