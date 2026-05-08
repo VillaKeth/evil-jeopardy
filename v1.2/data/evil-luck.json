@@ -1,0 +1,18 @@
+{
+  "chaosTiers": {
+    "good": { "minMoneyPercent": 50, "absurdChance": 0.10, "eventChance": 0.12 },
+    "medium": { "minMoneyPercent": 0, "absurdChance": 0.40, "eventChance": 0.25 },
+    "bad": { "minMoneyPercent": -999999, "absurdChance": 0.60, "eventChance": 0.40 }
+  },
+  "events": [
+    { "key": "spill", "name": "Ingredient Spill!", "description": "You knocked over the flour!", "scorePenalty": 0.15, "phase": ["prep", "mix"] },
+    { "key": "oven-spike", "name": "Oven Malfunction!", "description": "Temperature spiked to 500°F!", "scorePenalty": 0.20, "phase": ["bake"] },
+    { "key": "mixer-break", "name": "Mixer Broke!", "description": "The mixer just exploded!", "scorePenalty": 0.25, "phase": ["mix"] },
+    { "key": "frosting-melt", "name": "Frosting Melted!", "description": "Your frosting is a puddle.", "scorePenalty": 0.20, "phase": ["decorate"] },
+    { "key": "cake-crack", "name": "Cake Cracked!", "description": "A massive crack down the middle.", "scorePenalty": 0.30, "phase": ["cool"] },
+    { "key": "gravity", "name": "Gravity Betrayal!", "description": "Everything is sliding off the cake.", "scorePenalty": 0.15, "phase": ["decorate", "present"] },
+    { "key": "trip", "name": "TRIP!", "description": "You tripped carrying the cake!", "scorePenalty": 0.40, "phase": ["present"] },
+    { "key": "power-out", "name": "Power Outage!", "description": "The lights went out for 10 seconds.", "scorePenalty": 0.10, "phase": ["bake", "mix"] },
+    { "key": "catastrophe", "name": "CATASTROPHIC FAILURE", "description": "Everything went wrong at once.", "scorePenalty": 0.80, "phase": ["any"] }
+  ]
+}
