@@ -227,12 +227,11 @@ async function getFallbackImage(scoreTier) {
     // Random slight hue shift (±10 degrees)
     const hueShift = Math.floor(Math.random() * 20) - 10;
     
-    // Random slight rotation (±5 degrees)
-    const rotation = Math.floor(Math.random() * 10) - 5;
+    // Random slight saturation shift (0.9 to 1.1)
+    const saturationShift = 0.9 + Math.random() * 0.2;
     
     pipeline = pipeline
-      .modulate({ hue: hueShift })
-      .rotate(rotation, { background: { r: 255, g: 255, b: 255 } });
+      .modulate({ hue: hueShift, saturation: saturationShift });
     
     return await pipeline.toBuffer();
   } catch (error) {
