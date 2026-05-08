@@ -179,11 +179,18 @@ function scoreAnswer(db, teamId, questionId, correct) {
   }
 
   const value = question.value;
+  if (typeof value !== 'number' || isNaN(value)) {
+    throw new Error(`Question ${questionId} has invalid value: ${value}`);
+  }
+
   const change = correct ? value : -value;
 
   // Update team money
   const stmt = db.prepare('UPDATE teams SET money = money + ? WHERE id = ?');
-  stmt.run(change, teamId);
+  const result = stmt.run(change, teamId);
+  if (result.changes === 0) {
+    throw new Error(`Team ${teamId} not found`);
+  }
 
   // If bonus question with ingredient award and correct answer, award the ingredient
   if (correct && question.awardType === 'ingredient' && question.awardItem) {
@@ -198,6 +205,10 @@ function scoreAnswer(db, teamId, questionId, correct) {
  * @param {string} itemKey - Item key (e.g., 'eggs-premium')
  */
 function awardIngredient(db, teamId, itemKey) {
+  const teamExists = db.prepare('SELECT 1 FROM teams WHERE id = ?').get(teamId);
+  if (!teamExists) {
+    throw new Error(`Team ${teamId} not found`);
+  }
   const stmt = db.prepare(
     'INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)'
   );
