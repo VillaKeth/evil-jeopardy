@@ -431,3 +431,220 @@ h3 { font-size: 1.25rem; }
 .w-full {
   width: 100%;
 }
+
+/* ===== TRIVIA UI ===== */
+.trivia-mode-section {
+  display: none;
+}
+
+.trivia-mode-section.active {
+  display: block;
+}
+
+.question-display {
+  background-color: var(--bg-tertiary);
+  border: 2px solid var(--border-default);
+  border-radius: 8px;
+  padding: var(--spacing-xl);
+  min-height: 150px;
+  font-size: 1.5rem;
+  line-height: 1.6;
+}
+
+.media-area {
+  margin-top: var(--spacing-lg);
+  text-align: center;
+}
+
+.media-area img {
+  max-width: 100%;
+  max-height: 400px;
+  border-radius: 8px;
+}
+
+.media-area video,
+.media-area audio {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Team Answer Controls */
+.team-answers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.team-answer-item {
+  background-color: var(--bg-tertiary);
+  border: 2px solid var(--border-default);
+  border-radius: 8px;
+  padding: var(--spacing-lg);
+}
+
+.team-answer-item.must-answer {
+  border-color: var(--color-trivia);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { border-color: var(--color-trivia); }
+  50% { border-color: transparent; }
+}
+
+.team-answer-item.buzzed {
+  border-color: var(--color-shop);
+  background-color: rgba(121, 192, 255, 0.1);
+}
+
+.team-answer-header {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.team-answer-money {
+  color: var(--color-results);
+  font-size: 1rem;
+}
+
+.team-answer-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.btn-correct {
+  background-color: var(--success);
+  color: white;
+  flex: 1;
+}
+
+.btn-wrong {
+  background-color: var(--error);
+  color: white;
+  flex: 1;
+}
+
+.team-answer-status {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border-radius: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.team-answer-status.answered-correct {
+  background-color: rgba(35, 134, 54, 0.2);
+  color: var(--color-results);
+}
+
+.team-answer-status.answered-wrong {
+  background-color: rgba(218, 54, 51, 0.2);
+  color: #ff7b72;
+}
+
+/* Jeopardy Board */
+.jeopardy-board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.jeopardy-category {
+  background-color: var(--color-trivia);
+  color: var(--bg-primary);
+  padding: var(--spacing-md);
+  border-radius: 6px;
+  font-weight: 700;
+  text-align: center;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+}
+
+.jeopardy-cell {
+  background-color: var(--bg-tertiary);
+  border: 2px solid var(--border-default);
+  border-radius: 6px;
+  padding: var(--spacing-lg);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-shop);
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jeopardy-cell:hover:not(.answered) {
+  background-color: var(--bg-secondary);
+  border-color: var(--color-trivia);
+  transform: scale(1.05);
+}
+
+.jeopardy-cell.answered {
+  opacity: 0.3;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+/* Buzz Notification */
+.buzz-notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--color-shop);
+  color: var(--bg-primary);
+  padding: var(--spacing-xl) var(--spacing-2xl);
+  border-radius: 12px;
+  font-size: 2rem;
+  font-weight: 700;
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: buzzIn 0.3s ease-out;
+}
+
+@keyframes buzzIn {
+  from {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Jeopardy Board */
+@media (max-width: 1024px) {
+  .jeopardy-board {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .jeopardy-cell {
+    font-size: 1.25rem;
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .jeopardy-board {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .question-display {
+    font-size: 1.125rem;
+    padding: var(--spacing-lg);
+  }
+  
+  .team-answers {
+    grid-template-columns: 1fr;
+  }
+}

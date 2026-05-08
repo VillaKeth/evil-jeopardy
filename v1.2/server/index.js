@@ -4,6 +4,21 @@ const { Server } = require('socket.io');
 const path = require('path');
 const { initDb } = require('./db');
 const { startBaking, getTimeRemaining, completePhase, getPhaseScores, getTeamExtraTime, calculateVirtualCakeScores } = require('./baking');
+const { 
+  loadQuestions, 
+  getSlideQuestion, 
+  getJeopardyQuestion, 
+  markAnswered, 
+  isAnswered, 
+  getBoard, 
+  resetAnswered, 
+  getAllSlides, 
+  getSlideCount, 
+  scoreAnswer, 
+  awardIngredient, 
+  forceAllAnswer, 
+  getScoreboard 
+} = require('./trivia');
 
 // Valid phase transitions
 const PHASES = ['LOBBY', 'TRIVIA', 'SHOP', 'BAKING', 'JUDGING', 'RESULTS'];
@@ -33,6 +48,15 @@ function createApp(options = {}) {
   // Initialize phase if not set
   if (!db.getState('phase')) {
     db.setState('phase', 'LOBBY');
+  }
+  
+  // Load trivia questions
+  const questionsPath = path.join(__dirname, '../data/questions.json');
+  try {
+    loadQuestions(questionsPath);
+    console.log('Trivia questions loaded successfully');
+  } catch (error) {
+    console.error('Failed to load trivia questions:', error.message);
   }
   
   // Create Express app
@@ -411,6 +435,252 @@ function createApp(options = {}) {
     });
     
     // ===== END BAKING HANDLERS =====
+    
+    // ===== TRIVIA HANDLERS =====
+    
+    // Handle next slide (host only)
+    socket.on('trivia:next-slide', () => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can advance slides.' });
+          return;
+        }
+        
+        // Get current slide index from state (default to -1 so first call loads index 0)
+        const currentIndex = parseInt(db.getState('currentSlideIndex') || '-1', 10);
+        const nextIndex = currentIndex + 1;
+        
+        // Get the question
+        const question = getSlideQuestion(nextIndex);
+        
+        if (!question) {
+          socket.emit('error', { message: 'No more questions available.' });
+          return;
+        }
+        
+        // Update state
+        db.setState('currentSlideIndex', nextIndex.toString());
+        db.setState('currentQuestionId', question.id);
+        
+        console.log(`Slide advanced to index ${nextIndex}: ${question.id}`);
+        
+        // Broadcast question to all clients
+        io.emit('trivia:question-shown', {
+          question,
+          mode: 'SLIDE'
+        });
+        
+      } catch (err) {
+        console.error('Failed to advance slide:', err);
+        socket.emit('error', { message: 'Server error advancing slide.' });
+      }
+    });
+    
+    // Handle select jeopardy question (host only)
+    socket.on('trivia:select-jeopardy', (data) => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can select jeopardy questions.' });
+          return;
+        }
+        
+        const { category, value } = data;
+        
+        if (!category || typeof value !== 'number') {
+          socket.emit('error', { message: 'Invalid category or value.' });
+          return;
+        }
+        
+        // Get the question
+        const question = getJeopardyQuestion(category, value);
+        
+        if (!question) {
+          socket.emit('error', { message: 'Question not found.' });
+          return;
+        }
+        
+        // Check if already answered
+        if (isAnswered(question.id)) {
+          socket.emit('error', { message: 'This question has already been answered.' });
+          return;
+        }
+        
+        // Mark as answered
+        markAnswered(question.id);
+        
+        // Store current question ID
+        db.setState('currentQuestionId', question.id);
+        
+        console.log(`Jeopardy question selected: ${category} - $${value}`);
+        
+        // Broadcast question to all clients
+        io.emit('trivia:question-shown', {
+          question,
+          mode: 'JEOPARDY'
+        });
+        
+        // Broadcast updated board state
+        io.emit('trivia:board-state', getBoard());
+        
+      } catch (err) {
+        console.error('Failed to select jeopardy question:', err);
+        socket.emit('error', { message: 'Server error selecting question.' });
+      }
+    });
+    
+    // Handle score answer (host only)
+    socket.on('trivia:score-answer', (data) => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can score answers.' });
+          return;
+        }
+        
+        const { teamId, questionId, correct } = data;
+        
+        if (typeof teamId !== 'number' || !questionId || typeof correct !== 'boolean') {
+          socket.emit('error', { message: 'Invalid score data.' });
+          return;
+        }
+        
+        // Score the answer
+        scoreAnswer(db.db, teamId, questionId, correct);
+        
+        console.log(`Answer scored: Team ${teamId}, Question ${questionId}, Correct: ${correct}`);
+        
+        // Get updated team balance
+        const team = db.db.prepare('SELECT id, name, money FROM teams WHERE id = ?').get(teamId);
+        
+        // Broadcast result
+        io.emit('trivia:answer-result', {
+          teamId,
+          correct,
+          newBalance: team.money
+        });
+        
+        // Broadcast updated scoreboard
+        io.emit('trivia:scores-updated', getScoreboard(db.db));
+        
+      } catch (err) {
+        console.error('Failed to score answer:', err);
+        socket.emit('error', { message: err.message || 'Server error scoring answer.' });
+      }
+    });
+    
+    // Handle force all answer (host only)
+    socket.on('trivia:force-answer', () => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can force answers.' });
+          return;
+        }
+        
+        const currentQuestionId = db.getState('currentQuestionId');
+        
+        if (!currentQuestionId) {
+          socket.emit('error', { message: 'No active question.' });
+          return;
+        }
+        
+        // Get list of teams that must answer (all teams)
+        const teamIds = forceAllAnswer(db.db, currentQuestionId, null);
+        
+        console.log('Force all answer triggered for teams:', teamIds);
+        
+        // Broadcast to all clients
+        io.emit('trivia:force-answer-required', { teamIds });
+        
+      } catch (err) {
+        console.error('Failed to force answer:', err);
+        socket.emit('error', { message: 'Server error forcing answer.' });
+      }
+    });
+    
+    // Handle mode switch (host only)
+    socket.on('trivia:switch-mode', (data) => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can switch modes.' });
+          return;
+        }
+        
+        const { mode } = data;
+        
+        if (!mode || !['SLIDE', 'JEOPARDY'].includes(mode)) {
+          socket.emit('error', { message: 'Invalid mode. Must be SLIDE or JEOPARDY.' });
+          return;
+        }
+        
+        // Store mode in state
+        db.setState('triviaMode', mode);
+        
+        console.log('Trivia mode changed to:', mode);
+        
+        // Broadcast mode change
+        io.emit('trivia:mode-changed', { mode });
+        
+      } catch (err) {
+        console.error('Failed to switch mode:', err);
+        socket.emit('error', { message: 'Server error switching mode.' });
+      }
+    });
+    
+    // Handle get board (host only)
+    socket.on('trivia:get-board', () => {
+      try {
+        // Check if socket is in host room
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can request board.' });
+          return;
+        }
+        
+        // Send board state to requester
+        socket.emit('trivia:board-state', getBoard());
+        
+      } catch (err) {
+        console.error('Failed to get board:', err);
+        socket.emit('error', { message: 'Server error getting board.' });
+      }
+    });
+    
+    // Handle buzz (from any client)
+    socket.on('trivia:buzz', (data) => {
+      try {
+        const { teamId } = data;
+        
+        if (typeof teamId !== 'number') {
+          socket.emit('error', { message: 'Invalid team ID.' });
+          return;
+        }
+        
+        // Get team info
+        const team = db.db.prepare('SELECT id, name FROM teams WHERE id = ?').get(teamId);
+        
+        if (!team) {
+          socket.emit('error', { message: 'Team not found.' });
+          return;
+        }
+        
+        console.log(`Buzz received from team ${teamId}: ${team.name}`);
+        
+        // Broadcast buzz to all clients
+        io.emit('trivia:buzz-received', {
+          teamId: team.id,
+          teamName: team.name
+        });
+        
+      } catch (err) {
+        console.error('Failed to handle buzz:', err);
+        socket.emit('error', { message: 'Server error handling buzz.' });
+      }
+    });
+    
+    // ===== END TRIVIA HANDLERS =====
     
     // Handle disconnection
     socket.on('disconnect', () => {

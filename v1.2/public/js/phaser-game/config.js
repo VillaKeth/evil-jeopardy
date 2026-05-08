@@ -65,6 +65,11 @@ window.initGame = function(socket, inventory, cakeGoal, evilLuckConfig) {
   // Register phase select scene (used for transitions)
   gameInstance.scene.add('PhaseSelectScene', PhaseSelectScene, false);
   
+  // Register minigame scenes
+  if (window.PrepScene) {
+    gameInstance.scene.add('PrepScene', PrepScene, false);
+  }
+  
   console.log('Phaser game initialized with context:', {
     inventoryCount: inventory?.length || 0,
     cakeGoal: cakeGoal,

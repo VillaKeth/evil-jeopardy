@@ -74,15 +74,114 @@
       </div>
     </section>
 
-    <!-- TRIVIA PHASE (placeholder) -->
+    <!-- TRIVIA PHASE -->
     <section id="trivia-section" class="phase-section">
+      <!-- Scoreboard -->
       <div class="card">
         <div class="card-header">
-          <h2>Trivia Phase</h2>
+          <h2>Live Scoreboard</h2>
         </div>
         <div class="card-body">
-          <p class="text-muted">Trivia controls will be added in Task 4...</p>
+          <div id="trivia-scoreboard" class="scoreboard">
+            <div class="text-muted text-center">Loading teams...</div>
+          </div>
         </div>
+      </div>
+
+      <!-- Mode Toggle -->
+      <div class="card">
+        <div class="card-header flex flex-between">
+          <h2>Trivia Mode: <span id="trivia-current-mode">SLIDE</span></h2>
+          <button class="btn btn-secondary" id="trivia-mode-toggle">
+            Switch to Jeopardy Mode
+          </button>
+        </div>
+      </div>
+
+      <!-- Slide Mode -->
+      <div id="slide-mode-section" class="trivia-mode-section active">
+        <div class="card">
+          <div class="card-header">
+            <h2>Current Question</h2>
+          </div>
+          <div class="card-body">
+            <div id="slide-question-display" class="question-display">
+              <p class="text-muted text-center">Click "Next Question" to start</p>
+            </div>
+            <div id="slide-media-area" class="media-area hidden">
+              <!-- Media will be displayed here -->
+            </div>
+            <div class="mt-3 text-center">
+              <button class="btn btn-primary btn-large" id="next-slide-btn">
+                Next Question
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Answer Controls -->
+        <div class="card">
+          <div class="card-header flex flex-between">
+            <h2>Team Answers</h2>
+            <button class="btn btn-danger" id="force-answer-btn">
+              Force All Answer
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="slide-team-answers" class="team-answers">
+              <p class="text-muted text-center">No teams to display</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jeopardy Mode -->
+      <div id="jeopardy-mode-section" class="trivia-mode-section">
+        <div class="card">
+          <div class="card-header">
+            <h2>Jeopardy Board</h2>
+          </div>
+          <div class="card-body">
+            <div id="jeopardy-board" class="jeopardy-board">
+              <p class="text-muted text-center">Loading board...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Current Question Display -->
+        <div class="card" id="jeopardy-question-card" style="display: none;">
+          <div class="card-header">
+            <h2>Current Question</h2>
+          </div>
+          <div class="card-body">
+            <div id="jeopardy-question-display" class="question-display">
+              <!-- Question will be displayed here -->
+            </div>
+            <div id="jeopardy-media-area" class="media-area hidden">
+              <!-- Media will be displayed here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Answer Controls for Jeopardy -->
+        <div class="card" id="jeopardy-answers-card" style="display: none;">
+          <div class="card-header flex flex-between">
+            <h2>Team Answers</h2>
+            <button class="btn btn-danger" id="force-answer-jeopardy-btn">
+              Force All Answer
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="jeopardy-team-answers" class="team-answers">
+              <p class="text-muted text-center">No teams to display</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buzz Notifications -->
+      <div id="buzz-notification" class="buzz-notification hidden">
+        <span id="buzz-team-name"></span> buzzed in!
       </div>
     </section>
 

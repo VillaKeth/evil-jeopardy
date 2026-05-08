@@ -254,12 +254,19 @@ class PhaseSelectScene extends Phaser.Scene {
     // Update registry with current phase
     this.registry.set('currentPhase', this.phaseData.phaseName);
     
+    // Get data from registry for minigame
+    const inventory = this.registry.get('inventory') || [];
+    const socket = this.registry.get('socket');
+    
     // If minigame scene is specified and exists, launch it
     if (this.phaseData.minigame && this.scene.get(this.phaseData.minigame)) {
       // Stop this scene and start the minigame
       this.scene.start(this.phaseData.minigame, {
         phaseName: this.phaseData.phaseName,
-        isEvil: this.phaseData.isEvil
+        isEvil: this.phaseData.isEvil,
+        inventory: inventory,
+        boosts: this.phaseData.boosts || {},
+        teamId: this.phaseData.teamId || 'unknown-team'
       });
     } else {
       // No minigame specified or scene not found - just stop this scene

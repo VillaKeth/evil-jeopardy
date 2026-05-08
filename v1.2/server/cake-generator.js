@@ -1,4 +1,7 @@
 const sharp = require('sharp');
+const path = require('path');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 
 /**
  * Build a prompt for cake image generation based on score tier
@@ -194,9 +197,97 @@ async function generateGallery(cakeType, scores, ingredients = [], events = [], 
   return results;
 }
 
+/**
+ * Get a random fallback image for the given score tier
+ * @param {string} scoreTier - Tier: 'good', 'medium', 'bad', or 'catastrophic'
+ * @returns {Promise<Buffer>} Random fallback image buffer with light post-processing
+ */
+async function getFallbackImage(scoreTier) {
+  try {
+    const fallbackDir = path.join(__dirname, '..', 'public', 'assets', 'cake-fallbacks');
+    
+    // Get all fallback images for this tier
+    const files = await fs.readdir(fallbackDir);
+    const tierFiles = files.filter(f => f.startsWith(`tier-${scoreTier}-`) && f.endsWith('.png'));
+    
+    if (tierFiles.length === 0) {
+      throw new Error(`No fallback images found for tier: ${scoreTier}`);
+    }
+    
+    // Select a random image
+    const randomFile = tierFiles[Math.floor(Math.random() * tierFiles.length)];
+    const imagePath = path.join(fallbackDir, randomFile);
+    
+    // Read the image
+    const imageBuffer = await fs.readFile(imagePath);
+    
+    // Apply light post-processing for variety
+    let pipeline = sharp(imageBuffer);
+    
+    // Random slight hue shift (±10 degrees)
+    const hueShift = Math.floor(Math.random() * 20) - 10;
+    
+    // Random slight rotation (±5 degrees)
+    const rotation = Math.floor(Math.random() * 10) - 5;
+    
+    pipeline = pipeline
+      .modulate({ hue: hueShift })
+      .rotate(rotation, { background: { r: 255, g: 255, b: 255 } });
+    
+    return await pipeline.toBuffer();
+  } catch (error) {
+    console.error('Error getting fallback image:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Generate a gallery of cake images with fallback support
+ * @param {string} cakeType - Type of cake
+ * @param {object} scores - Score object
+ * @param {string[]} ingredients - Array of ingredient names
+ * @param {object[]} events - Array of chaos events
+ * @param {number} count - Number of images to generate (default: 4)
+ * @returns {Promise<Array<Buffer>>} Array of image buffers (guaranteed non-null)
+ */
+async function generateGalleryWithFallback(cakeType, scores, ingredients = [], events = [], count = 4) {
+  if (!scores || typeof scores.total !== 'number') {
+    // If scores are invalid, return all fallbacks
+    const scoreTier = 'bad'; // default to bad for invalid scores
+    const results = [];
+    for (let i = 0; i < count; i++) {
+      const fallback = await getFallbackImage(scoreTier);
+      results.push(fallback);
+    }
+    return results;
+  }
+  
+  const scoreTier = getScoreTier(scores.total);
+  
+  // Try to generate gallery first
+  const galleryResults = await generateGallery(cakeType, scores, ingredients, events, count);
+  
+  // Replace any nulls with fallback images
+  const finalResults = [];
+  for (let i = 0; i < galleryResults.length; i++) {
+    if (galleryResults[i] === null) {
+      // Use fallback
+      const fallback = await getFallbackImage(scoreTier);
+      finalResults.push(fallback);
+    } else {
+      finalResults.push(galleryResults[i]);
+    }
+  }
+  
+  return finalResults;
+}
+
 module.exports = {
   buildPrompt,
   generateCakeImage,
   postProcessImage,
-  generateGallery
+  generateGallery,
+  getFallbackImage,
+  generateGalleryWithFallback,
+  getScoreTier
 };
