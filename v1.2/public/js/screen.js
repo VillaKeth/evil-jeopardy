@@ -9,19 +9,37 @@ const phaseText = document.getElementById('phase-text');
 const connectionStatus = document.getElementById('connection-status');
 const teamsList = document.getElementById('teams-list');
 
+// Trivia DOM elements
+const screenTriviaModeBadge = document.getElementById('screen-trivia-mode-badge');
+const screenTriviaCategory = document.getElementById('screen-trivia-category');
+const screenQuestionDisplay = document.getElementById('screen-question-display');
+const screenMediaArea = document.getElementById('screen-media-area');
+const screenTriviaStatus = document.getElementById('screen-trivia-status');
+const screenJeopardyPanel = document.getElementById('screen-jeopardy-panel');
+const screenJeopardyBoard = document.getElementById('screen-jeopardy-board');
+const screenTriviaScoreboard = document.getElementById('screen-trivia-scoreboard');
+const screenBuzzStatus = document.getElementById('screen-buzz-status');
+const screenAnswerStatus = document.getElementById('screen-answer-status');
+
 // State
 let currentPhase = 'LOBBY';
 let teams = [];
+let currentTriviaMode = 'SLIDE';
+let currentQuestion = null;
+let currentQuestionId = null;
+let currentBoard = [];
+let latestBuzz = null;
+let latestAnswerResult = null;
 
 // ===== Socket Event Handlers =====
 
 socket.on('connect', () => {
   console.log('Connected to server');
   updateConnectionStatus('Connected', 'success');
-  
+
   // Join as screen
   socket.emit('join-room', 'screen');
-  
+
   // Request current state
   socket.emit('get-state');
 });
@@ -44,34 +62,92 @@ socket.on('phase-changed', (data) => {
 socket.on('state', (data) => {
   console.log('Received state:', data);
   currentPhase = data.phase;
-  teams = data.teams || [];
-  
+  teams = normalizeTeams(data.teams || []);
+
   updatePhaseUI(data.phase);
   renderTeamsList();
+  renderTriviaScoreboard();
+  renderCurrentQuestion();
+  renderStatusPanels();
 });
 
 socket.on('teams-updated', (updatedTeams) => {
   console.log('Teams updated:', updatedTeams);
-  teams = updatedTeams;
+  teams = normalizeTeams(updatedTeams);
   renderTeamsList();
+  renderTriviaScoreboard();
 });
 
 socket.on('error', (error) => {
   console.error('Server error:', error);
 });
 
+// ===== TRIVIA EVENT HANDLERS =====
+
+socket.on('trivia:question-shown', (data) => {
+  console.log('Question shown:', data);
+  currentQuestion = data.question || null;
+  currentQuestionId = currentQuestion ? currentQuestion.id : null;
+  currentTriviaMode = data.mode || currentTriviaMode;
+  latestBuzz = null;
+  latestAnswerResult = null;
+
+  renderTriviaMode();
+  renderCurrentQuestion();
+  renderStatusPanels();
+});
+
+socket.on('trivia:scores-updated', (scoreboard) => {
+  console.log('Scores updated:', scoreboard);
+  teams = mergeTeamList(teams, scoreboard);
+  renderTriviaScoreboard();
+});
+
+socket.on('trivia:buzz-received', (data) => {
+  console.log('Buzz received:', data);
+  latestBuzz = data;
+  latestAnswerResult = null;
+  renderStatusPanels();
+});
+
+socket.on('trivia:answer-result', (data) => {
+  console.log('Answer result:', data);
+  latestAnswerResult = data;
+  latestBuzz = null;
+
+  teams = normalizeTeams(
+    teams.map((team) => team.id === data.teamId ? { ...team, money: data.newBalance } : team)
+  );
+
+  renderTriviaScoreboard();
+  renderStatusPanels();
+});
+
+socket.on('trivia:mode-changed', (data) => {
+  console.log('Mode changed:', data);
+  currentTriviaMode = data.mode || 'SLIDE';
+  renderTriviaMode();
+  renderStatusPanels();
+});
+
+socket.on('trivia:board-state', (board) => {
+  console.log('Board state:', board);
+  currentBoard = Array.isArray(board) ? board : [];
+  renderJeopardyBoard();
+  renderCategoryBadge();
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
   const statusSpan = connectionStatus.querySelector('span');
-  statusSpan.textContent = message;
+  if (statusSpan) {
+    statusSpan.textContent = message;
+  }
+
   connectionStatus.className = `status status-${type}`;
-  connectionStatus.style.position = 'fixed';
-  connectionStatus.style.top = '20px';
-  connectionStatus.style.right = '20px';
-  connectionStatus.style.zIndex = '1000';
-  
-  // Hide after 3 seconds if success
+  connectionStatus.classList.remove('hidden');
+
   if (type === 'success') {
     setTimeout(() => {
       connectionStatus.classList.add('hidden');
@@ -80,21 +156,30 @@ function updateConnectionStatus(message, type) {
 }
 
 function updatePhaseUI(phase) {
-  // Update indicator
   phaseText.textContent = phase;
   phaseIndicator.className = `phase-indicator phase-${phase}`;
-  
-  // Hide all phase sections
-  document.querySelectorAll('.phase-section').forEach(section => {
+
+  document.querySelectorAll('.phase-section').forEach((section) => {
     section.classList.remove('active');
   });
-  
-  // Show current phase section
+
   const sectionId = `${phase.toLowerCase()}-section`;
   const section = document.getElementById(sectionId);
   if (section) {
     section.classList.add('active');
   }
+
+  if (phase === 'TRIVIA') {
+    initializeTriviaDisplay();
+  }
+}
+
+function initializeTriviaDisplay() {
+  renderTriviaMode();
+  renderTriviaScoreboard();
+  renderJeopardyBoard();
+  renderCurrentQuestion();
+  renderStatusPanels();
 }
 
 function renderTeamsList() {
@@ -104,16 +189,264 @@ function renderTeamsList() {
         No teams connected yet
       </li>
     `;
-  } else {
-    teamsList.innerHTML = teams.map(team => `
-      <li class="team-item">
-        <div>
-          <span class="team-name">${escapeHtml(team.name)}</span>
-          ${team.isVirtual ? '<span class="team-badge virtual">Virtual</span>' : '<span class="team-badge physical">Physical</span>'}
-        </div>
-      </li>
-    `).join('');
+    return;
   }
+
+  teamsList.innerHTML = teams.map((team) => `
+    <li class="team-item">
+      <div>
+        <span class="team-name">${escapeHtml(team.name)}</span>
+        ${team.isVirtual ? '<span class="team-badge virtual">Virtual</span>' : '<span class="team-badge physical">Physical</span>'}
+      </div>
+    </li>
+  `).join('');
+}
+
+function renderTriviaMode() {
+  if (screenTriviaModeBadge) {
+    screenTriviaModeBadge.textContent = currentTriviaMode === 'JEOPARDY' ? 'Jeopardy Board' : 'Slide Round';
+  }
+
+  if (screenJeopardyPanel) {
+    screenJeopardyPanel.classList.toggle('hidden', currentTriviaMode !== 'JEOPARDY');
+  }
+
+  renderCategoryBadge();
+}
+
+function renderTriviaScoreboard() {
+  if (!screenTriviaScoreboard) {
+    return;
+  }
+
+  if (teams.length === 0) {
+    screenTriviaScoreboard.innerHTML = '<div class="text-muted text-center">Waiting for teams...</div>';
+    return;
+  }
+
+  screenTriviaScoreboard.innerHTML = normalizeTeams(teams).map((team) => `
+    <div class="score-card">
+      <div class="score-team">${escapeHtml(team.name)}</div>
+      <div class="score-value">${formatMoney(team.money)}</div>
+    </div>
+  `).join('');
+}
+
+function renderCurrentQuestion() {
+  if (!screenQuestionDisplay) {
+    return;
+  }
+
+  if (!currentQuestion) {
+    screenQuestionDisplay.innerHTML = '<p class="text-muted text-center">Waiting for host to reveal a question...</p>';
+    displayMedia(screenMediaArea, null);
+    renderCategoryBadge();
+    return;
+  }
+
+  const valueMarkup = typeof currentQuestion.value === 'number'
+    ? `<div class="screen-question-meta">Value: ${formatMoney(currentQuestion.value)}</div>`
+    : '';
+
+  screenQuestionDisplay.innerHTML = `
+    <div class="screen-question-copy">${formatMultilineText(currentQuestion.question || '')}</div>
+    ${valueMarkup}
+  `;
+
+  displayMedia(screenMediaArea, currentQuestion.media);
+  renderCategoryBadge();
+}
+
+function renderCategoryBadge() {
+  if (!screenTriviaCategory) {
+    return;
+  }
+
+  const categoryName = currentTriviaMode === 'JEOPARDY' && currentQuestionId
+    ? getCategoryName(currentQuestionId)
+    : '';
+
+  if (!categoryName) {
+    screenTriviaCategory.classList.add('hidden');
+    screenTriviaCategory.textContent = '';
+    return;
+  }
+
+  screenTriviaCategory.classList.remove('hidden');
+  screenTriviaCategory.textContent = categoryName;
+}
+
+function renderJeopardyBoard() {
+  if (!screenJeopardyBoard) {
+    return;
+  }
+
+  if (!currentBoard.length) {
+    screenJeopardyBoard.innerHTML = '<p class="text-muted text-center">Board will appear when Jeopardy mode starts.</p>';
+    return;
+  }
+
+  let html = '';
+
+  currentBoard.forEach((category) => {
+    html += `<div class="jeopardy-category">${escapeHtml(category.name)}</div>`;
+  });
+
+  const maxQuestions = Math.max(...currentBoard.map((category) => category.questions.length));
+
+  for (let rowIndex = 0; rowIndex < maxQuestions; rowIndex += 1) {
+    currentBoard.forEach((category) => {
+      const question = category.questions[rowIndex];
+      if (!question) {
+        html += '<div class="jeopardy-cell blank-cell" aria-hidden="true"></div>';
+        return;
+      }
+
+      const valueText = typeof question.value === 'number'
+        ? formatMoney(question.value)
+        : escapeHtml(String(question.value || ''));
+
+      html += `<div class="jeopardy-cell ${question.answered ? 'answered' : ''}">${valueText}</div>`;
+    });
+  }
+
+  screenJeopardyBoard.innerHTML = html;
+}
+
+function renderStatusPanels() {
+  if (screenTriviaStatus) {
+    screenTriviaStatus.textContent = getQuestionStatusText();
+  }
+
+  if (screenBuzzStatus) {
+    screenBuzzStatus.textContent = latestBuzz
+      ? `${getBuzzTeamName()} buzzed in first.`
+      : (currentQuestionId ? 'Waiting for someone to buzz.' : 'No buzz received yet.');
+  }
+
+  if (screenAnswerStatus) {
+    screenAnswerStatus.textContent = latestAnswerResult
+      ? `${getTeamName(latestAnswerResult.teamId)} answered ${latestAnswerResult.correct ? 'correctly' : 'incorrectly'} (${formatMoney(latestAnswerResult.newBalance)}).`
+      : 'No answer scored yet.';
+  }
+}
+
+function displayMedia(container, media) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = '';
+
+  if (!media || !media.type || !(media.url || media.src)) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  const mediaSource = media.url || media.src;
+  let mediaElement = null;
+
+  if (media.type === 'image') {
+    mediaElement = document.createElement('img');
+    mediaElement.alt = 'Question media';
+  } else if (media.type === 'audio') {
+    mediaElement = document.createElement('audio');
+    mediaElement.controls = true;
+  } else if (media.type === 'video') {
+    mediaElement = document.createElement('video');
+    mediaElement.controls = true;
+  }
+
+  if (!mediaElement) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  mediaElement.src = mediaSource;
+  container.appendChild(mediaElement);
+  container.classList.remove('hidden');
+}
+
+function getQuestionStatusText() {
+  if (!currentQuestionId) {
+    return 'Waiting for host to reveal a question.';
+  }
+
+  if (latestAnswerResult) {
+    return `${getTeamName(latestAnswerResult.teamId)} answered ${latestAnswerResult.correct ? 'correctly' : 'incorrectly'}.`;
+  }
+
+  if (latestBuzz) {
+    return `${getBuzzTeamName()} buzzed in.`;
+  }
+
+  return currentTriviaMode === 'JEOPARDY'
+    ? 'Jeopardy question live on the board.'
+    : 'Slide question live on screen.';
+}
+
+function getTeamName(teamId) {
+  const team = teams.find((entry) => entry.id === teamId);
+  return team ? team.name : `Team ${teamId}`;
+}
+
+function getBuzzTeamName() {
+  if (!latestBuzz) {
+    return 'A team';
+  }
+
+  return latestBuzz.teamName || getTeamName(latestBuzz.teamId);
+}
+
+function getCategoryName(questionId) {
+  for (const category of currentBoard) {
+    if (category.questions.some((question) => question.id === questionId)) {
+      return category.name;
+    }
+  }
+
+  return '';
+}
+
+function normalizeTeams(teamList) {
+  return [...(teamList || [])]
+    .filter(Boolean)
+    .map((team) => ({
+      ...team,
+      money: Number(team.money) || 0,
+      isVirtual: team.isVirtual === true || team.isVirtual === 1
+    }))
+    .sort((left, right) => right.money - left.money);
+}
+
+function mergeTeamList(existingTeams, incomingTeams) {
+  const mergedById = new Map((existingTeams || []).map((team) => [team.id, { ...team }]));
+
+  (incomingTeams || []).forEach((team) => {
+    if (!team || typeof team.id === 'undefined') {
+      return;
+    }
+
+    const existing = mergedById.get(team.id) || {};
+    mergedById.set(team.id, {
+      ...existing,
+      ...team,
+      money: Number(team.money ?? existing.money) || 0,
+      isVirtual: team.isVirtual === true || team.isVirtual === 1 || existing.isVirtual === true || existing.isVirtual === 1
+    });
+  });
+
+  return normalizeTeams(Array.from(mergedById.values()));
+}
+
+function formatMoney(value) {
+  const amount = Number(value) || 0;
+  const formatted = Math.abs(amount).toLocaleString();
+  return amount < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+function formatMultilineText(text) {
+  return escapeHtml(text).replace(/\n/g, '<br>');
 }
 
 function escapeHtml(text) {

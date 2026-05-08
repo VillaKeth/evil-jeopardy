@@ -28,6 +28,153 @@
       display: flex;
       flex-direction: column;
     }
+
+    .player-trivia-stack {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .player-trivia-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .player-eyebrow {
+      margin: 0 0 var(--spacing-sm);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .player-mode-badge,
+    .player-category-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 999px;
+      border: 1px solid rgba(247, 129, 102, 0.35);
+      background-color: rgba(247, 129, 102, 0.12);
+      color: #ffd4cb;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+    }
+
+    .player-category-badge {
+      margin-bottom: var(--spacing-md);
+    }
+
+    .player-question-display {
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--spacing-sm);
+    }
+
+    .player-question-copy {
+      font-size: clamp(1.5rem, 5vw, 2.25rem);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .player-question-meta {
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .player-team-label {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .player-status-banner {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      margin-bottom: var(--spacing-md);
+      text-align: center;
+      font-weight: 700;
+      border: 1px solid var(--border-default);
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .player-status-banner.info {
+      border-color: rgba(88, 166, 255, 0.35);
+      background-color: rgba(88, 166, 255, 0.12);
+      color: #d2e7ff;
+    }
+
+    .player-status-banner.success {
+      border-color: rgba(35, 134, 54, 0.35);
+      background-color: rgba(35, 134, 54, 0.16);
+      color: #9ae6b4;
+    }
+
+    .player-status-banner.warning {
+      border-color: rgba(247, 129, 102, 0.4);
+      background-color: rgba(247, 129, 102, 0.16);
+      color: #ffd4cb;
+    }
+
+    .player-status-banner.error {
+      border-color: rgba(218, 54, 51, 0.4);
+      background-color: rgba(218, 54, 51, 0.16);
+      color: #ffb4ac;
+    }
+
+    .player-buzz-btn {
+      min-height: 96px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #ff9b73, #f78166 55%, #ff6347);
+      color: #0d1117;
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      box-shadow: 0 16px 36px rgba(247, 129, 102, 0.35);
+    }
+
+    .player-buzz-btn.is-live {
+      animation: playerBuzzPulse 1.25s ease-in-out infinite;
+    }
+
+    .player-buzz-btn:disabled {
+      opacity: 0.65;
+      box-shadow: none;
+    }
+
+    @keyframes playerBuzzPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 16px 36px rgba(247, 129, 102, 0.35);
+      }
+      50% {
+        transform: scale(1.02);
+        box-shadow: 0 22px 44px rgba(247, 129, 102, 0.5);
+      }
+    }
+
+    .player-trivia-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
+    .player-score-card.me {
+      border-color: var(--color-trivia);
+      box-shadow: 0 0 0 1px rgba(247, 129, 102, 0.45);
+    }
   </style>
 </head>
 <body class="player-view">
@@ -97,16 +244,53 @@
       </div>
     </section>
 
-    <!-- TRIVIA PHASE (placeholder) -->
+    <!-- TRIVIA PHASE -->
     <section id="trivia-section" class="phase-section">
-      <div class="card">
-        <div class="card-header text-center">
-          <h2>Trivia Round</h2>
+      <div class="player-trivia-stack">
+        <div class="card">
+          <div class="card-header">
+            <div class="player-trivia-topline">
+              <div>
+                <p class="player-eyebrow">Virtual Player View</p>
+                <h2 style="margin-bottom: 0;">Current Question</h2>
+              </div>
+              <div id="player-trivia-mode-badge" class="player-mode-badge">Slide Round</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="player-trivia-category" class="player-category-badge hidden"></div>
+            <div id="player-question-display" class="question-display player-question-display">
+              <p class="text-muted text-center">Waiting for host to reveal a question...</p>
+            </div>
+            <div id="player-media-area" class="media-area hidden"></div>
+          </div>
         </div>
-        <div class="card-body">
-          <p class="text-muted text-center">
-            Trivia interface will be added in Task 4...
-          </p>
+
+        <div class="card">
+          <div class="card-header text-center">
+            <h2 style="margin-bottom: var(--spacing-sm);">Buzz In</h2>
+            <p class="player-team-label">Playing as <span id="player-trivia-team-name">Not joined</span></p>
+          </div>
+          <div class="card-body">
+            <div id="player-trivia-status" class="player-status-banner info">
+              Join a team to enable buzzing.
+            </div>
+            <button class="btn btn-large w-full player-buzz-btn" id="player-buzz-btn" disabled>BUZZ</button>
+            <p class="text-muted text-center mt-2">
+              Use this when your team wants to answer first.
+            </p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 style="margin-bottom: 0;">Live Scoreboard</h3>
+          </div>
+          <div class="card-body">
+            <div id="player-trivia-scoreboard" class="scoreboard player-trivia-scoreboard">
+              <div class="text-muted text-center">Waiting for scores...</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

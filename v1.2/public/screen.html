@@ -5,6 +5,197 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Evil Jeopardy 1.2 - Screen Display</title>
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .screen-trivia-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+      gap: var(--spacing-xl);
+      align-items: start;
+    }
+
+    .screen-question-card {
+      background: linear-gradient(145deg, rgba(247, 129, 102, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(247, 129, 102, 0.45);
+    }
+
+    .screen-trivia-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
+      flex-wrap: wrap;
+    }
+
+    .screen-kicker {
+      margin: 0 0 var(--spacing-sm);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .screen-mode-badge,
+    .screen-category-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-radius: 999px;
+      border: 1px solid rgba(247, 129, 102, 0.45);
+      background-color: rgba(247, 129, 102, 0.16);
+      color: #ffd4cb;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .screen-category-badge {
+      margin-bottom: var(--spacing-lg);
+      font-size: 1rem;
+    }
+
+    .screen-question-display {
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--spacing-md);
+    }
+
+    .screen-question-copy {
+      font-size: clamp(2rem, 2.6vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .screen-question-meta {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .screen-status-banner {
+      margin-top: var(--spacing-lg);
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-radius: 10px;
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      background-color: rgba(88, 166, 255, 0.12);
+      color: #d2e7ff;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .screen-trivia-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-trivia-scoreboard .score-card {
+      text-align: left;
+      padding: var(--spacing-md) var(--spacing-lg);
+      background: linear-gradient(135deg, rgba(22, 27, 34, 0.98), rgba(33, 38, 45, 0.96));
+    }
+
+    .screen-trivia-scoreboard .score-team {
+      font-size: 1.4rem;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-trivia-scoreboard .score-value {
+      font-size: 2rem;
+    }
+
+    .screen-status-list {
+      list-style: none;
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-status-item {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      border: 1px solid var(--border-default);
+      background-color: var(--bg-tertiary);
+    }
+
+    .screen-status-label {
+      display: block;
+      margin-bottom: var(--spacing-xs);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .screen-status-value {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .screen-jeopardy-panel.hidden {
+      display: none;
+    }
+
+    .screen-jeopardy-board {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .screen-jeopardy-board .jeopardy-category {
+      font-size: 1rem;
+      padding: var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .screen-jeopardy-board .jeopardy-cell {
+      cursor: default;
+      min-height: 110px;
+      font-size: 1.9rem;
+    }
+
+    .screen-jeopardy-board .jeopardy-cell:hover:not(.answered) {
+      transform: none;
+      background-color: var(--bg-tertiary);
+      border-color: var(--border-default);
+    }
+
+    .screen-jeopardy-board .jeopardy-cell.answered {
+      opacity: 0.25;
+    }
+
+    .screen-jeopardy-board .blank-cell {
+      opacity: 0;
+      border-color: transparent;
+      background: transparent;
+    }
+
+    @media (max-width: 1400px) {
+      .screen-trivia-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-trivia-scoreboard {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 960px) {
+      .screen-question-copy {
+        font-size: 2rem;
+      }
+
+      .screen-jeopardy-board {
+        overflow-x: auto;
+      }
+
+      .screen-jeopardy-board .jeopardy-cell {
+        min-height: 80px;
+        font-size: 1.3rem;
+      }
+    }
+  </style>
 </head>
 <body class="screen-view">
   <!-- Header -->
@@ -44,15 +235,71 @@
       </div>
     </section>
 
-    <!-- TRIVIA PHASE (placeholder) -->
+    <!-- TRIVIA PHASE -->
     <section id="trivia-section" class="phase-section">
-      <div class="text-center">
-        <h2 style="font-size: 2.5rem; color: var(--color-trivia);">
-          Trivia Round
-        </h2>
-        <p class="text-muted" style="font-size: 1.25rem;">
-          Trivia display will be added in Task 4...
-        </p>
+      <div class="screen-trivia-layout">
+        <div>
+          <div class="card screen-question-card">
+            <div class="screen-trivia-heading">
+              <div>
+                <p class="screen-kicker">Projection Display</p>
+                <h2 style="font-size: 2.4rem; margin-bottom: 0; color: var(--color-trivia);">Current Question</h2>
+              </div>
+              <div id="screen-trivia-mode-badge" class="screen-mode-badge">Slide Round</div>
+            </div>
+
+            <div id="screen-trivia-category" class="screen-category-badge hidden"></div>
+            <div id="screen-question-display" class="question-display screen-question-display">
+              <p class="text-muted text-center">Waiting for host to reveal a question...</p>
+            </div>
+            <div id="screen-media-area" class="media-area hidden"></div>
+            <div id="screen-trivia-status" class="screen-status-banner">
+              Waiting for host to reveal a question.
+            </div>
+          </div>
+
+          <div id="screen-jeopardy-panel" class="card screen-jeopardy-panel hidden">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Jeopardy Board</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-jeopardy-board" class="jeopardy-board screen-jeopardy-board">
+                <p class="text-muted text-center">Board will appear when Jeopardy mode starts.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Live Scoreboard</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-trivia-scoreboard" class="scoreboard screen-trivia-scoreboard">
+                <div class="text-muted text-center">Waiting for teams...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size: 1.5rem; margin-bottom: 0;">Round Updates</h3>
+            </div>
+            <div class="card-body">
+              <ul class="screen-status-list">
+                <li class="screen-status-item">
+                  <span class="screen-status-label">Buzz Status</span>
+                  <div id="screen-buzz-status" class="screen-status-value">No buzz received yet.</div>
+                </li>
+                <li class="screen-status-item">
+                  <span class="screen-status-label">Answer Status</span>
+                  <div id="screen-answer-status" class="screen-status-value">No answer scored yet.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 

@@ -1,0 +1,2 @@
+- [ ] Add host-side virtual-team buzz audio playback in `public/js/host.js`.
+- [ ] Backfill trivia mode/question state in `get-state` so reconnecting screen/player clients can rehydrate mid-round.
