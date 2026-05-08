@@ -45,15 +45,20 @@ After trivia, teams spend their earnings (likely low or negative) on supplies fo
 | Cake Selection | Statue of Liberty, banana cake, etc. | Harder = cheaper, easier = expensive |
 | Ingredients | Flour, eggs, sugar, butter, chocolate, vanilla, fruits, fondant, food coloring, toppings | Better quality = more expensive |
 | Tools | Electronic mixer, manual whisk, measuring cups, cake pans, piping tips, oven thermometer | Better tools = more expensive |
-| Boosts | Extra time (+5 min), recipe hint card, re-roll a bad luck event | Premium prices |
+| Boosts | Extra time (+5 min after shared timer ends, team-specific), recipe hint card, re-roll a bad luck event | Premium prices |
 
 **How it works:**
 - Host opens the shop on the big screen for all teams to see.
 - Teams tell the host what they want. Host processes purchases on the dashboard.
 - Physical items are distributed in person. Digital inventory updates automatically for the virtual player.
+- The virtual player sees the shop catalog and their team's purchases (read-only view); the host processes all purchases centrally.
 - All shop data (categories, items, prices) is defined in `shop.json` — add, remove, or reprice items without code changes.
 
-**Strategic design:** Teams with negative money can only afford the hardest cakes and worst ingredients. Better trivia → more money → easier cake + better tools + better ingredients.
+**Default kit:** Every team receives a baseline starter kit (basic ingredients, worst-tier tools) regardless of balance. This ensures all teams can participate even with negative money.
+
+**Negative balance:** Teams with negative money can only afford the hardest cakes and worst ingredients beyond their default kit. The system displays a warning when a team attempts a purchase they can't afford, but the host can manually approve it (override). The app never hard-blocks a purchase — the host always has final say.
+
+**Strategic design:** Better trivia → more money → easier cake + better tools + better ingredients.
 
 ### Phase 4: Baking (1 Hour)
 A shared countdown timer starts. In-person teams bake physical cakes. The virtual player plays Phaser.js minigames.
@@ -123,8 +128,15 @@ Phase Score = Player Skill (minigame performance)
 **Physical cake scoring:** Host manually scores each physical cake (0-100 per dimension) on the dashboard.
 
 **Final team score:**
+
+Only the team with the virtual player gets an averaged score. The other two teams are judged on their physical cakes alone.
+
 ```
-Virtual Cake Score = avg(Taste, Accuracy, Creativity)
+# Teams WITHOUT virtual player:
+Team Final Score = avg(Taste, Accuracy, Creativity)  [host-scored physical cake]
+
+# Team WITH virtual player:
+Virtual Cake Score = avg(Taste, Accuracy, Creativity)  [computed from minigames]
 Physical Cake Score = avg(Taste, Accuracy, Creativity)  [host-scored]
 Team Final Score = avg(Virtual Cake Score, Physical Cake Score)
 ```
@@ -172,8 +184,7 @@ The virtual cake is visualized using a hybrid AI generation + programmatic post-
 All content is defined in JSON config files, editable without code changes:
 
 - `data/questions.json` — Trivia questions, categories, media references, point values
-- `data/shop.json` — Shop categories, items, prices (easily add/remove)
-- `data/cakes.json` — Cake options, difficulty ratings, reference images, prices
+- `data/shop.json` — All shop content: categories, items, prices, AND cake selections (cakes are a shop category with difficulty, reference images, and pricing). Single source of truth for everything purchasable.
 - `data/minigames.json` — Minigame pool per phase, normal vs absurd classification
 - `data/evil-luck.json` — Chaos events, probability tables, tier thresholds
 
@@ -250,8 +261,7 @@ evil-jeopardy-1.2/
 │       └── sounds/           # Buzzer, effects, music
 ├── data/
 │   ├── questions.json
-│   ├── shop.json
-│   ├── cakes.json
+│   ├── shop.json          # All purchasable items including cakes (single source of truth)
 │   ├── minigames.json
 │   └── evil-luck.json
 ├── package.json
