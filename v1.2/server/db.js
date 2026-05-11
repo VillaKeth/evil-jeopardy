@@ -57,6 +57,14 @@ function initDb(dbPath) {
       FOREIGN KEY (team_id) REFERENCES teams(id)
     );
 
+    CREATE TABLE IF NOT EXISTS physical_scores (
+      team_id INTEGER PRIMARY KEY,
+      taste INTEGER DEFAULT 0,
+      accuracy INTEGER DEFAULT 0,
+      creativity INTEGER DEFAULT 0,
+      FOREIGN KEY (team_id) REFERENCES teams(id)
+    );
+
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL,

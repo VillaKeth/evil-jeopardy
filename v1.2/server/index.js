@@ -20,6 +20,7 @@ const {
   getScoreboard
 } = require('./trivia');
 const { loadShop, purchaseItem, forceApprove, getTeamInventory, getTeamPurchases } = require('./shop');
+const { scorePhysicalCake, getResults, ensureJudgingSchema } = require('./judging');
 
 // Valid phase transitions
 const PHASES = ['LOBBY', 'TRIVIA', 'SHOP', 'BAKING', 'JUDGING', 'RESULTS'];
@@ -46,6 +47,8 @@ function createApp(options = {}) {
   // Initialize database
   const db = initDb(dbPath);
   
+  ensureJudgingSchema(db.db);
+
   // Initialize phase if not set
   if (!db.getState('phase')) {
     db.setState('phase', 'LOBBY');
@@ -140,6 +143,16 @@ function createApp(options = {}) {
   function emitTeamsUpdated(target = io) {
     target.emit('teams-updated', getSerializedTeams());
   }
+
+  function areAllTeamsJudged() {
+    const teamCountRow = db.db.prepare('SELECT COUNT(*) AS count FROM teams').get();
+    const scoredCountRow = db.db.prepare('SELECT COUNT(*) AS count FROM physical_scores').get();
+    return (teamCountRow?.count || 0) > 0 && (teamCountRow?.count || 0) === (scoredCountRow?.count || 0);
+  }
+
+  function buildJudgingResults() {
+    return getResults(db.db);
+  }
   
   // Socket.io connection handling
   io.on('connection', (socket) => {
@@ -225,6 +238,13 @@ function createApp(options = {}) {
 
         if (phase === 'SHOP' && shopData) {
           socket.emit('shop:catalog', buildShopCatalogPayload());
+        }
+
+        if (phase === 'JUDGING' || phase === 'RESULTS') {
+          socket.emit('judging:scores-updated', {
+            results: buildJudgingResults(),
+            allTeamsScored: areAllTeamsJudged()
+          });
         }
       } catch (err) {
         console.error('Failed to get state:', err);
@@ -683,6 +703,86 @@ function createApp(options = {}) {
     });
     
     // ===== END BAKING HANDLERS =====
+
+    // ===== JUDGING HANDLERS =====
+
+    socket.on('judging:score-team', (data) => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can score judging.' });
+          return;
+        }
+
+        if (db.getState('phase') !== 'JUDGING') {
+          socket.emit('error', { message: 'Judging scores can only be submitted during JUDGING phase.' });
+          return;
+        }
+
+        const { teamId, taste, accuracy, creativity } = data || {};
+        if (typeof teamId !== 'number' || !Number.isInteger(teamId)) {
+          socket.emit('error', { message: 'Invalid judging request.' });
+          return;
+        }
+
+        const team = db.db.prepare('SELECT id, name FROM teams WHERE id = ?').get(teamId);
+        if (!team) {
+          socket.emit('error', { message: 'Team not found.' });
+          return;
+        }
+
+        const scores = scorePhysicalCake(db.db, teamId, taste, accuracy, creativity);
+        const results = buildJudgingResults();
+        const allTeamsScored = areAllTeamsJudged();
+
+        db.logEvent('judging-score-submitted', { teamId, taste: scores.taste, accuracy: scores.accuracy, creativity: scores.creativity });
+        io.to('host').emit('judging:scores-updated', { teamId, scores, results, allTeamsScored });
+      } catch (err) {
+        console.error('Failed to score judging team:', err);
+        socket.emit('error', { message: err.message || 'Server error submitting judging scores.' });
+      }
+    });
+
+    socket.on('judging:get-results', () => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can retrieve judging results.' });
+          return;
+        }
+
+        socket.emit('judging:results', buildJudgingResults());
+      } catch (err) {
+        console.error('Failed to get judging results:', err);
+        socket.emit('error', { message: 'Server error retrieving judging results.' });
+      }
+    });
+
+    socket.on('results:reveal', () => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can reveal results.' });
+          return;
+        }
+
+        const currentPhase = db.getState('phase');
+        if (!['JUDGING', 'RESULTS'].includes(currentPhase)) {
+          socket.emit('error', { message: 'Results can only be revealed from JUDGING or RESULTS phase.' });
+          return;
+        }
+
+        const results = buildJudgingResults();
+
+        if (currentPhase !== 'RESULTS') {
+          db.setState('phase', 'RESULTS');
+          db.logEvent('results-revealed', { previousPhase: currentPhase, resultCount: results.length });
+          io.emit('phase-changed', { phase: 'RESULTS', previousPhase: currentPhase });
+        }
+
+        io.emit('results:reveal', results);
+      } catch (err) {
+        console.error('Failed to reveal results:', err);
+        socket.emit('error', { message: 'Server error revealing results.' });
+      }
+    });
     
     // ===== TRIVIA HANDLERS =====
     

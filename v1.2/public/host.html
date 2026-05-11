@@ -171,6 +171,122 @@
       margin-top: var(--spacing-lg);
     }
 
+    .judging-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .judging-status-pill {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.32);
+      background: rgba(121, 192, 255, 0.12);
+      color: #d2e7ff;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .judging-team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: var(--spacing-lg);
+    }
+
+    .judging-team-card {
+      border: 1px solid rgba(121, 192, 255, 0.24);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(13, 17, 23, 0.98), rgba(33, 38, 45, 0.96));
+      padding: var(--spacing-lg);
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .judging-team-card.virtual-team {
+      box-shadow: 0 0 0 1px rgba(121, 192, 255, 0.1), 0 12px 28px rgba(7, 17, 28, 0.35);
+    }
+
+    .judging-team-header,
+    .judging-score-line,
+    .judging-virtual-score-line,
+    .judging-standing-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+    }
+
+    .judging-preview-total {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--color-judging);
+    }
+
+    .judging-slider-group {
+      display: grid;
+      gap: var(--spacing-xs);
+    }
+
+    .judging-slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .judging-range {
+      width: 100%;
+      accent-color: var(--color-judging);
+    }
+
+    .judging-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .judging-virtual-panel,
+    .judging-results-panel {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      background: rgba(121, 192, 255, 0.08);
+      border: 1px solid rgba(121, 192, 255, 0.18);
+    }
+
+    .judging-virtual-panel h4,
+    .judging-results-panel h3 {
+      margin-bottom: var(--spacing-sm);
+      color: var(--color-judging);
+    }
+
+    .judging-standing-list {
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .judging-standing-row {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-default);
+    }
+
+    .judging-standing-rank {
+      color: var(--color-judging);
+      font-weight: 700;
+      min-width: 48px;
+    }
+
+    .judging-submit-state {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
     @media (max-width: 960px) {
       .shop-host-layout {
         grid-template-columns: 1fr;
@@ -453,26 +569,47 @@
       </div>
     </section>
 
-    <!-- JUDGING PHASE (placeholder) -->
+    <!-- JUDGING PHASE -->
     <section id="judging-section" class="phase-section">
       <div class="card">
-        <div class="card-header">
-          <h2>Judging Phase</h2>
+        <div class="card-header judging-toolbar">
+          <div>
+            <h2>Judging Control Room</h2>
+            <p class="text-muted">Score each team on taste, accuracy, and creativity, then reveal the final standings.</p>
+          </div>
+          <div id="judging-status-text" class="judging-status-pill">Waiting for judging submissions.</div>
         </div>
         <div class="card-body">
-          <p class="text-muted">Judging controls will be added in later tasks...</p>
+          <div id="judging-results-preview" class="judging-results-panel mb-3">
+            <h3>Live Standings Preview</h3>
+            <div class="text-muted">Scores will appear here once judging begins.</div>
+          </div>
+
+          <div id="judging-team-panels" class="judging-team-grid">
+            <div class="text-muted text-center">No teams available for judging.</div>
+          </div>
+
+          <div class="mt-3 text-right">
+            <button class="btn btn-primary btn-large" id="reveal-results-btn" disabled>
+              Reveal Results
+            </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- RESULTS PHASE (placeholder) -->
+    <!-- RESULTS PHASE -->
     <section id="results-section" class="phase-section">
       <div class="card">
         <div class="card-header">
-          <h2>Results Phase</h2>
+          <h2>Final Results</h2>
+          <p class="text-muted">Official standings after physical judging and hybrid virtual scoring.</p>
         </div>
         <div class="card-body">
-          <p class="text-muted">Results display will be added in later tasks...</p>
+          <div id="results-standings" class="judging-results-panel">
+            <h3>Standings</h3>
+            <div class="text-muted">Reveal the results to publish the final leaderboard.</div>
+          </div>
         </div>
       </div>
     </section>

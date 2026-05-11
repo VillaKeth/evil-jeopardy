@@ -18,6 +18,25 @@ function onceEvent(socket, eventName, emitAction) {
   });
 }
 
+function onceEventOrTimeout(socket, eventName, emitAction, timeoutMs = 1500) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(eventName, handleEvent);
+      reject(new Error(`Timed out waiting for ${eventName}`));
+    }, timeoutMs);
+
+    function handleEvent(...args) {
+      clearTimeout(timer);
+      resolve(args.length <= 1 ? args[0] : args);
+    }
+
+    socket.once(eventName, handleEvent);
+    if (typeof emitAction === 'function') {
+      emitAction();
+    }
+  });
+}
+
 function ensureTeam(app, name, money) {
   let team = app.db.db.prepare('SELECT * FROM teams WHERE name = ?').get(name);
   if (!team) {
@@ -46,6 +65,39 @@ async function ensureShopPhase(app, hostSocket, screenSocket) {
     const shopCatalogPromise = onceEvent(screenSocket, 'shop:catalog');
     hostSocket.emit('shop:open');
     await Promise.all([shopPhasePromise, shopCatalogPromise]);
+  }
+}
+
+async function ensureJudgingPhase(app, hostSocket, screenSocket) {
+  const currentPhase = app.db.getState('phase');
+
+  if (currentPhase === 'JUDGING') {
+    return;
+  }
+
+  if (currentPhase === 'LOBBY') {
+    const triviaPhasePromise = onceEvent(screenSocket, 'phase-changed');
+    hostSocket.emit('set-phase', 'TRIVIA');
+    await triviaPhasePromise;
+  }
+
+  if (app.db.getState('phase') === 'TRIVIA') {
+    const shopPhasePromise = onceEvent(screenSocket, 'phase-changed');
+    const shopCatalogPromise = onceEvent(screenSocket, 'shop:catalog');
+    hostSocket.emit('shop:open');
+    await Promise.all([shopPhasePromise, shopCatalogPromise]);
+  }
+
+  if (app.db.getState('phase') === 'SHOP') {
+    const bakingPhasePromise = onceEvent(screenSocket, 'phase-changed');
+    hostSocket.emit('shop:close');
+    await bakingPhasePromise;
+  }
+
+  if (app.db.getState('phase') === 'BAKING') {
+    const judgingPhasePromise = onceEvent(screenSocket, 'phase-changed');
+    hostSocket.emit('set-phase', 'JUDGING');
+    await judgingPhasePromise;
   }
 }
 
@@ -253,5 +305,63 @@ describe('Server Integration', () => {
     const phaseChange = await phasePromise;
     assert.strictEqual(phaseChange.phase, 'BAKING');
     assert.strictEqual(phaseChange.previousPhase, 'SHOP');
+  });
+
+  it('should score judging teams and return sorted results', async () => {
+    await ensureJudgingPhase(app, hostSocket, screenSocket);
+
+    const alpha = ensureTeam(app, 'Judge Alpha', 0);
+    const bravo = ensureTeam(app, 'Judge Bravo', 0);
+    const virtual = ensureTeam(app, 'Judge Virtual', 0);
+    app.db.db.prepare('UPDATE teams SET is_virtual_team = 1 WHERE id = ?').run(virtual.id);
+
+    ['prep', 'mix', 'bake', 'decorate', 'present'].forEach((phase) => {
+      app.db.db.prepare('INSERT INTO scores (team_id, phase, score, details) VALUES (?, ?, ?, ?)').run(virtual.id, phase, 60, null);
+    });
+    app.db.db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(virtual.id, 'cake-statue-liberty', 'cakes', 0, 1);
+
+    await onceEventOrTimeout(hostSocket, 'judging:scores-updated', () => {
+      hostSocket.emit('judging:score-team', { teamId: alpha.id, taste: 10, accuracy: 20, creativity: 30 });
+    });
+    await onceEventOrTimeout(hostSocket, 'judging:scores-updated', () => {
+      hostSocket.emit('judging:score-team', { teamId: bravo.id, taste: 70, accuracy: 80, creativity: 90 });
+    });
+    await onceEventOrTimeout(hostSocket, 'judging:scores-updated', () => {
+      hostSocket.emit('judging:score-team', { teamId: virtual.id, taste: 90, accuracy: 60, creativity: 30 });
+    });
+
+    const results = await onceEventOrTimeout(hostSocket, 'judging:results', () => {
+      hostSocket.emit('judging:get-results');
+    });
+
+    assert.strictEqual(results[0].teamName, 'Judge Bravo');
+    assert.strictEqual(results[0].scores.total, 80);
+    assert.strictEqual(results[1].teamName, 'Judge Virtual');
+    assert.strictEqual(results[1].scores.total, 60);
+    assert.strictEqual(results[2].teamName, 'Judge Alpha');
+    assert.strictEqual(results[2].scores.total, 20);
+  });
+
+  it('should reveal judging results to all clients', async () => {
+    await ensureJudgingPhase(app, hostSocket, screenSocket);
+
+    const screenRevealPromise = onceEventOrTimeout(screenSocket, 'results:reveal', null, 1500);
+    const playerRevealPromise = onceEventOrTimeout(playerSocket, 'results:reveal', null, 1500);
+    const screenPhasePromise = onceEventOrTimeout(screenSocket, 'phase-changed', () => {
+      hostSocket.emit('results:reveal');
+    }, 1500);
+
+    const [screenResults, playerResults, phaseChange] = await Promise.all([
+      screenRevealPromise,
+      playerRevealPromise,
+      screenPhasePromise
+    ]);
+
+    assert.ok(Array.isArray(screenResults));
+    assert.ok(Array.isArray(playerResults));
+    assert.strictEqual(phaseChange.phase, 'RESULTS');
+    assert.strictEqual(screenResults[0].teamName, 'Judge Bravo');
+    assert.strictEqual(playerResults[0].teamName, 'Judge Bravo');
   });
 });

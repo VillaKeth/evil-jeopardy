@@ -50,6 +50,13 @@ const shopWarningCopy = document.getElementById('shop-warning-copy');
 const shopOverrideBtn = document.getElementById('shop-override-btn');
 const shopWarningCancelBtn = document.getElementById('shop-warning-cancel-btn');
 
+// Judging DOM elements
+const judgingTeamPanels = document.getElementById('judging-team-panels');
+const judgingResultsPreview = document.getElementById('judging-results-preview');
+const judgingStatusText = document.getElementById('judging-status-text');
+const revealResultsBtn = document.getElementById('reveal-results-btn');
+const resultsStandings = document.getElementById('results-standings');
+
 // Buzz notification
 const buzzNotification = document.getElementById('buzz-notification');
 const buzzTeamName = document.getElementById('buzz-team-name');
@@ -67,6 +74,10 @@ let shopInventories = {};
 let shopPurchaseHistories = {};
 let selectedShopTeamId = null;
 let pendingShopApproval = null;
+let judgingResults = [];
+let judgingDraftScores = {};
+let judgedTeamIds = new Set();
+let allTeamsJudged = false;
 
 // ===== Socket Event Handlers =====
 
@@ -104,6 +115,10 @@ socket.on('state', (data) => {
   renderTeamAnswerButtons();
   renderShopTeamSelect();
   renderShopTeamSummary();
+  renderJudgingPanels();
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
 });
 
 socket.on('team-joined', (team) => {
@@ -120,6 +135,10 @@ socket.on('teams-updated', (updatedTeams) => {
   renderShopTeamSelect();
   renderShopCatalog();
   renderShopTeamSummary();
+  renderJudgingPanels();
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
 });
 
 socket.on('error', (error) => {
@@ -278,6 +297,47 @@ socket.on('shop:warning', (teamId, message) => {
   showNotification(`${getTeamName(teamId)}: ${message}`, 'info');
 });
 
+// ===== JUDGING EVENT HANDLERS =====
+
+socket.on('judging:scores-updated', (payload) => {
+  console.log('Judging scores updated:', payload);
+  judgingResults = Array.isArray(payload?.results) ? payload.results : [];
+  allTeamsJudged = Boolean(payload?.allTeamsScored);
+  syncJudgingDraftScores(true);
+  renderJudgingPanels();
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
+
+  if (payload?.teamId) {
+    showNotification(`Saved judging scores for ${getTeamName(payload.teamId)}.`, 'success');
+  }
+});
+
+socket.on('judging:results', (results) => {
+  console.log('Judging results:', results);
+  judgingResults = Array.isArray(results) ? results : [];
+  judgedTeamIds = new Set(judgingResults.filter((entry) => entry.hasPhysicalScores).map((entry) => entry.teamId));
+  allTeamsJudged = teams.length > 0 && judgedTeamIds.size === teams.length;
+  syncJudgingDraftScores(false);
+  renderJudgingPanels();
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
+});
+
+socket.on('results:reveal', (results) => {
+  console.log('Results revealed:', results);
+  judgingResults = Array.isArray(results) ? results : [];
+  judgedTeamIds = new Set(judgingResults.filter((entry) => entry.hasPhysicalScores).map((entry) => entry.teamId));
+  allTeamsJudged = teams.length > 0 && judgedTeamIds.size === teams.length;
+  syncJudgingDraftScores(true);
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
+  showNotification('Results revealed to all clients.', 'success');
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -309,6 +369,12 @@ function updatePhaseUI(phase) {
     initializeTriviaUI();
   } else if (phase === 'SHOP') {
     initializeShopUI();
+  } else if (phase === 'JUDGING') {
+    closeShopWarningModal();
+    initializeJudgingUI();
+  } else if (phase === 'RESULTS') {
+    closeShopWarningModal();
+    initializeResultsUI();
   } else {
     closeShopWarningModal();
   }
@@ -371,7 +437,7 @@ function normalizeTeams(teamList) {
     .map((team) => ({
       ...team,
       money: Number(team.money) || 0,
-      isVirtual: team.isVirtual === true || team.isVirtual === 1,
+      isVirtual: team.isVirtual === true || team.isVirtual === 1 || team.is_virtual_team === true || team.is_virtual_team === 1,
       createdAt: team.createdAt || team.created_at || new Date().toISOString()
     }))
     .sort((left, right) => right.money - left.money || left.id - right.id);
@@ -792,6 +858,249 @@ function buyShopItem(itemKey) {
   socket.emit('shop:purchase', { teamId: selectedTeam.id, itemKey });
 }
 
+// ===== JUDGING UI FUNCTIONS =====
+
+function roundScore(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function formatScore(value) {
+  const rounded = roundScore(value);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+}
+
+function averageScore(values) {
+  const safeValues = Array.isArray(values) ? values.map((value) => Number(value) || 0) : [];
+  if (!safeValues.length) {
+    return 0;
+  }
+
+  return safeValues.reduce((sum, value) => sum + value, 0) / safeValues.length;
+}
+
+function getJudgingResult(teamId) {
+  return judgingResults.find((entry) => entry.teamId === teamId) || null;
+}
+
+function getJudgingDraft(teamId) {
+  return judgingDraftScores[String(teamId)] || { taste: 0, accuracy: 0, creativity: 0 };
+}
+
+function getVirtualAverage(virtualScores) {
+  if (!virtualScores) {
+    return 0;
+  }
+
+  if (typeof virtualScores.average === 'number') {
+    return virtualScores.average;
+  }
+
+  return averageScore([virtualScores.taste, virtualScores.accuracy, virtualScores.creativity]);
+}
+
+function syncJudgingDraftScores(overwrite) {
+  const nextDrafts = {};
+  const nextJudgedIds = new Set();
+
+  teams.forEach((team) => {
+    const result = getJudgingResult(team.id);
+    const savedScores = result?.scores || {};
+    const existingDraft = getJudgingDraft(team.id);
+
+    nextDrafts[String(team.id)] = overwrite || !judgingDraftScores[String(team.id)]
+      ? {
+          taste: Number(savedScores.taste) || 0,
+          accuracy: Number(savedScores.accuracy) || 0,
+          creativity: Number(savedScores.creativity) || 0
+        }
+      : existingDraft;
+
+    if (result?.hasPhysicalScores) {
+      nextJudgedIds.add(team.id);
+    }
+  });
+
+  judgingDraftScores = nextDrafts;
+  judgedTeamIds = nextJudgedIds;
+}
+
+function updateJudgingCardPreview(teamId) {
+  const previewElement = document.getElementById(`judging-preview-${teamId}`);
+  const stateElement = document.getElementById(`judging-submit-state-${teamId}`);
+  const draft = getJudgingDraft(teamId);
+  const result = getJudgingResult(teamId);
+  const virtualScores = result?.scores?.virtualScores;
+  const physicalAverage = roundScore(averageScore([draft.taste, draft.accuracy, draft.creativity]));
+  const finalPreview = virtualScores
+    ? roundScore(averageScore([physicalAverage, getVirtualAverage(virtualScores)]))
+    : physicalAverage;
+
+  ['taste', 'accuracy', 'creativity'].forEach((dimension) => {
+    const valueElement = document.getElementById(`judging-${dimension}-value-${teamId}`);
+    if (valueElement) {
+      valueElement.textContent = String(Number(draft[dimension]) || 0);
+    }
+  });
+
+  if (previewElement) {
+    previewElement.textContent = formatScore(finalPreview);
+  }
+
+  if (stateElement) {
+    stateElement.textContent = judgedTeamIds.has(teamId) ? 'Submitted to server' : 'Draft only — submit when ready';
+  }
+}
+
+function updateRevealResultsState() {
+  if (revealResultsBtn) {
+    revealResultsBtn.disabled = !(allTeamsJudged && judgingResults.length > 0);
+  }
+
+  if (judgingStatusText) {
+    judgingStatusText.textContent = allTeamsJudged
+      ? 'All teams scored — reveal is ready.'
+      : 'Submit physical scores for every team to unlock reveal.';
+  }
+}
+
+function renderStandingsMarkup(results) {
+  if (!Array.isArray(results) || results.length === 0) {
+    return '<div class="text-muted">No judging data yet.</div>';
+  }
+
+  return `
+    <div class="judging-standing-list">
+      ${results.map((entry) => `
+        <div class="judging-standing-row">
+          <div class="flex gap-md flex-center">
+            <span class="judging-standing-rank">#${entry.rank}</span>
+            <div>
+              <strong>${escapeHtml(entry.teamName)}</strong>
+              <div class="text-muted text-small">${entry.isVirtualTeam ? 'Virtual hybrid score' : 'Physical judging score'}</div>
+            </div>
+          </div>
+          <strong>${formatScore(entry.scores?.total)}</strong>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderJudgingResultsPreview() {
+  if (!judgingResultsPreview) {
+    return;
+  }
+
+  judgingResultsPreview.innerHTML = `
+    <h3>Live Standings Preview</h3>
+    ${renderStandingsMarkup(judgingResults)}
+  `;
+}
+
+function renderResultsStandings() {
+  if (!resultsStandings) {
+    return;
+  }
+
+  resultsStandings.innerHTML = `
+    <h3>Standings</h3>
+    ${renderStandingsMarkup(judgingResults)}
+  `;
+}
+
+function renderJudgingPanels() {
+  if (!judgingTeamPanels) {
+    return;
+  }
+
+  if (!teams.length) {
+    allTeamsJudged = false;
+    judgingTeamPanels.innerHTML = '<div class="text-muted text-center">No teams available for judging.</div>';
+    updateRevealResultsState();
+    return;
+  }
+
+  syncJudgingDraftScores(false);
+  allTeamsJudged = teams.length > 0 && judgedTeamIds.size === teams.length;
+
+  judgingTeamPanels.innerHTML = teams.map((team) => {
+    const draft = getJudgingDraft(team.id);
+    const result = getJudgingResult(team.id);
+    const virtualScores = result?.scores?.virtualScores;
+    const physicalAverage = roundScore(averageScore([draft.taste, draft.accuracy, draft.creativity]));
+    const finalPreview = virtualScores
+      ? roundScore(averageScore([physicalAverage, getVirtualAverage(virtualScores)]))
+      : physicalAverage;
+
+    return `
+      <article class="judging-team-card ${team.isVirtual ? 'virtual-team' : ''}">
+        <div class="judging-team-header">
+          <div>
+            <h3>${escapeHtml(team.name)}</h3>
+            <div class="text-muted text-small">${team.isVirtual ? 'Virtual team · hybrid scoring' : 'Physical team · judging only'}</div>
+          </div>
+          <div>
+            <div class="text-muted text-small">${team.isVirtual ? 'Hybrid preview' : 'Live total'}</div>
+            <div class="judging-preview-total" id="judging-preview-${team.id}">${formatScore(finalPreview)}</div>
+          </div>
+        </div>
+
+        ${['taste', 'accuracy', 'creativity'].map((dimension) => `
+          <label class="judging-slider-group">
+            <span class="judging-slider-label">
+              <span>${escapeHtml(dimension.charAt(0).toUpperCase() + dimension.slice(1))}</span>
+              <strong id="judging-${dimension}-value-${team.id}">${Number(draft[dimension]) || 0}</strong>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="${Number(draft[dimension]) || 0}"
+              class="judging-range"
+              data-team-id="${team.id}"
+              data-dimension="${dimension}"
+            >
+          </label>
+        `).join('')}
+
+        ${virtualScores ? `
+          <div class="judging-virtual-panel">
+            <h4>Virtual Cake Scores</h4>
+            <div class="judging-virtual-score-line"><span>Taste</span><strong>${formatScore(virtualScores.taste)}</strong></div>
+            <div class="judging-virtual-score-line"><span>Accuracy</span><strong>${formatScore(virtualScores.accuracy)}</strong></div>
+            <div class="judging-virtual-score-line"><span>Creativity</span><strong>${formatScore(virtualScores.creativity)}</strong></div>
+            <div class="judging-virtual-score-line"><span>Virtual average</span><strong>${formatScore(getVirtualAverage(virtualScores))}</strong></div>
+          </div>
+        ` : ''}
+
+        <div class="judging-actions">
+          <span class="judging-submit-state" id="judging-submit-state-${team.id}">${judgedTeamIds.has(team.id) ? 'Submitted to server' : 'Draft only — submit when ready'}</span>
+          <button class="btn btn-primary judging-submit-btn" data-team-id="${team.id}">Submit Scores</button>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  updateRevealResultsState();
+}
+
+function initializeJudgingUI() {
+  syncJudgingDraftScores(false);
+  renderJudgingPanels();
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
+  socket.emit('judging:get-results');
+}
+
+function initializeResultsUI() {
+  renderJudgingResultsPreview();
+  renderResultsStandings();
+  updateRevealResultsState();
+  socket.emit('judging:get-results');
+}
+
 // Global functions for onclick handlers
 window.scoreTeamAnswer = function scoreTeamAnswer(teamId, correct) {
   if (!currentQuestionId) {
@@ -909,6 +1218,59 @@ if (forceAnswerBtn) {
 if (forceAnswerJeopardyBtn) {
   forceAnswerJeopardyBtn.addEventListener('click', () => {
     socket.emit('trivia:force-answer');
+  });
+}
+
+if (judgingTeamPanels) {
+  judgingTeamPanels.addEventListener('input', (event) => {
+    const slider = event.target.closest('.judging-range');
+    if (!slider) {
+      return;
+    }
+
+    const teamId = Number(slider.dataset.teamId);
+    const dimension = slider.dataset.dimension;
+    if (!teamId || !['taste', 'accuracy', 'creativity'].includes(dimension)) {
+      return;
+    }
+
+    judgingDraftScores[String(teamId)] = {
+      ...getJudgingDraft(teamId),
+      [dimension]: Number(slider.value) || 0
+    };
+    updateJudgingCardPreview(teamId);
+  });
+
+  judgingTeamPanels.addEventListener('click', (event) => {
+    const submitButton = event.target.closest('.judging-submit-btn');
+    if (!submitButton) {
+      return;
+    }
+
+    const teamId = Number(submitButton.dataset.teamId);
+    if (!teamId) {
+      showNotification('Missing team for judging submission.', 'error');
+      return;
+    }
+
+    const draft = getJudgingDraft(teamId);
+    socket.emit('judging:score-team', {
+      teamId,
+      taste: Number(draft.taste) || 0,
+      accuracy: Number(draft.accuracy) || 0,
+      creativity: Number(draft.creativity) || 0
+    });
+  });
+}
+
+if (revealResultsBtn) {
+  revealResultsBtn.addEventListener('click', () => {
+    if (!allTeamsJudged) {
+      showNotification('Score every team before revealing results.', 'error');
+      return;
+    }
+
+    socket.emit('results:reveal');
   });
 }
 
