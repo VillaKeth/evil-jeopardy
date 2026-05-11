@@ -168,6 +168,45 @@ class SceneManager {
     return scene;
   }
 
+  async transitionToScene(sceneKey, options = {}) {
+    this.engine.stopRenderLoop();
+    if (this.currentScene) {
+      this.currentScene.dispose();
+      this.currentScene = null;
+    }
+
+    // Temporary countdown scene
+    const countdownScene = new BABYLON.Scene(this.engine);
+    countdownScene.clearColor = new BABYLON.Color4(0.05, 0.07, 0.09, 1);
+    const cam = new BABYLON.FreeCamera('cam', BABYLON.Vector3.Zero(), countdownScene);
+    const gui = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('countdown', true, countdownScene);
+
+    const phaseLabel = new BABYLON.GUI.TextBlock('phase', options.phaseName || sceneKey);
+    phaseLabel.color = '#ffffff';
+    phaseLabel.fontSize = 48;
+    phaseLabel.top = '-60px';
+    gui.addControl(phaseLabel);
+
+    const countText = new BABYLON.GUI.TextBlock('count', '3');
+    countText.color = '#ffd700';
+    countText.fontSize = 72;
+    countText.top = '40px';
+    gui.addControl(countText);
+
+    this.engine.runRenderLoop(() => countdownScene.render());
+
+    for (let i = 3; i >= 1; i--) {
+      countText.text = String(i);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    this.engine.stopRenderLoop();
+    gui.dispose();
+    countdownScene.dispose();
+
+    return this.startScene(sceneKey, options);
+  }
+
   getActiveScene() {
     return this.currentScene;
   }

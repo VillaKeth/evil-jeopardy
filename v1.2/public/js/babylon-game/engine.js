@@ -10,6 +10,7 @@ class BabylonGameEngine {
     this.sceneManager = null;
     this.socketBridge = null;
     this._initialized = false;
+    this._currentPhaseIndex = 0;
   }
 
   async init() {
@@ -42,12 +43,29 @@ class BabylonGameEngine {
     this._registerScenes();
 
     window.addEventListener('resize', this._onResize);
+    this._setupPhaseAdvancement();
     this._initialized = true;
   }
 
   _onResize = () => {
     if (this.engine) this.engine.resize();
   };
+
+  _setupPhaseAdvancement() {
+    this.socketBridge.onPhaseCompleted((data) => {
+      this._currentPhaseIndex++;
+      const minigames = this.options.minigames || [];
+      const next = minigames[this._currentPhaseIndex];
+      if (!next) return; // All phases done
+
+      const sceneKey = SCENE_KEY_MAP[next.sceneKey] || next.sceneKey;
+      this.sceneManager.transitionToScene(sceneKey, {
+        ...this.options,
+        isAbsurd: Boolean(next.isAbsurd),
+        phaseName: next.phaseName || next.phase?.toUpperCase()
+      });
+    });
+  }
 
   _registerScenes() {
     const sceneClasses = {
