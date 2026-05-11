@@ -643,7 +643,7 @@ function createApp(options = {}) {
     });
     
     // Handle state requests
-    socket.on('get-state', () => {
+    const handleStateRequest = () => {
       try {
         const phase = db.getState('phase');
         const transformedTeams = getSerializedTeams();
@@ -681,7 +681,10 @@ function createApp(options = {}) {
         console.error('Failed to get state:', err);
         socket.emit('error', { message: 'Server error retrieving state.' });
       }
-    });
+    };
+
+    socket.on('get-state', handleStateRequest);
+    socket.on('request-state', handleStateRequest);
     
     // Handle team joining (lobby phase)
     socket.on('join-team', (data) => {

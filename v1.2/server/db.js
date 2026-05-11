@@ -1,5 +1,54 @@
 const Database = require('better-sqlite3');
 
+function tableExists(db, tableName) {
+  return Boolean(
+    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName)
+  );
+}
+
+function getCompatibleLegacyScoresTableName(db) {
+  let suffix = 0;
+  let candidate = 'scores_legacy_backup';
+
+  while (tableExists(db, candidate)) {
+    suffix += 1;
+    candidate = `scores_legacy_backup_${suffix}`;
+  }
+
+  return candidate;
+}
+
+function ensureScoresSchema(db) {
+  const columns = db.prepare('PRAGMA table_info(scores)').all();
+  if (!columns.length) {
+    return;
+  }
+
+  const columnNames = new Set(columns.map((column) => column.name));
+  const hasExpectedSchema = ['phase', 'score', 'details'].every((name) => columnNames.has(name));
+  if (hasExpectedSchema) {
+    return;
+  }
+
+  const legacyTableName = getCompatibleLegacyScoresTableName(db);
+  db.transaction(() => {
+    db.exec(`ALTER TABLE scores RENAME TO ${legacyTableName}`);
+    db.exec(`
+      CREATE TABLE scores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL,
+        phase TEXT NOT NULL,
+        score REAL NOT NULL,
+        details TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (team_id) REFERENCES teams(id)
+      );
+    `);
+  })();
+
+  console.warn(`Migrated incompatible scores table to ${legacyTableName}.`);
+}
+
 /**
  * Initialize SQLite database with schema
  * @param {string} dbPath - Path to database file
@@ -72,6 +121,8 @@ function initDb(dbPath) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  ensureScoresSchema(db);
 
   // Prepared statements
   const stmts = {

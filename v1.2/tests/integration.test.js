@@ -175,16 +175,21 @@ describe('Server Integration', () => {
     });
   });
   
-  it('should return current game state', async () => {
-    await new Promise((resolve) => {
+  it('should return current game state for both get-state and request-state', async () => {
+    const directState = await onceEvent(hostSocket, 'state', () => {
       hostSocket.emit('get-state');
-      hostSocket.on('state', (data) => {
-        assert.ok(data.phase);
-        assert.strictEqual(data.phase, 'LOBBY');
-        assert.ok(Array.isArray(data.teams));
-        resolve();
-      });
     });
+
+    assert.ok(directState.phase);
+    assert.strictEqual(directState.phase, 'LOBBY');
+    assert.ok(Array.isArray(directState.teams));
+
+    const requestedState = await onceEvent(hostSocket, 'state', () => {
+      hostSocket.emit('request-state');
+    });
+
+    assert.strictEqual(requestedState.phase, 'LOBBY');
+    assert.ok(Array.isArray(requestedState.teams));
   });
   
   it('should allow host to change phase and broadcast to all clients', async () => {

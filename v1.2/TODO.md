@@ -10,3 +10,5 @@
 - [ ] Smoke test the dramatic results reveal with a generated cake gallery on host, screen, and player clients.
 - [ ] Keep `tests/e2e.test.js` aligned with future show-phase and socket contract changes.
 - [ ] Keep `README.md` aligned with future setup, tunnel, and show-flow changes in `v1.2`.
+- [ ] Add a favicon for `v1.2` so browser smoke tests do not log a missing asset error.
+- [ ] Decide whether legacy `scores` backup tables should eventually be migrated into the new baking schema.

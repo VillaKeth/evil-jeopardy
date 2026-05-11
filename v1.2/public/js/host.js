@@ -6,6 +6,10 @@ const socket = io();
 const phaseIndicator = document.getElementById('phase-indicator');
 const phaseText = document.getElementById('phase-text');
 const connectionStatus = document.getElementById('connection-status');
+const connectionOverlay = document.getElementById('connection-overlay');
+const connectionOverlayMessage = connectionOverlay ? connectionOverlay.querySelector('p') : null;
+const loadingOverlay = document.getElementById('loading-overlay');
+const loadingOverlayMessage = loadingOverlay ? loadingOverlay.querySelector('p') : null;
 const teamsList = document.getElementById('teams-list');
 const teamNameInput = document.getElementById('team-name');
 const teamVirtualCheckbox = document.getElementById('team-virtual');
@@ -113,21 +117,43 @@ let cakeGalleryState = {
   scores: null,
   chaosEvents: []
 };
+let hasConnectedOnce = false;
+let phaseTransitionTimer = null;
 
 // ===== Socket Event Handlers =====
 
 socket.on('connect', () => {
   console.log('Connected to server');
+  hideConnectionOverlay();
   updateConnectionStatus('Connected', 'success');
 
-  socket.emit('join-room', 'host');
-  socket.emit('get-state');
+  if (!hasConnectedOnce) {
+    hasConnectedOnce = true;
+    socket.emit('join-room', 'host');
+    showLoadingOverlay('Loading latest show state...');
+    socket.emit('get-state');
+  }
 });
 
 socket.on('disconnect', () => {
   console.log('Disconnected from server');
+  hideLoadingOverlay();
+  showConnectionOverlay('Connection lost. Reconnecting...');
   updateConnectionStatus('Disconnected - Reconnecting...', 'error');
 });
+
+function handleReconnect() {
+  hideConnectionOverlay();
+  updateConnectionStatus('Connected', 'success');
+  showLoadingOverlay('Connection restored. Syncing current state...');
+  socket.emit('join-room', 'host');
+  socket.emit('request-state');
+}
+
+socket.on('reconnect', handleReconnect);
+if (socket.io) {
+  socket.io.on('reconnect', handleReconnect);
+}
 
 socket.on('room-joined', (data) => {
   console.log('Joined room:', data.role);
@@ -141,6 +167,7 @@ socket.on('phase-changed', (data) => {
 
 socket.on('state', (data) => {
   console.log('Received state:', data);
+  hideLoadingOverlay();
   currentPhase = data.phase;
   teams = normalizeTeams(data.teams || []);
 
@@ -179,6 +206,7 @@ socket.on('teams-updated', (updatedTeams) => {
 
 socket.on('error', (error) => {
   console.error('Server error:', error);
+  hideLoadingOverlay();
   showNotification(error.message || 'An error occurred', 'error');
 });
 
@@ -397,6 +425,7 @@ socket.on('baking:time-up', () => {
 
 socket.on('baking:cake-gallery', (payload) => {
   console.log('Cake gallery ready:', payload);
+  hideLoadingOverlay();
   cakeGalleryState = {
     teamId: Number(payload?.teamId) || null,
     imagePaths: Array.isArray(payload?.imagePaths) ? payload.imagePaths : [],
@@ -478,19 +507,62 @@ function updateConnectionStatus(message, type) {
   }
 }
 
+function showConnectionOverlay(message = 'Connection lost. Reconnecting...') {
+  if (connectionOverlayMessage) {
+    connectionOverlayMessage.textContent = message;
+  }
+
+  if (connectionOverlay) {
+    connectionOverlay.classList.remove('hidden');
+  }
+}
+
+function hideConnectionOverlay() {
+  if (connectionOverlay) {
+    connectionOverlay.classList.add('hidden');
+  }
+}
+
+function showLoadingOverlay(message = 'Loading...') {
+  if (loadingOverlayMessage) {
+    loadingOverlayMessage.textContent = message;
+  }
+
+  if (loadingOverlay) {
+    loadingOverlay.classList.remove('hidden');
+  }
+}
+
+function hideLoadingOverlay() {
+  if (loadingOverlay) {
+    loadingOverlay.classList.add('hidden');
+  }
+}
+
+function setActivePhaseSection(sectionId) {
+  if (phaseTransitionTimer) {
+    clearTimeout(phaseTransitionTimer);
+  }
+
+  document.querySelectorAll('.phase-section').forEach((section) => {
+    section.classList.remove('active', 'phase-enter');
+  });
+
+  const section = document.getElementById(sectionId);
+  if (!section) {
+    return;
+  }
+
+  section.classList.add('phase-enter');
+  phaseTransitionTimer = setTimeout(() => {
+    section.classList.add('active');
+  }, 30);
+}
+
 function updatePhaseUI(phase) {
   phaseText.textContent = phase;
   phaseIndicator.className = `phase-indicator phase-${phase}`;
-
-  document.querySelectorAll('.phase-section').forEach((section) => {
-    section.classList.remove('active');
-  });
-
-  const sectionId = `${phase.toLowerCase()}-section`;
-  const section = document.getElementById(sectionId);
-  if (section) {
-    section.classList.add('active');
-  }
+  setActivePhaseSection(`${phase.toLowerCase()}-section`);
 
   if (phase === 'TRIVIA') {
     initializeTriviaUI();
@@ -1506,6 +1578,7 @@ if (generateGalleryBtn) {
       return;
     }
 
+    showLoadingOverlay('Generating cake gallery...');
     socket.emit('baking:generate-gallery', { teamId: activeTeam.id });
   });
 }

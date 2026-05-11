@@ -632,6 +632,20 @@
     <span>Connecting to server...</span>
   </div>
 
+  <div id="connection-overlay" class="connection-overlay hidden" aria-live="assertive">
+    <div class="connection-message">
+      <div class="spinner"></div>
+      <p>Connection lost. Reconnecting...</p>
+    </div>
+  </div>
+
+  <div id="loading-overlay" class="loading-overlay hidden" aria-live="polite">
+    <div class="connection-message">
+      <div class="spinner"></div>
+      <p>Loading latest show state...</p>
+    </div>
+  </div>
+
   <!-- Main Content Area -->
   <div class="player-content">
     
@@ -811,7 +825,7 @@
     <!-- BAKING PHASE -->
     <section id="baking-section" class="phase-section">
       <!-- Phaser Game Container -->
-      <div id="phaser-container" style="display: none; width: 100%; max-width: 1024px; margin: 0 auto;"></div>
+      <div id="phaser-container" class="player-phaser-container" style="display: none;"></div>
     </section>
 
     <!-- JUDGING PHASE (placeholder) -->

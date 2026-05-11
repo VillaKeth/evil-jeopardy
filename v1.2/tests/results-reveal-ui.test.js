@@ -12,19 +12,28 @@ test('screen results reveal UI supports dramatic rankings with hybrid score brea
   const screenScript = read('public/js/screen.js');
 
   assert.match(screenHtml, /id="results-container"/);
+  assert.match(screenHtml, /id="connection-overlay"/);
+  assert.match(screenHtml, /id="loading-overlay"/);
   assert.match(screenScript, /socket\.on\('results:reveal'/);
+  assert.match(screenScript, /socket\.on\('reconnect'/);
+  assert.match(screenScript, /socket\.emit\('request-state'/);
   assert.match(screenScript, /WINNER!/);
   assert.match(screenScript, /Physical:/);
   assert.match(screenScript, /Virtual:/);
   assert.match(screenScript, /Average:/);
 });
 
+
 test('player results reveal UI supports winner and consolation states', () => {
   const playerHtml = read('public/player.html');
   const playerScript = read('public/js/player.js');
 
   assert.match(playerHtml, /id="player-results-container"/);
+  assert.match(playerHtml, /id="connection-overlay"/);
+  assert.match(playerHtml, /id="loading-overlay"/);
   assert.match(playerScript, /socket\.on\('results:reveal'/);
+  assert.match(playerScript, /socket\.on\('reconnect'/);
+  assert.match(playerScript, /socket\.emit\('request-state'/);
   assert.match(playerScript, /Better luck next time/);
   assert.match(playerScript, /You won!/);
   assert.match(playerScript, /Your virtual cake contribution/);
