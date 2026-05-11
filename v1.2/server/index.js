@@ -4,21 +4,22 @@ const { Server } = require('socket.io');
 const path = require('path');
 const { initDb } = require('./db');
 const { startBaking, getTimeRemaining, completePhase, getPhaseScores, getTeamExtraTime, calculateVirtualCakeScores } = require('./baking');
-const { 
-  loadQuestions, 
-  getSlideQuestion, 
-  getJeopardyQuestion, 
-  markAnswered, 
-  isAnswered, 
-  getBoard, 
-  resetAnswered, 
-  getAllSlides, 
-  getSlideCount, 
-  scoreAnswer, 
-  awardIngredient, 
-  forceAllAnswer, 
-  getScoreboard 
+const {
+  loadQuestions,
+  getSlideQuestion,
+  getJeopardyQuestion,
+  markAnswered,
+  isAnswered,
+  getBoard,
+  resetAnswered,
+  getAllSlides,
+  getSlideCount,
+  scoreAnswer,
+  awardIngredient,
+  forceAllAnswer,
+  getScoreboard
 } = require('./trivia');
+const { loadShop, purchaseItem, forceApprove, getTeamInventory, getTeamPurchases } = require('./shop');
 
 // Valid phase transitions
 const PHASES = ['LOBBY', 'TRIVIA', 'SHOP', 'BAKING', 'JUDGING', 'RESULTS'];
@@ -58,6 +59,16 @@ function createApp(options = {}) {
   } catch (error) {
     console.error('Failed to load trivia questions:', error.message);
   }
+
+  // Load shop data
+  const shopPath = path.join(__dirname, '../data/shop.json');
+  let shopData = null;
+  try {
+    shopData = loadShop(shopPath);
+    console.log('Shop data loaded successfully');
+  } catch (error) {
+    console.error('Failed to load shop data:', error.message);
+  }
   
   // Create Express app
   const app = express();
@@ -69,6 +80,66 @@ function createApp(options = {}) {
   
   // Baking timer interval
   let bakingTimerInterval = null;
+
+  function transformTeam(team) {
+    return {
+      id: team.id,
+      name: team.name,
+      money: team.money,
+      isVirtual: team.is_virtual_team === 1,
+      createdAt: team.created_at
+    };
+  }
+
+  function getSerializedTeams() {
+    return db.getTeams().map(transformTeam);
+  }
+
+  function getShopItem(itemKey) {
+    if (!shopData || !Array.isArray(shopData.categories)) {
+      return null;
+    }
+
+    for (const category of shopData.categories) {
+      const item = category.items.find((entry) => entry.key === itemKey);
+      if (item) {
+        return {
+          ...item,
+          category: category.key,
+          categoryName: category.name
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function getPendingShopPurchases() {
+    return db.db.prepare('SELECT * FROM pending_purchases WHERE status = ? ORDER BY created_at DESC').all('pending');
+  }
+
+  function buildShopCatalogPayload() {
+    const teams = getSerializedTeams();
+    const inventories = {};
+    const purchaseHistories = {};
+
+    teams.forEach((team) => {
+      inventories[String(team.id)] = getTeamInventory(db.db, team.id);
+      purchaseHistories[String(team.id)] = getTeamPurchases(db.db, team.id);
+    });
+
+    return {
+      ...(shopData || { categories: [], defaultKit: [] }),
+      teams,
+      inventories,
+      purchaseHistories,
+      pendingPurchases: getPendingShopPurchases()
+    };
+  }
+
+  function emitTeamsUpdated(target = io) {
+    target.emit('teams-updated', getSerializedTeams());
+  }
   
   // Socket.io connection handling
   io.on('connection', (socket) => {
@@ -145,21 +216,16 @@ function createApp(options = {}) {
     socket.on('get-state', () => {
       try {
         const phase = db.getState('phase');
-        const teams = db.getTeams();
-        
-        // Transform teams to match client expectations
-        const transformedTeams = teams.map(team => ({
-          id: team.id,
-          name: team.name,
-          money: team.money,
-          isVirtual: team.is_virtual_team === 1,
-          createdAt: team.created_at
-        }));
+        const transformedTeams = getSerializedTeams();
         
         socket.emit('state', {
           phase,
           teams: transformedTeams
         });
+
+        if (phase === 'SHOP' && shopData) {
+          socket.emit('shop:catalog', buildShopCatalogPayload());
+        }
       } catch (err) {
         console.error('Failed to get state:', err);
         socket.emit('error', { message: 'Server error retrieving state.' });
@@ -202,16 +268,7 @@ function createApp(options = {}) {
         io.emit('team-joined', transformedTeam);
         
         // Get all teams and broadcast updated list
-        const teams = db.getTeams();
-        const transformedTeams = teams.map(t => ({
-          id: t.id,
-          name: t.name,
-          money: t.money,
-          isVirtual: t.is_virtual_team === 1,
-          createdAt: t.created_at
-        }));
-        
-        io.emit('teams-updated', transformedTeams);
+        emitTeamsUpdated(io);
       } catch (err) {
         console.error('Failed to create team:', err);
         
@@ -262,6 +319,194 @@ function createApp(options = {}) {
       } catch (err) {
         console.error('Failed to start game:', err);
         socket.emit('error', { message: 'Server error starting game.' });
+      }
+    });
+
+    // ===== SHOP HANDLERS =====
+
+    socket.on('shop:open', () => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can open the shop.' });
+          return;
+        }
+
+        if (!shopData) {
+          socket.emit('error', { message: 'Shop data is unavailable.' });
+          return;
+        }
+
+        const currentPhase = db.getState('phase');
+        if (currentPhase !== 'TRIVIA') {
+          socket.emit('error', { message: 'Shop can only be opened from TRIVIA phase.' });
+          return;
+        }
+
+        db.setState('phase', 'SHOP');
+        db.logEvent('shop-opened', { from: currentPhase, to: 'SHOP' });
+
+        io.emit('phase-changed', { phase: 'SHOP', previousPhase: currentPhase });
+        io.emit('shop:catalog', buildShopCatalogPayload());
+      } catch (err) {
+        console.error('Failed to open shop:', err);
+        socket.emit('error', { message: 'Server error opening shop.' });
+      }
+    });
+
+    socket.on('shop:purchase', (data) => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can process purchases.' });
+          return;
+        }
+
+        if (db.getState('phase') !== 'SHOP') {
+          socket.emit('error', { message: 'Purchases are only available during SHOP phase.' });
+          return;
+        }
+
+        if (!shopData) {
+          socket.emit('error', { message: 'Shop data is unavailable.' });
+          return;
+        }
+
+        const { teamId, itemKey } = data || {};
+        if (typeof teamId !== 'number' || !itemKey || typeof itemKey !== 'string') {
+          socket.emit('error', { message: 'Invalid purchase request.' });
+          return;
+        }
+
+        const item = getShopItem(itemKey);
+        if (!item) {
+          socket.emit('error', { message: 'Requested item was not found.' });
+          return;
+        }
+
+        const existingTeam = db.db.prepare('SELECT id FROM teams WHERE id = ?').get(teamId);
+        if (!existingTeam) {
+          socket.emit('error', { message: 'Team not found.' });
+          return;
+        }
+
+        const result = purchaseItem(db.db, teamId, itemKey, shopData);
+
+        if (result.success) {
+          const inventory = getTeamInventory(db.db, teamId);
+          const purchaseHistory = getTeamPurchases(db.db, teamId);
+
+          io.emit('shop:purchase-result', teamId, {
+            success: true,
+            itemKey,
+            itemName: item.name,
+            category: item.category,
+            categoryName: item.categoryName,
+            price: item.price,
+            newBalance: result.newBalance,
+            approvedByOverride: false,
+            purchaseHistory
+          });
+          io.emit('shop:team-inventory-updated', teamId, inventory);
+          emitTeamsUpdated(io);
+          return;
+        }
+
+        io.emit('shop:purchase-result', teamId, {
+          success: false,
+          itemKey,
+          itemName: item.name,
+          category: item.category,
+          categoryName: item.categoryName,
+          price: item.price,
+          purchaseId: result.purchaseId,
+          warning: result.warning,
+          currentBalance: result.currentBalance
+        });
+        io.emit('shop:warning', teamId, `${item.name}: ${result.warning}`);
+      } catch (err) {
+        console.error('Failed to process purchase:', err);
+        socket.emit('error', { message: err.message || 'Server error processing purchase.' });
+      }
+    });
+
+    socket.on('shop:force-approve', (data) => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can override purchases.' });
+          return;
+        }
+
+        if (db.getState('phase') !== 'SHOP') {
+          socket.emit('error', { message: 'Overrides are only available during SHOP phase.' });
+          return;
+        }
+
+        if (!shopData) {
+          socket.emit('error', { message: 'Shop data is unavailable.' });
+          return;
+        }
+
+        const { purchaseId } = data || {};
+        if (typeof purchaseId !== 'number') {
+          socket.emit('error', { message: 'Invalid purchase override request.' });
+          return;
+        }
+
+        const pendingPurchase = db.db.prepare('SELECT * FROM pending_purchases WHERE id = ?').get(purchaseId);
+        if (!pendingPurchase) {
+          socket.emit('error', { message: 'Pending purchase not found.' });
+          return;
+        }
+
+        const item = getShopItem(pendingPurchase.item_key);
+        if (!item) {
+          socket.emit('error', { message: 'Requested item was not found.' });
+          return;
+        }
+
+        const result = forceApprove(db.db, purchaseId, shopData);
+        const inventory = getTeamInventory(db.db, pendingPurchase.team_id);
+        const purchaseHistory = getTeamPurchases(db.db, pendingPurchase.team_id);
+
+        io.emit('shop:purchase-result', pendingPurchase.team_id, {
+          success: true,
+          itemKey: pendingPurchase.item_key,
+          itemName: item.name,
+          category: item.category,
+          categoryName: item.categoryName,
+          price: pendingPurchase.amount,
+          purchaseId,
+          newBalance: result.newBalance,
+          approvedByOverride: true,
+          purchaseHistory
+        });
+        io.emit('shop:team-inventory-updated', pendingPurchase.team_id, inventory);
+        emitTeamsUpdated(io);
+      } catch (err) {
+        console.error('Failed to force approve purchase:', err);
+        socket.emit('error', { message: err.message || 'Server error approving purchase.' });
+      }
+    });
+
+    socket.on('shop:close', () => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can close the shop.' });
+          return;
+        }
+
+        const currentPhase = db.getState('phase');
+        if (currentPhase !== 'SHOP') {
+          socket.emit('error', { message: 'Shop can only be closed from SHOP phase.' });
+          return;
+        }
+
+        db.setState('phase', 'BAKING');
+        db.logEvent('shop-closed', { from: currentPhase, to: 'BAKING' });
+
+        io.emit('phase-changed', { phase: 'BAKING', previousPhase: currentPhase });
+      } catch (err) {
+        console.error('Failed to close shop:', err);
+        socket.emit('error', { message: 'Server error closing shop.' });
       }
     });
     

@@ -100,6 +100,7 @@ test('purchaseItem creates pending purchase when not affordable', async () => {
   
   assert.strictEqual(result.success, false, 'Purchase should fail');
   assert.ok(result.purchaseId, 'Should return purchase ID');
+  assert.strictEqual(result.currentBalance, 100, 'Should return the current team balance for host warnings');
   assert.ok(result.warning, 'Should return warning message');
   assert.ok(result.warning.includes('host override'), 'Warning should mention host override');
   

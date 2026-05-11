@@ -1,2 +1,4 @@
 - [ ] Add host-side virtual-team buzz audio playback in `public/js/host.js`.
 - [ ] Backfill trivia mode/question state in `get-state` so reconnecting screen/player clients can rehydrate mid-round.
+- [ ] Add host shop dashboard controls and override flow in `public/host.html` and `public/js/host.js`.
+- [ ] Add shop big-screen catalog/balance updates and server socket handlers across `public/screen.html`, `public/js/screen.js`, and `server/index.js`.

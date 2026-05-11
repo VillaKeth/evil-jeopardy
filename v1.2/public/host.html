@@ -5,6 +5,178 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Evil Jeopardy 1.2 - Host Control</title>
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .trivia-phase-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .shop-host-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+
+    .shop-toolbar {
+      display: flex;
+      gap: var(--spacing-md);
+      align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .shop-team-select-group {
+      flex: 1 1 280px;
+      margin-bottom: 0;
+    }
+
+    .shop-balance-pill {
+      min-width: 220px;
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-radius: 10px;
+      border: 1px solid rgba(121, 192, 255, 0.35);
+      background: rgba(121, 192, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .shop-balance-pill strong {
+      font-size: 1.75rem;
+      color: #d2e7ff;
+    }
+
+    .shop-catalog-grid {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .shop-category-card {
+      background: linear-gradient(145deg, rgba(13, 17, 23, 0.98), rgba(33, 38, 45, 0.96));
+      border: 1px solid rgba(121, 192, 255, 0.22);
+      border-radius: 12px;
+      padding: var(--spacing-lg);
+    }
+
+    .shop-category-card h3 {
+      color: var(--color-shop);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .shop-item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .shop-item-card {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-default);
+      border-radius: 10px;
+      padding: var(--spacing-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-height: 220px;
+    }
+
+    .shop-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+
+    .shop-item-price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-results);
+      white-space: nowrap;
+    }
+
+    .shop-item-meta,
+    .shop-item-owned {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .shop-item-card .btn {
+      margin-top: auto;
+    }
+
+    .shop-team-summary h2 {
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .shop-inventory-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+    }
+
+    .shop-inventory-chip {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.3);
+      background: rgba(121, 192, 255, 0.1);
+      font-size: 0.875rem;
+    }
+
+    .shop-history-list {
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .shop-history-item {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      border: 1px solid var(--border-default);
+      background: var(--bg-tertiary);
+    }
+
+    .shop-warning-modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-lg);
+      background: rgba(13, 17, 23, 0.82);
+      z-index: 1200;
+    }
+
+    .shop-warning-dialog {
+      width: min(100%, 520px);
+      background: linear-gradient(145deg, rgba(33, 38, 45, 0.98), rgba(13, 17, 23, 0.98));
+      border: 1px solid rgba(255, 166, 87, 0.45);
+      border-radius: 14px;
+      padding: var(--spacing-xl);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+    }
+
+    .shop-warning-dialog h2 {
+      color: #ffb86b;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .shop-warning-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: var(--spacing-lg);
+    }
+
+    @media (max-width: 960px) {
+      .shop-host-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -179,20 +351,92 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-header flex flex-between">
+          <h2>Phase Transition</h2>
+          <button class="btn btn-secondary" id="open-shop-btn">Open Shop Phase</button>
+        </div>
+        <div class="card-body">
+          <div class="trivia-phase-actions">
+            <p class="text-muted">Move the game into the shopping round once trivia scoring is complete.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Buzz Notifications -->
       <div id="buzz-notification" class="buzz-notification hidden">
         <span id="buzz-team-name"></span> buzzed in!
       </div>
     </section>
 
-    <!-- SHOP PHASE (placeholder) -->
+    <!-- SHOP PHASE -->
     <section id="shop-section" class="phase-section">
-      <div class="card">
-        <div class="card-header">
-          <h2>Shop Phase</h2>
+      <div class="shop-host-layout">
+        <div>
+          <div class="card">
+            <div class="card-header flex flex-between">
+              <div>
+                <h2>Shop Dashboard</h2>
+                <p class="text-muted">Select a team, buy items from each category, and manage overrides from one place.</p>
+              </div>
+              <button class="btn btn-primary" id="close-shop-btn">Close Shop</button>
+            </div>
+            <div class="card-body">
+              <div class="shop-toolbar">
+                <div class="form-group shop-team-select-group">
+                  <label class="form-label" for="shop-team-select">Active Team</label>
+                  <select id="shop-team-select" class="form-input"></select>
+                </div>
+                <div class="shop-balance-pill">
+                  <span class="text-muted text-small">Current Balance</span>
+                  <strong id="shop-team-balance">$0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="shop-catalog" class="shop-catalog-grid">
+            <div class="card">
+              <div class="card-body">
+                <p class="text-muted text-center">Waiting for the host to open the shop...</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card-body">
-          <p class="text-muted">Shop controls will be added in later tasks...</p>
+
+        <aside class="shop-host-sidebar">
+          <div class="card shop-team-summary">
+            <div class="card-header">
+              <h2 id="shop-selected-team-name">Selected Team</h2>
+              <p class="text-muted">Live inventory and purchase history</p>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <h3>Inventory</h3>
+                <div id="shop-team-inventory" class="shop-inventory-list">
+                  <span class="text-muted">No purchases yet.</span>
+                </div>
+              </div>
+
+              <div>
+                <h3>Purchase History</h3>
+                <div id="shop-team-history" class="shop-history-list">
+                  <div class="text-muted">No purchases recorded yet.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="shop-warning-modal" class="shop-warning-modal hidden">
+        <div class="shop-warning-dialog">
+          <h2 id="shop-warning-title">Purchase Warning</h2>
+          <p id="shop-warning-copy" class="text-muted">This team cannot afford the selected item.</p>
+          <div class="shop-warning-actions">
+            <button class="btn btn-danger" id="shop-override-btn">Override &amp; Approve</button>
+            <button class="btn btn-secondary" id="shop-warning-cancel-btn">Cancel</button>
+          </div>
         </div>
       </div>
     </section>

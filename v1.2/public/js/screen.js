@@ -1,6 +1,5 @@
 // Evil Jeopardy 1.2 - Screen Client Script (for projection display)
 
-// Initialize Socket.io connection
 const socket = io();
 
 // DOM elements
@@ -21,6 +20,12 @@ const screenTriviaScoreboard = document.getElementById('screen-trivia-scoreboard
 const screenBuzzStatus = document.getElementById('screen-buzz-status');
 const screenAnswerStatus = document.getElementById('screen-answer-status');
 
+// Shop DOM elements
+const screenShopCatalog = document.getElementById('screen-shop-catalog');
+const screenShopTeams = document.getElementById('screen-shop-teams');
+const screenShopActivity = document.getElementById('screen-shop-activity');
+const screenShopLiveBanner = document.getElementById('screen-shop-live-banner');
+
 // State
 let currentPhase = 'LOBBY';
 let teams = [];
@@ -30,6 +35,14 @@ let currentQuestionId = null;
 let currentBoard = [];
 let latestBuzz = null;
 let latestAnswerResult = null;
+let shopCatalog = null;
+let shopItemsByKey = new Map();
+let shopInventories = {};
+let shopActivities = [];
+let pendingShopContext = null;
+let activeShopItemKey = null;
+let shopHighlightTimer = null;
+let shopBannerTimer = null;
 
 // ===== Socket Event Handlers =====
 
@@ -37,10 +50,7 @@ socket.on('connect', () => {
   console.log('Connected to server');
   updateConnectionStatus('Connected', 'success');
 
-  // Join as screen
   socket.emit('join-room', 'screen');
-
-  // Request current state
   socket.emit('get-state');
 });
 
@@ -69,13 +79,15 @@ socket.on('state', (data) => {
   renderTriviaScoreboard();
   renderCurrentQuestion();
   renderStatusPanels();
+  renderShopDisplay();
 });
 
 socket.on('teams-updated', (updatedTeams) => {
   console.log('Teams updated:', updatedTeams);
-  teams = normalizeTeams(updatedTeams);
+  teams = mergeTeamList(teams, updatedTeams);
   renderTeamsList();
   renderTriviaScoreboard();
+  renderShopTeams();
 });
 
 socket.on('error', (error) => {
@@ -101,6 +113,7 @@ socket.on('trivia:scores-updated', (scoreboard) => {
   console.log('Scores updated:', scoreboard);
   teams = mergeTeamList(teams, scoreboard);
   renderTriviaScoreboard();
+  renderShopTeams();
 });
 
 socket.on('trivia:buzz-received', (data) => {
@@ -121,6 +134,7 @@ socket.on('trivia:answer-result', (data) => {
 
   renderTriviaScoreboard();
   renderStatusPanels();
+  renderShopTeams();
 });
 
 socket.on('trivia:mode-changed', (data) => {
@@ -135,6 +149,79 @@ socket.on('trivia:board-state', (board) => {
   currentBoard = Array.isArray(board) ? board : [];
   renderJeopardyBoard();
   renderCategoryBadge();
+});
+
+// ===== SHOP EVENT HANDLERS =====
+
+socket.on('shop:catalog', (data) => {
+  console.log('Shop catalog:', data);
+  shopCatalog = data || { categories: [], defaultKit: [] };
+  shopItemsByKey = buildShopItemIndex(shopCatalog);
+  shopInventories = normalizeShopCollections(shopCatalog.inventories);
+
+  if (Array.isArray(shopCatalog.teams) && shopCatalog.teams.length > 0) {
+    teams = normalizeTeams(shopCatalog.teams);
+  }
+
+  seedShopActivity(shopCatalog.purchaseHistories || {});
+  renderShopDisplay();
+});
+
+socket.on('shop:purchase-result', (teamId, result) => {
+  console.log('Shop purchase result:', teamId, result);
+
+  if (typeof result.newBalance === 'number') {
+    teams = normalizeTeams(
+      teams.map((team) => team.id === teamId ? { ...team, money: result.newBalance } : team)
+    );
+  }
+
+  if (result.success) {
+    pendingShopContext = null;
+    const approvalText = result.approvedByOverride ? 'with host override' : 'successfully';
+    addShopActivity({
+      status: result.approvedByOverride ? 'override' : 'success',
+      title: `${getTeamName(teamId)} bought ${result.itemName || result.itemKey}`,
+      copy: `${approvalText} for ${formatMoney(result.price)}. New balance: ${formatMoney(result.newBalance)}.`
+    });
+    showShopBanner(`${getTeamName(teamId)} bought ${result.itemName || result.itemKey}`, result.approvedByOverride ? 'override' : 'success');
+    flashShopItem(result.itemKey);
+  } else {
+    pendingShopContext = {
+      teamId,
+      itemKey: result.itemKey,
+      itemName: result.itemName || result.itemKey,
+      price: result.price
+    };
+    showShopBanner(`${getTeamName(teamId)} is attempting ${result.itemName || result.itemKey}`, 'pending');
+    flashShopItem(result.itemKey, true);
+  }
+
+  renderShopCatalog();
+  renderShopTeams();
+  renderShopActivity();
+});
+
+socket.on('shop:team-inventory-updated', (teamId, inventory) => {
+  console.log('Team inventory updated:', teamId, inventory);
+  shopInventories[String(teamId)] = Array.isArray(inventory) ? inventory : [];
+  renderShopTeams();
+});
+
+socket.on('shop:warning', (teamId, message) => {
+  console.log('Shop warning:', teamId, message);
+  const itemName = pendingShopContext && pendingShopContext.teamId === teamId
+    ? pendingShopContext.itemName
+    : 'their selected item';
+
+  addShopActivity({
+    status: 'pending',
+    title: `${getTeamName(teamId)} needs approval`,
+    copy: `${itemName}: ${message}`
+  });
+  showShopBanner(`${getTeamName(teamId)} needs host override`, 'pending');
+  renderShopActivity();
+  renderShopCatalog();
 });
 
 // ===== UI Updates =====
@@ -171,6 +258,10 @@ function updatePhaseUI(phase) {
 
   if (phase === 'TRIVIA') {
     initializeTriviaDisplay();
+  } else if (phase === 'SHOP') {
+    initializeShopDisplay();
+  } else {
+    clearShopBanner();
   }
 }
 
@@ -180,6 +271,10 @@ function initializeTriviaDisplay() {
   renderJeopardyBoard();
   renderCurrentQuestion();
   renderStatusPanels();
+}
+
+function initializeShopDisplay() {
+  renderShopDisplay();
 }
 
 function renderTeamsList() {
@@ -408,6 +503,232 @@ function getCategoryName(questionId) {
   return '';
 }
 
+// ===== SHOP UI FUNCTIONS =====
+
+function buildShopItemIndex(data) {
+  const itemMap = new Map();
+
+  (data.categories || []).forEach((category) => {
+    (category.items || []).forEach((item) => {
+      itemMap.set(item.key, {
+        ...item,
+        category: category.key,
+        categoryName: category.name
+      });
+    });
+  });
+
+  return itemMap;
+}
+
+function normalizeShopCollections(collections) {
+  const normalized = {};
+
+  Object.entries(collections || {}).forEach(([key, value]) => {
+    normalized[String(key)] = Array.isArray(value) ? value : [];
+  });
+
+  return normalized;
+}
+
+function buildShopItemMeta(item) {
+  const tags = [];
+
+  if (typeof item.difficulty === 'number') {
+    tags.push(`Difficulty ${item.difficulty}`);
+  }
+  if (typeof item.quality === 'number') {
+    tags.push(`Quality ${item.quality}`);
+  }
+  if (typeof item.bonus === 'number') {
+    tags.push(`${item.bonus}x bonus`);
+  }
+  if (item.effect) {
+    tags.push(`Effect: ${item.effect}`);
+  }
+  if (typeof item.value === 'number' && item.effect) {
+    tags.push(`Value ${item.value}`);
+  }
+
+  return tags.join(' • ');
+}
+
+function seedShopActivity(purchaseHistories) {
+  const flattened = [];
+
+  Object.entries(purchaseHistories || {}).forEach(([teamId, purchases]) => {
+    (purchases || []).forEach((purchase) => {
+      flattened.push({ teamId: Number(teamId), purchase });
+    });
+  });
+
+  flattened.sort((left, right) => {
+    const leftTime = new Date(left.purchase.created_at || 0).getTime();
+    const rightTime = new Date(right.purchase.created_at || 0).getTime();
+    return rightTime - leftTime;
+  });
+
+  shopActivities = flattened.slice(0, 6).map(({ teamId, purchase }) => ({
+    id: `history-${purchase.id}`,
+    status: 'history',
+    title: `${getTeamName(teamId)} bought ${getShopItemName(purchase.item_key)}`,
+    copy: `${formatMoney(purchase.price)} • ${getShopCategoryName(purchase.item_key, purchase.category)}`,
+    timestamp: Date.now() - 5000
+  }));
+}
+
+function renderShopDisplay() {
+  renderShopCatalog();
+  renderShopTeams();
+  renderShopActivity();
+}
+
+function renderShopCatalog() {
+  if (!screenShopCatalog) {
+    return;
+  }
+
+  if (!shopCatalog || !Array.isArray(shopCatalog.categories) || shopCatalog.categories.length === 0) {
+    screenShopCatalog.innerHTML = `
+      <div class="card">
+        <div class="card-body">
+          <p class="text-muted text-center">Waiting for host to open the shop...</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  screenShopCatalog.innerHTML = shopCatalog.categories.map((category) => `
+    <section class="screen-shop-category">
+      <h3>${escapeHtml(category.name)}</h3>
+      ${category.description ? `<p class="text-muted" style="font-size: 1.1rem;">${escapeHtml(category.description)}</p>` : ''}
+      <div class="screen-shop-items">
+        ${(category.items || []).map((item) => {
+          const meta = buildShopItemMeta(item);
+          const isPending = pendingShopContext && pendingShopContext.itemKey === item.key;
+          const liveClass = activeShopItemKey === item.key ? 'is-live' : '';
+          return `
+            <article class="screen-shop-item ${liveClass} ${isPending ? 'pending' : ''}">
+              <div class="screen-shop-item-header">
+                <div>
+                  <h4>${escapeHtml(item.name)}</h4>
+                  ${item.description ? `<p class="text-muted">${escapeHtml(item.description)}</p>` : ''}
+                </div>
+                <span class="screen-shop-item-price">${formatMoney(item.price)}</span>
+              </div>
+              ${meta ? `<div class="screen-shop-meta">${escapeHtml(meta)}</div>` : ''}
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `).join('');
+}
+
+function renderShopTeams() {
+  if (!screenShopTeams) {
+    return;
+  }
+
+  if (!teams.length) {
+    screenShopTeams.innerHTML = '<div class="text-muted text-center">Waiting for teams...</div>';
+    return;
+  }
+
+  screenShopTeams.innerHTML = teams.map((team) => {
+    const inventoryCount = (shopInventories[String(team.id)] || []).length;
+    return `
+      <div class="score-card">
+        <div class="score-team">${escapeHtml(team.name)}</div>
+        <div class="score-value">${formatMoney(team.money)}</div>
+        <div class="screen-shop-team-meta">${inventoryCount} item${inventoryCount === 1 ? '' : 's'} purchased</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderShopActivity() {
+  if (!screenShopActivity) {
+    return;
+  }
+
+  if (!shopActivities.length) {
+    screenShopActivity.innerHTML = '<div class="text-muted text-center">Purchases will animate here in real time.</div>';
+    return;
+  }
+
+  screenShopActivity.innerHTML = shopActivities.map((entry) => `
+    <article class="screen-shop-activity-item ${entry.status} ${Date.now() - entry.timestamp < 3000 ? 'is-new' : ''}">
+      <div class="screen-shop-activity-title">${escapeHtml(entry.title)}</div>
+      <div class="screen-shop-activity-copy">${escapeHtml(entry.copy)}</div>
+    </article>
+  `).join('');
+}
+
+function addShopActivity(entry) {
+  shopActivities = [
+    {
+      id: `shop-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      timestamp: Date.now(),
+      ...entry
+    },
+    ...shopActivities
+  ].slice(0, 8);
+}
+
+function getShopItemName(itemKey) {
+  const item = shopItemsByKey.get(itemKey);
+  return item ? item.name : itemKey;
+}
+
+function getShopCategoryName(itemKey, fallbackCategory) {
+  const item = shopItemsByKey.get(itemKey);
+  return item ? item.categoryName : (fallbackCategory || 'Shop Item');
+}
+
+function flashShopItem(itemKey, keepPending = false) {
+  activeShopItemKey = itemKey || null;
+
+  if (shopHighlightTimer) {
+    clearTimeout(shopHighlightTimer);
+  }
+
+  shopHighlightTimer = setTimeout(() => {
+    activeShopItemKey = keepPending && pendingShopContext ? pendingShopContext.itemKey : null;
+    renderShopCatalog();
+  }, 2200);
+
+  renderShopCatalog();
+}
+
+function showShopBanner(message, variant = 'success') {
+  if (!screenShopLiveBanner) {
+    return;
+  }
+
+  screenShopLiveBanner.textContent = message;
+  screenShopLiveBanner.className = `screen-shop-live-banner ${variant}`;
+  screenShopLiveBanner.classList.remove('hidden');
+
+  if (shopBannerTimer) {
+    clearTimeout(shopBannerTimer);
+  }
+
+  shopBannerTimer = setTimeout(() => {
+    clearShopBanner();
+  }, 4000);
+}
+
+function clearShopBanner() {
+  if (!screenShopLiveBanner) {
+    return;
+  }
+
+  screenShopLiveBanner.textContent = '';
+  screenShopLiveBanner.className = 'screen-shop-live-banner hidden';
+}
+
 function normalizeTeams(teamList) {
   return [...(teamList || [])]
     .filter(Boolean)
@@ -416,7 +737,7 @@ function normalizeTeams(teamList) {
       money: Number(team.money) || 0,
       isVirtual: team.isVirtual === true || team.isVirtual === 1
     }))
-    .sort((left, right) => right.money - left.money);
+    .sort((left, right) => right.money - left.money || left.id - right.id);
 }
 
 function mergeTeamList(existingTeams, incomingTeams) {
@@ -454,7 +775,5 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
-
-// ===== Initialization =====
 
 console.log('Screen client initialized');

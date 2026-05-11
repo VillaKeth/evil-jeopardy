@@ -171,8 +171,181 @@
       background: transparent;
     }
 
+    .screen-shop-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) minmax(360px, 1fr);
+      gap: var(--spacing-xl);
+      align-items: start;
+    }
+
+    .screen-shop-hero {
+      background: linear-gradient(145deg, rgba(121, 192, 255, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(121, 192, 255, 0.45);
+    }
+
+    .screen-shop-live-banner {
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.45);
+      background: rgba(121, 192, 255, 0.15);
+      color: #d2e7ff;
+      font-size: 1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .screen-shop-live-banner.pending {
+      border-color: rgba(255, 166, 87, 0.45);
+      background: rgba(255, 166, 87, 0.16);
+      color: #ffd2a8;
+    }
+
+    .screen-shop-live-banner.override {
+      border-color: rgba(255, 123, 114, 0.45);
+      background: rgba(255, 123, 114, 0.16);
+      color: #ffc1bc;
+    }
+
+    .screen-shop-catalog {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .screen-shop-category {
+      border-radius: 16px;
+      border: 1px solid rgba(121, 192, 255, 0.22);
+      background: linear-gradient(145deg, rgba(22, 27, 34, 0.98), rgba(13, 17, 23, 0.98));
+      padding: var(--spacing-xl);
+    }
+
+    .screen-shop-category h3 {
+      font-size: 2rem;
+      color: var(--color-shop);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .screen-shop-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .screen-shop-item {
+      border-radius: 14px;
+      border: 1px solid var(--border-default);
+      background: rgba(33, 38, 45, 0.92);
+      padding: var(--spacing-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-height: 220px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .screen-shop-item.is-live {
+      border-color: rgba(121, 192, 255, 0.75);
+      box-shadow: 0 0 0 3px rgba(121, 192, 255, 0.18);
+      transform: translateY(-4px);
+      animation: shopPulse 1s ease 2;
+    }
+
+    .screen-shop-item.pending {
+      border-color: rgba(255, 166, 87, 0.7);
+      box-shadow: 0 0 0 3px rgba(255, 166, 87, 0.14);
+    }
+
+    .screen-shop-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+
+    .screen-shop-item-price {
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: var(--color-results);
+      white-space: nowrap;
+    }
+
+    .screen-shop-meta {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+
+    .screen-shop-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-shop-scoreboard .score-card {
+      text-align: left;
+      background: linear-gradient(135deg, rgba(22, 27, 34, 0.98), rgba(33, 38, 45, 0.96));
+    }
+
+    .screen-shop-scoreboard .score-team {
+      font-size: 1.35rem;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-shop-team-meta {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .screen-shop-activity {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .screen-shop-activity-item {
+      padding: var(--spacing-lg);
+      border-radius: 12px;
+      border: 1px solid var(--border-default);
+      background: rgba(33, 38, 45, 0.92);
+    }
+
+    .screen-shop-activity-item.is-new {
+      animation: slideIn 0.7s ease;
+    }
+
+    .screen-shop-activity-item.pending {
+      border-color: rgba(255, 166, 87, 0.6);
+      background: rgba(255, 166, 87, 0.1);
+    }
+
+    .screen-shop-activity-item.override {
+      border-color: rgba(255, 123, 114, 0.6);
+      background: rgba(255, 123, 114, 0.1);
+    }
+
+    .screen-shop-activity-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-shop-activity-copy {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    @keyframes shopPulse {
+      0%, 100% { transform: translateY(-4px) scale(1); }
+      50% { transform: translateY(-8px) scale(1.01); }
+    }
+
+    @keyframes slideIn {
+      0% { opacity: 0; transform: translateX(20px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+
     @media (max-width: 1400px) {
-      .screen-trivia-layout {
+      .screen-trivia-layout,
+      .screen-shop-layout {
         grid-template-columns: 1fr;
       }
 
@@ -193,6 +366,10 @@
       .screen-jeopardy-board .jeopardy-cell {
         min-height: 80px;
         font-size: 1.3rem;
+      }
+
+      .screen-shop-items {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -303,15 +480,55 @@
       </div>
     </section>
 
-    <!-- SHOP PHASE (placeholder) -->
+    <!-- SHOP PHASE -->
     <section id="shop-section" class="phase-section">
-      <div class="text-center">
-        <h2 style="font-size: 2.5rem; color: var(--color-shop);">
-          Shop Phase
-        </h2>
-        <p class="text-muted" style="font-size: 1.25rem;">
-          Shop display will be added in later tasks...
-        </p>
+      <div class="screen-shop-layout">
+        <div>
+          <div class="card screen-shop-hero">
+            <div class="screen-trivia-heading">
+              <div>
+                <p class="screen-kicker">Projection Display</p>
+                <h2 style="font-size: 2.4rem; margin-bottom: 0; color: var(--color-shop);">Shop Catalog</h2>
+              </div>
+              <div id="screen-shop-live-banner" class="screen-shop-live-banner hidden"></div>
+            </div>
+            <p class="text-muted" style="font-size: 1.15rem;">
+              Teams are spending their trivia winnings on cakes, ingredients, tools, and boosts.
+            </p>
+          </div>
+
+          <div id="screen-shop-catalog" class="screen-shop-catalog">
+            <div class="card">
+              <div class="card-body">
+                <p class="text-muted text-center">Waiting for host to open the shop...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Team Balances</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-shop-teams" class="scoreboard screen-shop-scoreboard">
+                <div class="text-muted text-center">Waiting for teams...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Live Purchases</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-shop-activity" class="screen-shop-activity">
+                <div class="text-muted text-center">Purchases will animate here in real time.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 

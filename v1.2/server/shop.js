@@ -82,6 +82,7 @@ function purchaseItem(db, teamId, itemKey, shopData) {
     return {
       success: false,
       purchaseId: result.id,
+      currentBalance: team.money,
       warning: `Cannot afford — host override required`
     };
   }
