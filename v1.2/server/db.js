@@ -129,6 +129,7 @@ function initDb(dbPath) {
     getState: db.prepare('SELECT value FROM game_state WHERE key = ?'),
     setState: db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)'),
     getTeams: db.prepare('SELECT * FROM teams ORDER BY created_at'),
+    getTeamByName: db.prepare('SELECT * FROM teams WHERE name = ?'),
     createTeam: db.prepare('INSERT INTO teams (name, is_virtual_team) VALUES (?, ?) RETURNING *'),
     logEvent: db.prepare('INSERT INTO events (type, data) VALUES (?, ?)')
   };
@@ -162,6 +163,15 @@ function initDb(dbPath) {
      */
     getTeams() {
       return stmts.getTeams.all();
+    },
+    
+    /**
+     * Get a team by name
+     * @param {string} name - Team name
+     * @returns {object|null} Team object or null
+     */
+    getTeamByName(name) {
+      return stmts.getTeamByName.get(name) || null;
     },
     
     /**

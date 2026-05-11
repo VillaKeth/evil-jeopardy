@@ -155,6 +155,20 @@ socket.on('team-joined', (team) => {
   renderShopDisplay();
 });
 
+// Handle team claim response (player claiming a host-created team)
+socket.on('team-claimed', (team) => {
+  console.log('Team claimed:', team);
+  myTeam = normalizeTeam(team);
+  showTeamDisplay();
+  resetJoinButton();
+  allTeams = mergeTeamList(allTeams, [team]);
+  syncMyTeamFromTeams();
+  renderOtherTeamsList();
+  renderTriviaScoreboard();
+  updateBuzzControls();
+  renderShopDisplay();
+});
+
 socket.on('teams-updated', (updatedTeams) => {
   console.log('Teams updated:', updatedTeams);
   allTeams = mergeTeamList(allTeams, updatedTeams);
@@ -1422,14 +1436,13 @@ joinTeamBtn.addEventListener('click', () => {
     return;
   }
 
-  if (allTeams.some((team) => team.name.toLowerCase() === name.toLowerCase())) {
-    showNotification('A team with that name already exists', 'error');
-    return;
-  }
+  // Check if team exists — if so, claim it instead of creating new
+  const existingTeam = allTeams.find((team) => team.name.toLowerCase() === name.toLowerCase());
+  const isVirtual = existingTeam ? existingTeam.isVirtual : true;
 
-  myTeam = { name, isVirtual: true };
+  myTeam = { name: existingTeam ? existingTeam.name : name, isVirtual };
 
-  socket.emit('join-team', { name, isVirtual: true });
+  socket.emit('join-team', { name: myTeam.name, isVirtual, claim: !!existingTeam });
 
   joinTeamBtn.disabled = true;
   joinTeamBtn.textContent = 'Joining...';

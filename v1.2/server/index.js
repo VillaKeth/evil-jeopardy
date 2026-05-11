@@ -689,7 +689,7 @@ function createApp(options = {}) {
     // Handle team joining (lobby phase)
     socket.on('join-team', (data) => {
       try {
-        const { name, isVirtual } = data;
+        const { name, isVirtual, claim } = data;
         
         // Validate input
         if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -699,6 +699,32 @@ function createApp(options = {}) {
         
         if (name.trim().length > 50) {
           socket.emit('error', { message: 'Team name must be 50 characters or less.' });
+          return;
+        }
+        
+        // If claiming an existing team, link socket to that team
+        if (claim) {
+          const existingTeam = db.getTeamByName(name.trim());
+          if (!existingTeam) {
+            socket.emit('error', { message: 'Team not found.' });
+            return;
+          }
+          
+          // Link this socket to the team
+          socket.teamId = existingTeam.id;
+          socket.teamName = existingTeam.name;
+          
+          const transformedTeam = {
+            id: existingTeam.id,
+            name: existingTeam.name,
+            money: existingTeam.money,
+            isVirtual: existingTeam.is_virtual_team === 1,
+            createdAt: existingTeam.created_at
+          };
+          
+          console.log(`Player claimed team: ${existingTeam.name}`);
+          socket.emit('team-claimed', transformedTeam);
+          db.logEvent('team-claimed', { teamId: existingTeam.id, name: existingTeam.name, socketId: socket.id });
           return;
         }
         

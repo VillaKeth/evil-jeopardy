@@ -38,7 +38,10 @@ function getSlideQuestion(index) {
     return null;
   }
   
-  return { ...questionsData.slides[index] };
+  const q = { ...questionsData.slides[index] };
+  // Normalize: ensure 'question' field exists (data uses 'text')
+  if (!q.question && q.text) q.question = q.text;
+  return q;
 }
 
 /**
@@ -62,7 +65,10 @@ function getJeopardyQuestion(categoryName, value) {
   
   const question = category.questions.find(q => q.value === value);
   
-  return question ? { ...question } : null;
+  if (!question) return null;
+  const q = { ...question };
+  if (!q.question && q.text) q.question = q.text;
+  return q;
 }
 
 /**
