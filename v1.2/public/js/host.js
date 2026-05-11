@@ -50,6 +50,17 @@ const shopWarningCopy = document.getElementById('shop-warning-copy');
 const shopOverrideBtn = document.getElementById('shop-override-btn');
 const shopWarningCancelBtn = document.getElementById('shop-warning-cancel-btn');
 
+// Baking DOM elements
+const bakingDurationInput = document.getElementById('baking-duration-input');
+const startBakingBtn = document.getElementById('start-baking-btn');
+const pauseBakingBtn = document.getElementById('pause-baking-btn');
+const resumeBakingBtn = document.getElementById('resume-baking-btn');
+const bakingTimerDisplay = document.getElementById('baking-timer-display');
+const bakingCurrentPhase = document.getElementById('baking-current-phase');
+const bakingProgressDisplay = document.getElementById('baking-progress-display');
+const bakingScoreboardWrapper = document.getElementById('baking-scoreboard-wrapper');
+const bakingChaosLog = document.getElementById('baking-chaos-log');
+
 // Judging DOM elements
 const judgingTeamPanels = document.getElementById('judging-team-panels');
 const judgingResultsPreview = document.getElementById('judging-results-preview');
@@ -74,6 +85,18 @@ let shopInventories = {};
 let shopPurchaseHistories = {};
 let selectedShopTeamId = null;
 let pendingShopApproval = null;
+let bakingState = {
+  teamId: null,
+  minigames: [],
+  chaosEvents: [],
+  chaosLevel: null,
+  currentPhaseIndex: 0,
+  totalPhases: 6,
+  timeRemaining: 300,
+  scoreboard: [],
+  chaosLog: [],
+  isPaused: false
+};
 let judgingResults = [];
 let judgingDraftScores = {};
 let judgedTeamIds = new Set();
@@ -135,6 +158,7 @@ socket.on('teams-updated', (updatedTeams) => {
   renderShopTeamSelect();
   renderShopCatalog();
   renderShopTeamSummary();
+  renderBakingDashboard();
   renderJudgingPanels();
   renderJudgingResultsPreview();
   renderResultsStandings();
@@ -297,6 +321,60 @@ socket.on('shop:warning', (teamId, message) => {
   showNotification(`${getTeamName(teamId)}: ${message}`, 'info');
 });
 
+// ===== BAKING EVENT HANDLERS =====
+
+socket.on('baking:started', (payload) => {
+  console.log('Baking started:', payload);
+  bakingState = normalizeBakingState({ ...bakingState, ...payload });
+  renderBakingDashboard();
+});
+
+socket.on('baking:minigame-selections', (payload) => {
+  console.log('Baking selections:', payload);
+  bakingState = normalizeBakingState({ ...bakingState, ...payload });
+  renderBakingDashboard();
+});
+
+socket.on('baking:timer-tick', ({ timeRemaining }) => {
+  bakingState.timeRemaining = Number(timeRemaining) || 0;
+  renderBakingDashboard();
+});
+
+socket.on('baking:paused', ({ timeRemaining }) => {
+  bakingState = normalizeBakingState({ ...bakingState, timeRemaining, isPaused: true });
+  showNotification('Baking timer paused.', 'info');
+  renderBakingDashboard();
+});
+
+socket.on('baking:resumed', ({ timeRemaining }) => {
+  bakingState = normalizeBakingState({ ...bakingState, timeRemaining, isPaused: false });
+  showNotification('Baking timer resumed.', 'success');
+  renderBakingDashboard();
+});
+
+socket.on('baking:phase-completed', (payload) => {
+  console.log('Baking phase completed:', payload);
+  bakingState = normalizeBakingState({
+    ...bakingState,
+    currentPhaseIndex: typeof payload.currentPhaseIndex === 'number' ? payload.currentPhaseIndex : bakingState.currentPhaseIndex,
+    scoreboard: payload.scoreboard || bakingState.scoreboard
+  });
+  renderBakingDashboard();
+});
+
+socket.on('baking:chaos-event', (payload) => {
+  console.log('Baking chaos event:', payload);
+  bakingState.chaosLog = [...(bakingState.chaosLog || []), payload].slice(-12);
+  renderBakingDashboard();
+});
+
+socket.on('baking:time-up', () => {
+  bakingState.timeRemaining = 0;
+  bakingState.isPaused = false;
+  renderBakingDashboard();
+  showNotification('Baking timer finished.', 'success');
+});
+
 // ===== JUDGING EVENT HANDLERS =====
 
 socket.on('judging:scores-updated', (payload) => {
@@ -369,6 +447,9 @@ function updatePhaseUI(phase) {
     initializeTriviaUI();
   } else if (phase === 'SHOP') {
     initializeShopUI();
+  } else if (phase === 'BAKING') {
+    closeShopWarningModal();
+    initializeBakingUI();
   } else if (phase === 'JUDGING') {
     closeShopWarningModal();
     initializeJudgingUI();
@@ -858,6 +939,115 @@ function buyShopItem(itemKey) {
   socket.emit('shop:purchase', { teamId: selectedTeam.id, itemKey });
 }
 
+// ===== BAKING UI FUNCTIONS =====
+
+function normalizeBakingState(data = {}) {
+  return {
+    teamId: Number(data.teamId) || bakingState.teamId || null,
+    minigames: Array.isArray(data.minigames) ? data.minigames : bakingState.minigames,
+    chaosEvents: Array.isArray(data.chaosEvents) ? data.chaosEvents : bakingState.chaosEvents,
+    chaosLevel: data.chaosLevel || bakingState.chaosLevel || null,
+    currentPhaseIndex: typeof data.currentPhaseIndex === 'number' ? data.currentPhaseIndex : (bakingState.currentPhaseIndex || 0),
+    totalPhases: Number(data.totalPhases) || (Array.isArray(data.minigames) ? data.minigames.length : bakingState.totalPhases || 6),
+    timeRemaining: typeof data.timeRemaining === 'number' ? data.timeRemaining : (bakingState.timeRemaining || 0),
+    scoreboard: Array.isArray(data.scoreboard) ? data.scoreboard : bakingState.scoreboard,
+    chaosLog: Array.isArray(data.chaosLog) ? data.chaosLog : bakingState.chaosLog,
+    isPaused: Boolean(data.isPaused)
+  };
+}
+
+function initializeBakingUI() {
+  renderBakingDashboard();
+}
+
+function renderBakingDashboard() {
+  if (bakingTimerDisplay) {
+    bakingTimerDisplay.textContent = formatBakingTime(bakingState.timeRemaining || 0);
+  }
+
+  const currentSelection = bakingState.minigames[bakingState.currentPhaseIndex] || null;
+  if (bakingCurrentPhase) {
+    bakingCurrentPhase.textContent = currentSelection
+      ? `${currentSelection.phaseName || currentSelection.phase.toUpperCase()}${bakingState.isPaused ? ' (Paused)' : ''}`
+      : (bakingState.timeRemaining === 0 && bakingState.scoreboard.length ? 'Bake complete' : 'Waiting to start');
+  }
+
+  if (bakingProgressDisplay) {
+    const completedCount = Math.min(bakingState.currentPhaseIndex, bakingState.totalPhases || 6);
+    bakingProgressDisplay.textContent = `${completedCount} / ${bakingState.totalPhases || 6}`;
+  }
+
+  renderBakingScoreboard();
+  renderBakingChaosLog();
+}
+
+function renderBakingScoreboard() {
+  if (!bakingScoreboardWrapper) {
+    return;
+  }
+
+  if (!Array.isArray(bakingState.scoreboard) || !bakingState.scoreboard.length) {
+    bakingScoreboardWrapper.innerHTML = '<div class="text-muted text-center">Start baking to track the virtual team.</div>';
+    return;
+  }
+
+  bakingScoreboardWrapper.innerHTML = `
+    <table class="baking-score-table">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>Prep</th>
+          <th>Mix</th>
+          <th>Bake</th>
+          <th>Cool</th>
+          <th>Decorate</th>
+          <th>Present</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bakingState.scoreboard.map((entry) => `
+          <tr>
+            <td>${escapeHtml(entry.teamName)}${entry.teamId === bakingState.teamId ? ' <span class="team-badge virtual">Active</span>' : ''}</td>
+            ${['prep', 'mix', 'bake', 'cool', 'decorate', 'present'].map((phaseKey) => `<td>${formatBakingScore(entry.phases?.[phaseKey])}</td>`).join('')}
+            <td><strong>${formatBakingScore(entry.totalScore)}</strong></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderBakingChaosLog() {
+  if (!bakingChaosLog) {
+    return;
+  }
+
+  if (!Array.isArray(bakingState.chaosLog) || !bakingState.chaosLog.length) {
+    bakingChaosLog.innerHTML = '<div class="text-muted">Chaos events will appear here as the bake unfolds.</div>';
+    return;
+  }
+
+  bakingChaosLog.innerHTML = [...bakingState.chaosLog].reverse().map((event) => `
+    <article class="baking-chaos-item">
+      <strong>${escapeHtml(event.name || 'Chaos event')}</strong>
+      <div class="text-muted text-small">${escapeHtml((event.phaseName || event.phaseKey || 'ANY').toUpperCase())}</div>
+      <div>${escapeHtml(event.description || 'Something unfair happened.')}</div>
+    </article>
+  `).join('');
+}
+
+function formatBakingTime(totalSeconds) {
+  const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatBakingScore(value) {
+  return typeof value === 'number' ? Math.round(value).toString() : '—';
+}
+
 // ===== JUDGING UI FUNCTIONS =====
 
 function roundScore(value) {
@@ -1175,6 +1365,26 @@ if (shopTeamSelect) {
 if (closeShopBtn) {
   closeShopBtn.addEventListener('click', () => {
     socket.emit('shop:close');
+  });
+}
+
+if (startBakingBtn) {
+  startBakingBtn.addEventListener('click', () => {
+    const durationSec = Number(bakingDurationInput?.value) || 300;
+    const activeVirtualTeam = teams.find((team) => team.isVirtual) || teams[0] || null;
+    socket.emit('baking:start', { durationSec, teamId: activeVirtualTeam?.id || null });
+  });
+}
+
+if (pauseBakingBtn) {
+  pauseBakingBtn.addEventListener('click', () => {
+    socket.emit('baking:pause');
+  });
+}
+
+if (resumeBakingBtn) {
+  resumeBakingBtn.addEventListener('click', () => {
+    socket.emit('baking:resume');
   });
 }
 

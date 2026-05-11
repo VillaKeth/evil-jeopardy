@@ -16,15 +16,52 @@ class PhaseSelectScene extends Phaser.Scene {
    * @param {boolean} data.isEvil - Whether this is an EVIL variant
    */
   init(data) {
-    this.phaseData = data || {
-      phaseName: 'UNKNOWN',
-      description: 'Get ready...',
-      minigame: null,
-      isEvil: false
-    };
-    
+    this.phaseData = this.resolvePhaseData(data);
     this.countdownValue = 3;
     console.log('PhaseSelectScene initialized with data:', this.phaseData);
+  }
+
+  resolvePhaseData(data = {}) {
+    if (data.phaseName && data.minigame) {
+      if (typeof data.selectionIndex === 'number') {
+        this.registry.set('currentPhaseIndex', data.selectionIndex);
+      }
+      return {
+        description: 'Get ready...',
+        isEvil: false,
+        ...data
+      };
+    }
+
+    const selections = this.registry.get('minigameSelections') || [];
+    const currentIndex = Number(this.registry.get('currentPhaseIndex')) || 0;
+    const nextIndex = data.advanceIndex === false ? currentIndex : currentIndex + (selections.length ? 1 : 0);
+    const nextSelection = selections[nextIndex] || null;
+
+    if (!nextSelection) {
+      this.registry.set('currentPhaseIndex', selections.length);
+      return {
+        phaseName: 'COMPLETE',
+        description: 'All baking phases are complete. Stand by for judging.',
+        minigame: null,
+        isEvil: false,
+        isComplete: true,
+        selectionIndex: selections.length,
+        ...data
+      };
+    }
+
+    this.registry.set('currentPhaseIndex', nextIndex);
+    return {
+      phaseName: nextSelection.phaseName || nextSelection.phase?.toUpperCase() || 'UNKNOWN',
+      description: nextSelection.description || 'Get ready!',
+      minigame: nextSelection.sceneKey,
+      isEvil: Boolean(nextSelection.isAbsurd),
+      selectionIndex: nextIndex,
+      phaseKey: nextSelection.phase || null,
+      ...data,
+      ...nextSelection
+    };
   }
 
   create() {
@@ -39,12 +76,29 @@ class PhaseSelectScene extends Phaser.Scene {
     
     // Description
     this.createDescription();
+
+    if (this.phaseData.isComplete) {
+      this.showCompletionState();
+      return;
+    }
     
     // Minigame indicator
     this.createMinigameIndicator();
     
     // Dramatic countdown
     this.startCountdown();
+  }
+
+  showCompletionState() {
+    const centerX = 512;
+    const message = this.add.text(centerX, 460, 'Waiting for the host to move into judging...', {
+      fontFamily: 'Arial',
+      fontSize: '28px',
+      color: '#79c0ff',
+      fontStyle: 'italic',
+      align: 'center'
+    });
+    message.setOrigin(0.5);
   }
 
   createBackgroundParticles() {
@@ -250,30 +304,30 @@ class PhaseSelectScene extends Phaser.Scene {
 
   launchMinigame() {
     console.log('Launching minigame:', this.phaseData.minigame);
-    
-    // Update registry with current phase
-    this.registry.set('currentPhase', this.phaseData.phaseName);
-    
-    // Get data from registry for minigame
-    const inventory = this.registry.get('inventory') || [];
-    const socket = this.registry.get('socket');
-    
-    // If minigame scene is specified and exists, launch it
+
+    this.registry.set('currentPhase', this.phaseData.phaseKey || this.phaseData.phaseName);
+    this.registry.set('currentPhaseIndex', this.phaseData.selectionIndex || 0);
+
+    const inventory = this.phaseData.inventory || this.registry.get('inventory') || [];
+    const chaosEvents = this.phaseData.chaosEvents || this.registry.get('chaosEvents') || [];
+    const boosts = this.phaseData.boosts || this.registry.get('boosts') || {};
+    const cakeGoal = this.phaseData.cakeGoal || this.registry.get('cakeGoal') || {};
+    const teamId = this.phaseData.teamId || this.registry.get('teamId') || 'unknown-team';
+
     if (this.phaseData.minigame && this.scene.get(this.phaseData.minigame)) {
-      // Stop this scene and start the minigame
       this.scene.start(this.phaseData.minigame, {
         phaseName: this.phaseData.phaseName,
+        phaseKey: this.phaseData.phaseKey,
         isEvil: this.phaseData.isEvil,
-        inventory: inventory,
-        boosts: this.phaseData.boosts || {},
-        teamId: this.phaseData.teamId || 'unknown-team'
+        inventory,
+        boosts,
+        chaosEvents,
+        cakeGoal,
+        teamId
       });
     } else {
-      // No minigame specified or scene not found - just stop this scene
       console.warn('No minigame scene specified or scene not found:', this.phaseData.minigame);
       this.scene.stop();
-      
-      // Show placeholder message
       this.showPlaceholder();
     }
   }

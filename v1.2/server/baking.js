@@ -15,9 +15,38 @@
  */
 function startBaking(db, durationSec) {
   const startTime = Date.now();
-  
+
   db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_start_time', startTime.toString());
   db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_duration', durationSec.toString());
+  db.prepare('DELETE FROM game_state WHERE key IN (?, ?)').run('baking_paused_remaining', 'baking_paused_at');
+}
+
+/**
+ * Pause the baking timer and persist the remaining time.
+ * @param {object} db - Database instance
+ * @returns {number} Remaining seconds at the moment of pause
+ */
+function pauseBaking(db) {
+  const remaining = getTimeRemaining(db);
+  db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_paused_remaining', remaining.toString());
+  db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_paused_at', Date.now().toString());
+  return remaining;
+}
+
+/**
+ * Resume the baking timer from the persisted paused time.
+ * @param {object} db - Database instance
+ * @returns {number} Remaining seconds after resume
+ */
+function resumeBaking(db) {
+  const pausedRow = db.prepare('SELECT value FROM game_state WHERE key = ?').get('baking_paused_remaining');
+  const remaining = Math.max(0, parseInt(pausedRow?.value || '0', 10) || 0);
+
+  db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_start_time', Date.now().toString());
+  db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_duration', remaining.toString());
+  db.prepare('DELETE FROM game_state WHERE key IN (?, ?)').run('baking_paused_remaining', 'baking_paused_at');
+
+  return remaining;
 }
 
 /**
@@ -26,6 +55,11 @@ function startBaking(db, durationSec) {
  * @returns {number} Seconds remaining (0 if expired)
  */
 function getTimeRemaining(db) {
+  const pausedRow = db.prepare('SELECT value FROM game_state WHERE key = ?').get('baking_paused_remaining');
+  if (pausedRow) {
+    return Math.max(0, parseInt(pausedRow.value, 10) || 0);
+  }
+
   const startTimeRow = db.prepare('SELECT value FROM game_state WHERE key = ?').get('baking_start_time');
   const durationRow = db.prepare('SELECT value FROM game_state WHERE key = ?').get('baking_duration');
   
@@ -171,6 +205,8 @@ function calculateVirtualCakeScores(db, teamId, inventory) {
 
 module.exports = {
   startBaking,
+  pauseBaking,
+  resumeBaking,
   getTimeRemaining,
   completePhase,
   getPhaseScores,

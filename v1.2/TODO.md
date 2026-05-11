@@ -4,3 +4,5 @@
 - [ ] Add shop big-screen catalog/balance updates and server socket handlers across `public/screen.html`, `public/js/screen.js`, and `server/index.js`.
 - [ ] Add screen and player listeners for `results:reveal` so final judging standings broadcast beyond the host view.
 - [ ] Rehydrate judging draft/results state for reconnecting host sessions without relying on a fresh `get-state` response.
+- [ ] Wire the full baking flow across server, player, host, and screen views.
+- [ ] Fix player Phaser overlay bootstrap to use the SceneManager getScene API.

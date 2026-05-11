@@ -58,16 +58,38 @@ window.initGame = function(socket, inventory, cakeGoal, evilLuckConfig) {
   gameInstance.registry.set('evilLuckConfig', evilLuckConfig || {});
   gameInstance.registry.set('score', 0);
   gameInstance.registry.set('currentPhase', null);
+  gameInstance.registry.set('currentPhaseIndex', evilLuckConfig.currentPhaseIndex || 0);
+  gameInstance.registry.set('minigameSelections', evilLuckConfig.minigames || []);
+  gameInstance.registry.set('chaosEvents', evilLuckConfig.chaosEvents || []);
+  gameInstance.registry.set('chaosLevel', evilLuckConfig.chaosLevel || null);
+  gameInstance.registry.set('teamId', evilLuckConfig.teamId || null);
   
   // Register HUD scene (always available)
-  gameInstance.scene.add('HUDScene', HUDScene, true); // true = start immediately
+  gameInstance.scene.add('HUDScene', window.HUDScene, true); // true = start immediately
   
   // Register phase select scene (used for transitions)
-  gameInstance.scene.add('PhaseSelectScene', PhaseSelectScene, false);
+  gameInstance.scene.add('PhaseSelectScene', window.PhaseSelectScene, false);
   
-  // Register minigame scenes
-  if (window.PrepScene) {
-    gameInstance.scene.add('PrepScene', PrepScene, false);
+  // Register ALL available minigame scenes
+  const sceneClasses = {
+    PrepScene: window.PrepScene,
+    MixScene: window.MixScene,
+    BakeScene: window.BakeScene,
+    CoolScene: window.CoolScene,
+    DecorateScene: window.DecorateScene,
+    PresentScene: window.PresentScene,
+    CowCombatScene: window.CowCombatScene,
+    RacingOvenScene: window.RacingOvenScene,
+    JewelSortScene: window.JewelSortScene,
+    GravityFlipScene: window.GravityFlipScene,
+    ObstacleCourseScene: window.ObstacleCourseScene,
+    EvilEventOverlay: window.EvilEventOverlay
+  };
+
+  for (const [key, SceneClass] of Object.entries(sceneClasses)) {
+    if (SceneClass) {
+      gameInstance.scene.add(key, SceneClass, false);
+    }
   }
   
   console.log('Phaser game initialized with context:', {

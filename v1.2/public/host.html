@@ -171,6 +171,67 @@
       margin-top: var(--spacing-lg);
     }
 
+    .baking-host-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+
+    .baking-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .baking-metric-card {
+      padding: var(--spacing-lg);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 166, 87, 0.28);
+      background: linear-gradient(145deg, rgba(13, 17, 23, 0.98), rgba(33, 38, 45, 0.96));
+    }
+
+    .baking-metric-card strong {
+      display: block;
+      font-size: 2rem;
+      margin-top: var(--spacing-xs);
+      color: var(--color-baking);
+    }
+
+    .baking-controls {
+      display: flex;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .baking-score-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .baking-score-table th,
+    .baking-score-table td {
+      padding: var(--spacing-sm);
+      border-bottom: 1px solid var(--border-default);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .baking-chaos-log {
+      display: grid;
+      gap: var(--spacing-sm);
+      max-height: 460px;
+      overflow-y: auto;
+    }
+
+    .baking-chaos-item {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 123, 114, 0.24);
+      background: rgba(255, 123, 114, 0.08);
+    }
+
     .judging-toolbar {
       display: flex;
       justify-content: space-between;
@@ -288,7 +349,8 @@
     }
 
     @media (max-width: 960px) {
-      .shop-host-layout {
+      .shop-host-layout,
+      .baking-host-layout {
         grid-template-columns: 1fr;
       }
     }
@@ -557,15 +619,68 @@
       </div>
     </section>
 
-    <!-- BAKING PHASE (placeholder) -->
+    <!-- BAKING PHASE -->
     <section id="baking-section" class="phase-section">
-      <div class="card">
-        <div class="card-header">
-          <h2>Baking Phase</h2>
+      <div class="baking-host-layout">
+        <div>
+          <div class="card">
+            <div class="card-header flex flex-between">
+              <div>
+                <h2>Baking Control Room</h2>
+                <p class="text-muted">Run the virtual baking round, monitor phase progress, and react to chaos in real time.</p>
+              </div>
+              <div class="baking-controls">
+                <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+                  <label class="form-label" for="baking-duration-input">Timer (sec)</label>
+                  <input type="number" id="baking-duration-input" class="form-input" min="30" step="30" value="300">
+                </div>
+                <button class="btn btn-primary" id="start-baking-btn">Start Baking</button>
+                <button class="btn btn-secondary" id="pause-baking-btn">Pause</button>
+                <button class="btn btn-secondary" id="resume-baking-btn">Resume</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="baking-metrics">
+                <div class="baking-metric-card">
+                  <span class="text-muted text-small">Countdown</span>
+                  <strong id="baking-timer-display">05:00</strong>
+                </div>
+                <div class="baking-metric-card">
+                  <span class="text-muted text-small">Current Phase</span>
+                  <strong id="baking-current-phase">Waiting to start</strong>
+                </div>
+                <div class="baking-metric-card">
+                  <span class="text-muted text-small">Progress</span>
+                  <strong id="baking-progress-display">0 / 6</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Live Phase Scores</h3>
+            </div>
+            <div class="card-body">
+              <div id="baking-scoreboard-wrapper">
+                <div class="text-muted text-center">Start baking to track the virtual team.</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card-body">
-          <p class="text-muted">Baking controls will be added in later tasks...</p>
-        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Chaos Events Log</h3>
+            </div>
+            <div class="card-body">
+              <div id="baking-chaos-log" class="baking-chaos-log">
+                <div class="text-muted">Chaos events will appear here as the bake unfolds.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 

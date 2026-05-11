@@ -3,7 +3,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const { initDb } = require('./db');
-const { startBaking, getTimeRemaining, completePhase, getPhaseScores, getTeamExtraTime, calculateVirtualCakeScores } = require('./baking');
+const { startBaking, pauseBaking, resumeBaking, getTimeRemaining, completePhase, getPhaseScores, calculateVirtualCakeScores } = require('./baking');
 const {
   loadQuestions,
   getSlideQuestion,
@@ -21,6 +21,8 @@ const {
 } = require('./trivia');
 const { loadShop, purchaseItem, forceApprove, getTeamInventory, getTeamPurchases } = require('./shop');
 const { scorePhysicalCake, getResults, ensureJudgingSchema } = require('./judging');
+const evilLuck = require('./evil-luck');
+const minigamesConfig = require('../data/minigames.json');
 
 // Valid phase transitions
 const PHASES = ['LOBBY', 'TRIVIA', 'SHOP', 'BAKING', 'JUDGING', 'RESULTS'];
@@ -31,6 +33,54 @@ const PHASE_TRANSITIONS = {
   'BAKING': ['JUDGING'],
   'JUDGING': ['RESULTS'],
   'RESULTS': ['LOBBY'] // Can restart the game
+};
+
+const BAKING_PHASE_ORDER = ['prep', 'mix', 'bake', 'cool', 'decorate', 'present'];
+const MINIGAME_DETAILS = {
+  'prep-measure': {
+    sceneKey: 'PrepScene',
+    description: 'Measure the core ingredients before the kitchen gets messy.'
+  },
+  'mix-circular': {
+    sceneKey: 'MixScene',
+    description: 'Keep the batter moving smoothly to build a stable mix.'
+  },
+  'bake-temperature': {
+    sceneKey: 'BakeScene',
+    description: 'Hold the oven in the sweet spot and avoid a scorched disaster.'
+  },
+  'cool-patience': {
+    sceneKey: 'CoolScene',
+    description: 'Cool the cake carefully so the structure stays intact.'
+  },
+  'decorate-freeform': {
+    sceneKey: 'DecorateScene',
+    description: 'Turn raw frosting into a cake worth showing off.'
+  },
+  'present-arrange': {
+    sceneKey: 'PresentScene',
+    description: 'Plate the cake cleanly and sell the final presentation.'
+  },
+  'mix-cow-combat': {
+    sceneKey: 'CowCombatScene',
+    description: 'Battle the bovine chaos while somehow still mixing batter.'
+  },
+  'bake-racing': {
+    sceneKey: 'RacingOvenScene',
+    description: 'Race the runaway oven before the bake gets away from you.'
+  },
+  'cool-jewel-sort': {
+    sceneKey: 'JewelSortScene',
+    description: 'Sort the cooling gems before the cake cracks apart.'
+  },
+  'decorate-gravity-flip': {
+    sceneKey: 'GravityFlipScene',
+    description: 'Decorate while gravity keeps changing its mind.'
+  },
+  'present-obstacle-course': {
+    sceneKey: 'ObstacleCourseScene',
+    description: 'Carry the final cake through a ridiculous finishing gauntlet.'
+  }
 };
 
 /**
@@ -153,6 +203,172 @@ function createApp(options = {}) {
   function buildJudgingResults() {
     return getResults(db.db);
   }
+
+  function parseJsonState(key, fallback) {
+    const rawValue = db.getState(key);
+    if (!rawValue) {
+      return fallback;
+    }
+
+    try {
+      return JSON.parse(rawValue);
+    } catch (error) {
+      console.warn(`Failed to parse state key ${key}:`, error);
+      return fallback;
+    }
+  }
+
+  function setJsonState(key, value) {
+    db.setState(key, JSON.stringify(value));
+  }
+
+  function getBakingTeam(teamId) {
+    if (typeof teamId === 'number') {
+      const exactTeam = db.db.prepare('SELECT * FROM teams WHERE id = ?').get(teamId);
+      if (exactTeam) {
+        return exactTeam;
+      }
+    }
+
+    return db.db.prepare('SELECT * FROM teams WHERE is_virtual_team = 1 ORDER BY created_at LIMIT 1').get()
+      || db.db.prepare('SELECT * FROM teams ORDER BY created_at LIMIT 1').get()
+      || null;
+  }
+
+  function buildMinigameSelections(chaosLevel) {
+    return evilLuck.selectMinigames(chaosLevel, minigamesConfig).map((selection) => {
+      const detail = MINIGAME_DETAILS[selection.minigame] || {};
+      const phaseConfig = minigamesConfig.phases?.[selection.phase] || {};
+      const isAbsurd = Array.isArray(phaseConfig.absurd) && phaseConfig.absurd.includes(selection.minigame) && !phaseConfig.absurdExcluded;
+
+      return {
+        ...selection,
+        sceneKey: detail.sceneKey || null,
+        description: detail.description || 'Get ready!',
+        phaseName: selection.phase.toUpperCase(),
+        isAbsurd
+      };
+    });
+  }
+
+  function getBakingSessionState() {
+    return {
+      teamId: Number(db.getState('baking_team_id')) || null,
+      chaosLevel: db.getState('baking_chaos_level') || null,
+      currentPhaseIndex: Math.max(0, Number(db.getState('baking_current_phase_index')) || 0),
+      minigames: parseJsonState('baking_minigames', []),
+      chaosEvents: parseJsonState('baking_chaos_events', []),
+      chaosLog: parseJsonState('baking_chaos_log', [])
+    };
+  }
+
+  function getBakingSelectionForIndex(session, index = session.currentPhaseIndex) {
+    if (!session || !Array.isArray(session.minigames) || !session.minigames.length) {
+      return null;
+    }
+
+    return session.minigames[index] || null;
+  }
+
+  function buildBakingScoreboard() {
+    const teams = getSerializedTeams();
+    const rows = db.db.prepare('SELECT team_id AS teamId, phase, score FROM scores ORDER BY id').all();
+    const scoreboard = new Map(teams.map((team) => [team.id, {
+      teamId: team.id,
+      teamName: team.name,
+      isVirtual: team.isVirtual,
+      phases: {},
+      totalScore: 0,
+      completedCount: 0
+    }]));
+
+    rows.forEach((row) => {
+      if (!BAKING_PHASE_ORDER.includes(row.phase)) {
+        return;
+      }
+
+      const entry = scoreboard.get(row.teamId) || {
+        teamId: row.teamId,
+        teamName: `Team ${row.teamId}`,
+        isVirtual: false,
+        phases: {},
+        totalScore: 0,
+        completedCount: 0
+      };
+
+      entry.phases[row.phase] = Number(row.score) || 0;
+      entry.completedCount = Object.keys(entry.phases).length;
+      entry.totalScore = BAKING_PHASE_ORDER.reduce((sum, phaseKey) => sum + (Number(entry.phases[phaseKey]) || 0), 0);
+      scoreboard.set(row.teamId, entry);
+    });
+
+    return Array.from(scoreboard.values()).sort((left, right) => right.totalScore - left.totalScore || left.teamId - right.teamId);
+  }
+
+  function buildBakingTimerPayload() {
+    const session = getBakingSessionState();
+    return {
+      durationSec: Number(db.getState('baking_duration')) || getTimeRemaining(db.db),
+      timeRemaining: getTimeRemaining(db.db),
+      teamId: session.teamId,
+      chaosLevel: session.chaosLevel,
+      currentPhaseIndex: session.currentPhaseIndex,
+      totalPhases: session.minigames.length,
+      currentSelection: getBakingSelectionForIndex(session),
+      scoreboard: buildBakingScoreboard(),
+      chaosLog: session.chaosLog,
+      isPaused: db.getState('baking_paused_remaining') !== null
+    };
+  }
+
+  function emitBakingSnapshot(target = io) {
+    const session = getBakingSessionState();
+    if (!session.minigames.length) {
+      return;
+    }
+
+    target.emit('baking:started', buildBakingTimerPayload());
+    target.emit('baking:minigame-selections', {
+      teamId: session.teamId,
+      minigames: session.minigames,
+      chaosEvents: session.chaosEvents,
+      chaosLevel: session.chaosLevel,
+      currentPhaseIndex: session.currentPhaseIndex
+    });
+  }
+
+  function appendChaosLog(event) {
+    const session = getBakingSessionState();
+    const nextLog = [...session.chaosLog, event].slice(-12);
+    setJsonState('baking_chaos_log', nextLog);
+    return nextLog;
+  }
+
+  function emitChaosEventForSelection(selection, teamId) {
+    if (!selection) {
+      return null;
+    }
+
+    const session = getBakingSessionState();
+    const chaosEvent = session.chaosEvents.find((event) => event.phaseKey === selection.phase);
+    if (!chaosEvent) {
+      return null;
+    }
+
+    const emittedEvent = {
+      ...chaosEvent,
+      teamId: teamId || session.teamId,
+      phaseKey: selection.phase,
+      phaseName: selection.phaseName || selection.phase.toUpperCase(),
+      sceneKey: selection.sceneKey,
+      minigame: selection.minigame,
+      emittedAt: new Date().toISOString()
+    };
+
+    appendChaosLog(emittedEvent);
+    io.emit('baking:chaos-event', emittedEvent);
+    return emittedEvent;
+  }
   
   // Socket.io connection handling
   io.on('connection', (socket) => {
@@ -212,6 +428,12 @@ function createApp(options = {}) {
         
         // Update phase
         db.setState('phase', newPhase);
+
+        if (currentPhase === 'BAKING' && newPhase !== 'BAKING' && bakingTimerInterval) {
+          clearInterval(bakingTimerInterval);
+          bakingTimerInterval = null;
+        }
+
         console.log(`Phase changed: ${currentPhase} → ${newPhase}`);
         
         // Log event
@@ -233,11 +455,21 @@ function createApp(options = {}) {
         
         socket.emit('state', {
           phase,
-          teams: transformedTeams
+          teams: transformedTeams,
+          baking: phase === 'BAKING'
+            ? {
+                ...buildBakingTimerPayload(),
+                ...getBakingSessionState()
+              }
+            : null
         });
 
         if (phase === 'SHOP' && shopData) {
           socket.emit('shop:catalog', buildShopCatalogPayload());
+        }
+
+        if (phase === 'BAKING') {
+          emitBakingSnapshot(socket);
         }
 
         if (phase === 'JUDGING' || phase === 'RESULTS') {
@@ -533,37 +765,42 @@ function createApp(options = {}) {
     // ===== BAKING HANDLERS =====
     
     // Handle baking start (host only)
-    socket.on('baking:start', (data) => {
+    socket.on('baking:start', (data = {}) => {
       try {
-        // Check if socket is in host room
         if (!socket.rooms.has('host')) {
           socket.emit('error', { message: 'Only host can start baking timer.' });
           return;
         }
-        
-        const { durationSec } = data;
-        
+
+        const { durationSec, teamId } = data;
         if (typeof durationSec !== 'number' || durationSec <= 0) {
           socket.emit('error', { message: 'Invalid duration. Must be a positive number.' });
           return;
         }
-        
-        // Start baking timer
+
+        const bakingTeam = getBakingTeam(teamId);
+        const chaosLevel = evilLuck.calculateChaosLevel(bakingTeam?.money || 0, 10000);
+        const minigameSelections = buildMinigameSelections(chaosLevel);
+        const chaosEvents = evilLuck.rollChaosEvents(chaosLevel);
+
+        db.setState('baking_team_id', String(bakingTeam?.id || ''));
+        db.setState('baking_chaos_level', chaosLevel);
+        db.setState('baking_current_phase_index', '0');
+        setJsonState('baking_minigames', minigameSelections);
+        setJsonState('baking_chaos_events', chaosEvents);
+        setJsonState('baking_chaos_log', []);
+
         startBaking(db.db, durationSec);
         console.log(`Baking timer started: ${durationSec} seconds`);
-        
-        // Clear any existing interval
+
         if (bakingTimerInterval) {
           clearInterval(bakingTimerInterval);
         }
-        
-        // Start broadcasting timer ticks every second
+
         bakingTimerInterval = setInterval(() => {
           const timeRemaining = getTimeRemaining(db.db);
-          
           io.emit('baking:timer-tick', { timeRemaining });
-          
-          // Check if time is up
+
           if (timeRemaining === 0) {
             clearInterval(bakingTimerInterval);
             bakingTimerInterval = null;
@@ -571,11 +808,12 @@ function createApp(options = {}) {
             console.log('Baking timer completed');
           }
         }, 1000);
-        
-        // Broadcast initial state
-        const timeRemaining = getTimeRemaining(db.db);
-        io.emit('baking:started', { durationSec, timeRemaining });
-        
+
+        emitBakingSnapshot(io);
+        const currentSelection = minigameSelections[0] || null;
+        if (currentSelection) {
+          emitChaosEventForSelection(currentSelection, bakingTeam?.id || null);
+        }
       } catch (err) {
         console.error('Failed to start baking timer:', err);
         socket.emit('error', { message: 'Server error starting baking timer.' });
@@ -585,22 +823,21 @@ function createApp(options = {}) {
     // Handle baking pause (host only)
     socket.on('baking:pause', () => {
       try {
-        // Check if socket is in host room
         if (!socket.rooms.has('host')) {
           socket.emit('error', { message: 'Only host can pause baking timer.' });
           return;
         }
-        
+
         if (!bakingTimerInterval) {
           socket.emit('error', { message: 'Timer is not currently running.' });
           return;
         }
-        
+
         clearInterval(bakingTimerInterval);
         bakingTimerInterval = null;
+        const timeRemaining = pauseBaking(db.db);
         console.log('Baking timer paused');
-        
-        const timeRemaining = getTimeRemaining(db.db);
+
         io.emit('baking:paused', { timeRemaining });
       } catch (err) {
         console.error('Failed to pause baking timer:', err);
@@ -611,44 +848,37 @@ function createApp(options = {}) {
     // Handle baking resume (host only)
     socket.on('baking:resume', () => {
       try {
-        // Check if socket is in host room
         if (!socket.rooms.has('host')) {
           socket.emit('error', { message: 'Only host can resume baking timer.' });
           return;
         }
-        
-        // Check if timer is already running
+
         if (bakingTimerInterval) {
           socket.emit('error', { message: 'Timer is already running.' });
           return;
         }
-        
-        const timeRemaining = getTimeRemaining(db.db);
-        
+
+        const timeRemaining = resumeBaking(db.db);
         if (timeRemaining === 0) {
           socket.emit('error', { message: 'Timer has already expired.' });
           return;
         }
-        
+
         console.log('Baking timer resumed');
-        
-        // Restart the interval
+
         bakingTimerInterval = setInterval(() => {
-          const timeRemaining = getTimeRemaining(db.db);
-          
-          io.emit('baking:timer-tick', { timeRemaining });
-          
-          // Check if time is up
-          if (timeRemaining === 0) {
+          const nextTimeRemaining = getTimeRemaining(db.db);
+          io.emit('baking:timer-tick', { timeRemaining: nextTimeRemaining });
+
+          if (nextTimeRemaining === 0) {
             clearInterval(bakingTimerInterval);
             bakingTimerInterval = null;
             io.emit('baking:time-up');
             console.log('Baking timer completed');
           }
         }, 1000);
-        
+
         io.emit('baking:resumed', { timeRemaining });
-        
       } catch (err) {
         console.error('Failed to resume baking timer:', err);
         socket.emit('error', { message: 'Server error resuming baking timer.' });
@@ -659,43 +889,60 @@ function createApp(options = {}) {
     socket.on('baking:phase-complete', (data) => {
       try {
         const { teamId, phase, score, details } = data;
-        
-        // Validate input
+
         if (!teamId || typeof teamId !== 'number') {
           socket.emit('error', { message: 'Invalid teamId.' });
           return;
         }
-        
+
         if (!phase || typeof phase !== 'string') {
           socket.emit('error', { message: 'Invalid phase.' });
           return;
         }
-        
+
         if (typeof score !== 'number' || score < 0 || score > 100) {
           socket.emit('error', { message: 'Invalid score. Must be between 0 and 100.' });
           return;
         }
-        
-        // Validate details is string or null
-        const safeDetails = (details != null && typeof details !== 'string') 
-          ? JSON.stringify(details) 
+
+        const safeDetails = (details != null && typeof details !== 'string')
+          ? JSON.stringify(details)
           : details || null;
-        
-        // Record phase completion
+
         completePhase(db.db, teamId, phase, score, safeDetails);
         console.log(`Phase completed: team ${teamId}, phase ${phase}, score ${score}`);
-        
-        // Get updated phase scores for this team
+
         const phaseScores = getPhaseScores(db.db, teamId);
-        
-        // Broadcast to all clients
+        const session = getBakingSessionState();
+        const activeTeamId = session.teamId || teamId;
+        const completedIndex = session.minigames.findIndex((entry) => entry.phase === phase);
+        let nextPhaseIndex = session.currentPhaseIndex;
+
+        if (teamId === activeTeamId) {
+          nextPhaseIndex = completedIndex >= 0 ? completedIndex + 1 : Math.max(session.currentPhaseIndex, 0);
+          db.setState('baking_current_phase_index', String(nextPhaseIndex));
+        }
+
+        const nextSelection = teamId === activeTeamId
+          ? (session.minigames[nextPhaseIndex] || null)
+          : getBakingSelectionForIndex(session);
+        const scoreboard = buildBakingScoreboard();
+
         io.emit('baking:phase-completed', {
           teamId,
           phase,
           score,
-          phaseScores
+          phaseScores,
+          scoreboard,
+          currentPhaseIndex: nextPhaseIndex,
+          currentSelection: nextSelection,
+          completedCount: Math.min(nextPhaseIndex, session.minigames.length),
+          totalPhases: session.minigames.length
         });
-        
+
+        if (teamId === activeTeamId && nextSelection) {
+          emitChaosEventForSelection(nextSelection, activeTeamId);
+        }
       } catch (err) {
         console.error('Failed to complete phase:', err);
         socket.emit('error', { message: 'Server error completing phase.' });
@@ -1068,6 +1315,11 @@ function createApp(options = {}) {
      */
     close() {
       return new Promise((resolve) => {
+        if (bakingTimerInterval) {
+          clearInterval(bakingTimerInterval);
+          bakingTimerInterval = null;
+        }
+
         server.close(() => {
           db.close();
           resolve();

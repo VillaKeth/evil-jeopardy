@@ -333,6 +333,58 @@
       font-size: 1rem;
     }
 
+    .screen-baking-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+      gap: var(--spacing-xl);
+      align-items: start;
+    }
+
+    .screen-baking-hero {
+      background: linear-gradient(145deg, rgba(255, 166, 87, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(255, 166, 87, 0.45);
+    }
+
+    .screen-baking-timer {
+      font-size: clamp(4rem, 12vw, 8rem);
+      font-weight: 800;
+      color: var(--color-baking);
+      line-height: 1;
+      margin: var(--spacing-lg) 0;
+    }
+
+    .screen-baking-phase {
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      color: #ffd8a8;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .screen-baking-progress {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .screen-baking-chaos-feed {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .screen-baking-chaos-card {
+      padding: var(--spacing-lg);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 123, 114, 0.28);
+      background: rgba(255, 123, 114, 0.1);
+    }
+
+    .screen-baking-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
     @keyframes shopPulse {
       0%, 100% { transform: translateY(-4px) scale(1); }
       50% { transform: translateY(-8px) scale(1.01); }
@@ -345,7 +397,8 @@
 
     @media (max-width: 1400px) {
       .screen-trivia-layout,
-      .screen-shop-layout {
+      .screen-shop-layout,
+      .screen-baking-layout {
         grid-template-columns: 1fr;
       }
 
@@ -532,15 +585,41 @@
       </div>
     </section>
 
-    <!-- BAKING PHASE (placeholder) -->
+    <!-- BAKING PHASE -->
     <section id="baking-section" class="phase-section">
-      <div class="text-center">
-        <h2 style="font-size: 2.5rem; color: var(--color-baking);">
-          Baking Phase
-        </h2>
-        <p class="text-muted" style="font-size: 1.25rem;">
-          Baking display will be added in later tasks...
-        </p>
+      <div class="screen-baking-layout">
+        <div class="card screen-baking-hero">
+          <div class="card-body">
+            <p class="screen-kicker">Projection Display</p>
+            <div id="screen-baking-timer" class="screen-baking-timer">05:00</div>
+            <div id="screen-baking-phase" class="screen-baking-phase">Waiting to start</div>
+            <div id="screen-baking-progress" class="screen-baking-progress">Phase 0 of 6</div>
+          </div>
+        </div>
+
+        <aside style="display: grid; gap: var(--spacing-lg);">
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Virtual Scoreboard</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-baking-scoreboard" class="scoreboard screen-baking-scoreboard">
+                <div class="text-muted text-center">Virtual baking scores will appear here.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Chaos Feed</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-baking-chaos" class="screen-baking-chaos-feed">
+                <div class="text-muted text-center">Chaos alerts will slam onto the screen here.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 

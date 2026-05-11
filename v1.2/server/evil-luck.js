@@ -75,6 +75,31 @@ function selectMinigamesForSession(chaosLevel, minigamesConfig) {
 }
 
 /**
+ * Backwards-compatible alias used by the baking session integration.
+ * @param {string} chaosLevel
+ * @param {object} minigamesConfig
+ * @returns {array}
+ */
+function selectMinigames(chaosLevel, minigamesConfig) {
+  return selectMinigamesForSession(chaosLevel, minigamesConfig);
+}
+
+/**
+ * Roll a set of chaos events across the full baking session.
+ * At most one event is selected for each baking phase.
+ * @param {string} chaosLevel
+ * @returns {array}
+ */
+function rollChaosEvents(chaosLevel) {
+  const phases = ['prep', 'mix', 'bake', 'cool', 'decorate', 'present'];
+
+  return phases.map((phaseKey) => {
+    const event = rollChaosEvent(chaosLevel, phaseKey, evilLuckConfig);
+    return event ? { ...event, phaseKey } : null;
+  }).filter(Boolean);
+}
+
+/**
  * Roll for a chaos event during a specific phase
  * @param {string} chaosLevel - The chaos level ("good", "medium", or "bad")
  * @param {string} currentPhase - The current baking phase
@@ -107,5 +132,7 @@ function rollChaosEvent(chaosLevel, currentPhase, evilLuckConfig) {
 module.exports = {
   calculateChaosLevel,
   selectMinigamesForSession,
-  rollChaosEvent
+  selectMinigames,
+  rollChaosEvent,
+  rollChaosEvents
 };

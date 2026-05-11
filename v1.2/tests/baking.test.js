@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 const {
   startBaking,
+  pauseBaking,
+  resumeBaking,
   getTimeRemaining,
   completePhase,
   getPhaseScores,
@@ -113,6 +115,44 @@ test('getTimeRemaining returns 0 when timer expired', () => {
     const remaining = getTimeRemaining(db);
     
     assert.strictEqual(remaining, 0, 'Time remaining should be 0 when expired');
+  } finally {
+    db.close();
+    fs.unlinkSync(dbPath);
+  }
+});
+
+test('pauseBaking freezes remaining time until resumed', () => {
+  const { db, dbPath } = createTestDb();
+
+  try {
+    const startTime = Date.now() - 3000;
+    db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_start_time', startTime.toString());
+    db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_duration', '10');
+
+    const pausedRemaining = pauseBaking(db);
+    const storedRemaining = db.prepare('SELECT value FROM game_state WHERE key = ?').get('baking_paused_remaining');
+
+    assert.ok(pausedRemaining >= 6 && pausedRemaining <= 7, `Paused time should be about 7 seconds, got ${pausedRemaining}`);
+    assert.strictEqual(Number(storedRemaining.value), pausedRemaining, 'Paused remaining time should be stored');
+    assert.strictEqual(getTimeRemaining(db), pausedRemaining, 'Paused timer should stay frozen');
+  } finally {
+    db.close();
+    fs.unlinkSync(dbPath);
+  }
+});
+
+test('resumeBaking restarts timer from paused remaining time', () => {
+  const { db, dbPath } = createTestDb();
+
+  try {
+    db.prepare('INSERT OR REPLACE INTO game_state (key, value) VALUES (?, ?)').run('baking_paused_remaining', '7');
+
+    const resumedRemaining = resumeBaking(db);
+    const pausedRow = db.prepare('SELECT value FROM game_state WHERE key = ?').get('baking_paused_remaining');
+
+    assert.ok(resumedRemaining >= 6 && resumedRemaining <= 7, `Resumed time should stay about 7 seconds, got ${resumedRemaining}`);
+    assert.strictEqual(pausedRow, undefined, 'Paused marker should be cleared after resume');
+    assert.ok(getTimeRemaining(db) >= 6 && getTimeRemaining(db) <= 7, 'Resumed timer should count down from paused value');
   } finally {
     db.close();
     fs.unlinkSync(dbPath);

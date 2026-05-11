@@ -26,6 +26,13 @@ const screenShopTeams = document.getElementById('screen-shop-teams');
 const screenShopActivity = document.getElementById('screen-shop-activity');
 const screenShopLiveBanner = document.getElementById('screen-shop-live-banner');
 
+// Baking DOM elements
+const screenBakingTimer = document.getElementById('screen-baking-timer');
+const screenBakingPhase = document.getElementById('screen-baking-phase');
+const screenBakingProgress = document.getElementById('screen-baking-progress');
+const screenBakingScoreboard = document.getElementById('screen-baking-scoreboard');
+const screenBakingChaos = document.getElementById('screen-baking-chaos');
+
 // State
 let currentPhase = 'LOBBY';
 let teams = [];
@@ -43,6 +50,15 @@ let pendingShopContext = null;
 let activeShopItemKey = null;
 let shopHighlightTimer = null;
 let shopBannerTimer = null;
+let bakingState = {
+  teamId: null,
+  minigames: [],
+  currentPhaseIndex: 0,
+  totalPhases: 6,
+  timeRemaining: 300,
+  scoreboard: [],
+  chaosLog: []
+};
 
 // ===== Socket Event Handlers =====
 
@@ -74,12 +90,17 @@ socket.on('state', (data) => {
   currentPhase = data.phase;
   teams = normalizeTeams(data.teams || []);
 
+  if (data.baking) {
+    bakingState = normalizeBakingState({ ...bakingState, ...data.baking });
+  }
+
   updatePhaseUI(data.phase);
   renderTeamsList();
   renderTriviaScoreboard();
   renderCurrentQuestion();
   renderStatusPanels();
   renderShopDisplay();
+  renderBakingDisplay();
 });
 
 socket.on('teams-updated', (updatedTeams) => {
@@ -88,6 +109,7 @@ socket.on('teams-updated', (updatedTeams) => {
   renderTeamsList();
   renderTriviaScoreboard();
   renderShopTeams();
+  renderBakingDisplay();
 });
 
 socket.on('error', (error) => {
@@ -224,6 +246,56 @@ socket.on('shop:warning', (teamId, message) => {
   renderShopCatalog();
 });
 
+// ===== BAKING EVENT HANDLERS =====
+
+socket.on('baking:started', (payload) => {
+  console.log('Baking started:', payload);
+  bakingState = normalizeBakingState({ ...bakingState, ...payload });
+  renderBakingDisplay();
+});
+
+socket.on('baking:minigame-selections', (payload) => {
+  console.log('Baking selections:', payload);
+  bakingState = normalizeBakingState({ ...bakingState, ...payload });
+  renderBakingDisplay();
+});
+
+socket.on('baking:timer-tick', ({ timeRemaining }) => {
+  bakingState.timeRemaining = Number(timeRemaining) || 0;
+  renderBakingDisplay();
+});
+
+socket.on('baking:paused', ({ timeRemaining }) => {
+  bakingState = normalizeBakingState({ ...bakingState, timeRemaining });
+  renderBakingDisplay();
+});
+
+socket.on('baking:resumed', ({ timeRemaining }) => {
+  bakingState = normalizeBakingState({ ...bakingState, timeRemaining });
+  renderBakingDisplay();
+});
+
+socket.on('baking:phase-completed', (payload) => {
+  console.log('Baking phase completed:', payload);
+  bakingState = normalizeBakingState({
+    ...bakingState,
+    currentPhaseIndex: typeof payload.currentPhaseIndex === 'number' ? payload.currentPhaseIndex : bakingState.currentPhaseIndex,
+    scoreboard: payload.scoreboard || bakingState.scoreboard
+  });
+  renderBakingDisplay();
+});
+
+socket.on('baking:chaos-event', (payload) => {
+  console.log('Baking chaos event:', payload);
+  bakingState.chaosLog = [...(bakingState.chaosLog || []), payload].slice(-8);
+  renderBakingDisplay();
+});
+
+socket.on('baking:time-up', () => {
+  bakingState.timeRemaining = 0;
+  renderBakingDisplay();
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -260,6 +332,9 @@ function updatePhaseUI(phase) {
     initializeTriviaDisplay();
   } else if (phase === 'SHOP') {
     initializeShopDisplay();
+  } else if (phase === 'BAKING') {
+    clearShopBanner();
+    initializeBakingDisplay();
   } else {
     clearShopBanner();
   }
@@ -727,6 +802,89 @@ function clearShopBanner() {
 
   screenShopLiveBanner.textContent = '';
   screenShopLiveBanner.className = 'screen-shop-live-banner hidden';
+}
+
+// ===== BAKING UI FUNCTIONS =====
+
+function normalizeBakingState(data = {}) {
+  return {
+    teamId: Number(data.teamId) || bakingState.teamId || null,
+    minigames: Array.isArray(data.minigames) ? data.minigames : bakingState.minigames,
+    currentPhaseIndex: typeof data.currentPhaseIndex === 'number' ? data.currentPhaseIndex : (bakingState.currentPhaseIndex || 0),
+    totalPhases: Number(data.totalPhases) || (Array.isArray(data.minigames) ? data.minigames.length : bakingState.totalPhases || 6),
+    timeRemaining: typeof data.timeRemaining === 'number' ? data.timeRemaining : (bakingState.timeRemaining || 0),
+    scoreboard: Array.isArray(data.scoreboard) ? data.scoreboard : bakingState.scoreboard,
+    chaosLog: Array.isArray(data.chaosLog) ? data.chaosLog : bakingState.chaosLog
+  };
+}
+
+function initializeBakingDisplay() {
+  renderBakingDisplay();
+}
+
+function renderBakingDisplay() {
+  if (screenBakingTimer) {
+    screenBakingTimer.textContent = formatBakingTime(bakingState.timeRemaining || 0);
+  }
+
+  const currentSelection = bakingState.minigames[bakingState.currentPhaseIndex] || null;
+  if (screenBakingPhase) {
+    screenBakingPhase.textContent = currentSelection
+      ? (currentSelection.phaseName || currentSelection.phase.toUpperCase())
+      : (bakingState.timeRemaining === 0 && bakingState.scoreboard.length ? 'Bake Complete' : 'Waiting to start');
+  }
+
+  if (screenBakingProgress) {
+    const phaseNumber = Math.min((bakingState.currentPhaseIndex || 0) + (currentSelection ? 1 : 0), bakingState.totalPhases || 6);
+    screenBakingProgress.textContent = `Phase ${phaseNumber} of ${bakingState.totalPhases || 6}`;
+  }
+
+  renderBakingScoreboard();
+  renderBakingChaosFeed();
+}
+
+function renderBakingScoreboard() {
+  if (!screenBakingScoreboard) {
+    return;
+  }
+
+  if (!Array.isArray(bakingState.scoreboard) || !bakingState.scoreboard.length) {
+    screenBakingScoreboard.innerHTML = '<div class="text-muted text-center">Virtual baking scores will appear here.</div>';
+    return;
+  }
+
+  screenBakingScoreboard.innerHTML = bakingState.scoreboard.map((entry) => `
+    <div class="score-card">
+      <div class="score-team">${escapeHtml(entry.teamName)}</div>
+      <div class="score-value">${Math.round(entry.totalScore || 0)}</div>
+      <div class="screen-shop-team-meta">${Object.keys(entry.phases || {}).length} phases scored</div>
+    </div>
+  `).join('');
+}
+
+function renderBakingChaosFeed() {
+  if (!screenBakingChaos) {
+    return;
+  }
+
+  if (!Array.isArray(bakingState.chaosLog) || !bakingState.chaosLog.length) {
+    screenBakingChaos.innerHTML = '<div class="text-muted text-center">Chaos alerts will slam onto the screen here.</div>';
+    return;
+  }
+
+  screenBakingChaos.innerHTML = [...bakingState.chaosLog].reverse().map((event) => `
+    <article class="screen-baking-chaos-card">
+      <div class="screen-shop-activity-title">${escapeHtml(event.name || 'Chaos event')}</div>
+      <div class="screen-shop-activity-copy">${escapeHtml(event.description || 'Something unfair happened.')} · ${escapeHtml((event.phaseName || event.phaseKey || 'ANY').toUpperCase())}</div>
+    </article>
+  `).join('');
+}
+
+function formatBakingTime(totalSeconds) {
+  const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function normalizeTeams(teamList) {

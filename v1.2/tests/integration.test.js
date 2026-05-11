@@ -68,10 +68,10 @@ async function ensureShopPhase(app, hostSocket, screenSocket) {
   }
 }
 
-async function ensureJudgingPhase(app, hostSocket, screenSocket) {
+async function ensureBakingPhase(app, hostSocket, screenSocket) {
   const currentPhase = app.db.getState('phase');
 
-  if (currentPhase === 'JUDGING') {
+  if (currentPhase === 'BAKING') {
     return;
   }
 
@@ -93,6 +93,10 @@ async function ensureJudgingPhase(app, hostSocket, screenSocket) {
     hostSocket.emit('shop:close');
     await bakingPhasePromise;
   }
+}
+
+async function ensureJudgingPhase(app, hostSocket, screenSocket) {
+  await ensureBakingPhase(app, hostSocket, screenSocket);
 
   if (app.db.getState('phase') === 'BAKING') {
     const judgingPhasePromise = onceEvent(screenSocket, 'phase-changed');
@@ -305,6 +309,34 @@ describe('Server Integration', () => {
     const phaseChange = await phasePromise;
     assert.strictEqual(phaseChange.phase, 'BAKING');
     assert.strictEqual(phaseChange.previousPhase, 'SHOP');
+  });
+
+  it('should start baking and broadcast minigame selections with chaos data', async () => {
+    await ensureBakingPhase(app, hostSocket, screenSocket);
+
+    const virtual = ensureTeam(app, 'Baking Virtual Team', 2500);
+    app.db.db.prepare('UPDATE teams SET is_virtual_team = 1 WHERE id = ?').run(virtual.id);
+
+    const startedPromise = onceEventOrTimeout(screenSocket, 'baking:started');
+    const selectionsPromise = onceEventOrTimeout(playerSocket, 'baking:minigame-selections');
+
+    hostSocket.emit('baking:start', { durationSec: 90, teamId: virtual.id });
+
+    const [started, selections] = await Promise.all([startedPromise, selectionsPromise]);
+    const selectionPhases = selections.minigames.map((entry) => entry.phase);
+
+    assert.strictEqual(started.durationSec, 90);
+    assert.ok(started.timeRemaining <= 90);
+    assert.ok(started.timeRemaining >= 0);
+    assert.strictEqual(selections.chaosLevel, 'medium');
+    assert.strictEqual(selections.minigames.length, 6);
+    assert.deepStrictEqual(selectionPhases, ['prep', 'mix', 'bake', 'cool', 'decorate', 'present']);
+    selections.minigames.forEach((entry) => {
+      assert.ok(entry.sceneKey);
+      assert.ok(typeof entry.description === 'string');
+      assert.strictEqual(typeof entry.isAbsurd, 'boolean');
+    });
+    assert.ok(Array.isArray(selections.chaosEvents));
   });
 
   it('should score judging teams and return sorted results', async () => {

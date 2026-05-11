@@ -34,6 +34,9 @@ const playerShopCatalog = document.getElementById('player-shop-catalog');
 const playerShopInventory = document.getElementById('player-shop-inventory');
 const playerShopPurchases = document.getElementById('player-shop-purchases');
 
+// Baking DOM elements
+const phaserContainer = document.getElementById('phaser-container');
+
 // State
 let currentPhase = 'LOBBY';
 let myTeam = null;
@@ -53,6 +56,13 @@ let shopInventories = {};
 let shopPurchaseHistories = {};
 let playerShopStatusMessage = '';
 let playerShopStatusVariant = 'info';
+let bakingSession = {
+  teamId: null,
+  minigames: [],
+  chaosEvents: [],
+  chaosLevel: null,
+  currentPhaseIndex: 0
+};
 
 // ===== Socket Event Handlers =====
 
@@ -86,6 +96,10 @@ socket.on('state', (data) => {
   console.log('Received state:', data);
   currentPhase = data.phase;
   allTeams = normalizeTeams(data.teams || []);
+
+  if (data.baking) {
+    bakingSession = normalizeBakingSession(data.baking);
+  }
 
   syncMyTeamFromTeams();
   updatePhaseUI(data.phase);
@@ -264,6 +278,39 @@ socket.on('shop:team-inventory-updated', (teamId, inventory) => {
   renderShopDisplay();
 });
 
+// ===== BAKING EVENT HANDLERS =====
+
+socket.on('baking:started', (data) => {
+  console.log('Baking started:', data);
+  bakingSession = normalizeBakingSession({ ...bakingSession, ...data });
+
+  if (currentPhase === 'BAKING' && bakingSession.minigames.length) {
+    startBakingSession();
+  }
+});
+
+socket.on('baking:minigame-selections', (data) => {
+  console.log('Baking minigame selections:', data);
+  bakingSession = normalizeBakingSession({ ...bakingSession, ...data });
+
+  if (currentPhase === 'BAKING') {
+    startBakingSession();
+  }
+});
+
+socket.on('baking:phase-completed', (data) => {
+  console.log('Baking phase completed:', data);
+  bakingSession = normalizeBakingSession({
+    ...bakingSession,
+    currentPhaseIndex: typeof data.currentPhaseIndex === 'number' ? data.currentPhaseIndex : bakingSession.currentPhaseIndex
+  });
+});
+
+socket.on('baking:time-up', () => {
+  destroyBakingSession();
+  showNotification('Time is up! Baking complete.', 'success');
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -296,12 +343,20 @@ function updatePhaseUI(phase) {
     section.classList.add('active');
   }
 
+  if (phase !== 'BAKING') {
+    destroyBakingSession();
+  }
+
   if (phase === 'TRIVIA') {
     updatePlayerTriviaView();
   }
 
   if (phase === 'SHOP') {
     renderShopDisplay();
+  }
+
+  if (phase === 'BAKING') {
+    startBakingSession();
   }
 }
 
@@ -718,6 +773,93 @@ function buildShopItemMeta(item) {
   return tags.join(' • ');
 }
 
+function normalizeBakingSession(data = {}) {
+  return {
+    teamId: Number(data.teamId) || null,
+    minigames: Array.isArray(data.minigames) ? data.minigames : bakingSession.minigames,
+    chaosEvents: Array.isArray(data.chaosEvents) ? data.chaosEvents : bakingSession.chaosEvents,
+    chaosLevel: data.chaosLevel || bakingSession.chaosLevel || null,
+    currentPhaseIndex: typeof data.currentPhaseIndex === 'number' ? data.currentPhaseIndex : (bakingSession.currentPhaseIndex || 0)
+  };
+}
+
+function startBakingSession() {
+  if (typeof window.initGame !== 'function' || !bakingSession.minigames.length) {
+    return;
+  }
+
+  const activeTeamId = bakingSession.teamId || myTeam?.id || null;
+  if (activeTeamId && (!myTeam || (myTeam.id && activeTeamId !== myTeam.id))) {
+    return;
+  }
+
+  const inventory = getMyShopInventory();
+  const boosts = buildBakingBoosts(inventory);
+  const game = window.initGame(socket, inventory, {}, {
+    minigames: bakingSession.minigames,
+    chaosEvents: bakingSession.chaosEvents,
+    chaosLevel: bakingSession.chaosLevel,
+    currentPhaseIndex: bakingSession.currentPhaseIndex,
+    teamId: activeTeamId
+  });
+
+  const startSelection = getBakingStartSelection();
+  if (game && startSelection) {
+    game.scene.start('PhaseSelectScene', {
+      phaseName: startSelection.phaseName || startSelection.phase.toUpperCase(),
+      phaseKey: startSelection.phase,
+      description: startSelection.description || 'Get ready!',
+      minigame: startSelection.sceneKey,
+      isEvil: Boolean(startSelection.isAbsurd),
+      selectionIndex: bakingSession.currentPhaseIndex,
+      inventory,
+      boosts,
+      chaosEvents: bakingSession.chaosEvents,
+      teamId: activeTeamId
+    });
+
+    if (
+      typeof game.scene.getScene === 'function' &&
+      game.scene.getScene('EvilEventOverlay') &&
+      !game.scene.isActive('EvilEventOverlay')
+    ) {
+      game.scene.launch('EvilEventOverlay', {
+        socket,
+        teamId: activeTeamId
+      });
+    }
+  }
+}
+
+function getBakingStartSelection() {
+  return bakingSession.minigames[bakingSession.currentPhaseIndex] || bakingSession.minigames[0] || null;
+}
+
+function destroyBakingSession() {
+  if (typeof window.destroyGame === 'function') {
+    window.destroyGame();
+  }
+
+  if (phaserContainer) {
+    phaserContainer.style.display = 'none';
+  }
+}
+
+function buildBakingBoosts(inventory) {
+  const boosts = {};
+
+  (inventory || []).forEach((item) => {
+    const key = item?.item_key || item?.key;
+    if (!key) {
+      return;
+    }
+
+    boosts[key] = (boosts[key] || 0) + 1;
+  });
+
+  return boosts;
+}
+
 function displayMedia(container, media) {
   if (!container) {
     return;
@@ -770,6 +912,10 @@ function syncMyTeamFromTeams() {
 
   myTeam = { ...myTeam, ...match };
   showTeamDisplay();
+
+  if (currentPhase === 'BAKING') {
+    startBakingSession();
+  }
 }
 
 function normalizeTeam(team) {
