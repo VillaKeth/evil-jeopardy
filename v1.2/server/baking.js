@@ -203,6 +203,29 @@ function calculateVirtualCakeScores(db, teamId, inventory) {
   };
 }
 
+function getApprovedPurchases(db, teamId) {
+  const rawDb = db && typeof db.prepare === 'function' ? db : db?.db;
+  if (!rawDb) {
+    throw new Error('A valid database connection is required.');
+  }
+
+  return rawDb.prepare(`
+    SELECT *
+    FROM purchases
+    WHERE team_id = ? AND COALESCE(approved_by_host, 1) = 1
+    ORDER BY created_at, id
+  `).all(teamId);
+}
+
+function calculateFinalScores(db, teamId) {
+  const rawDb = db && typeof db.prepare === 'function' ? db : db?.db;
+  if (!rawDb) {
+    throw new Error('A valid database connection is required.');
+  }
+
+  return calculateVirtualCakeScores(rawDb, teamId, getApprovedPurchases(rawDb, teamId));
+}
+
 module.exports = {
   startBaking,
   pauseBaking,
@@ -211,5 +234,7 @@ module.exports = {
   completePhase,
   getPhaseScores,
   getTeamExtraTime,
-  calculateVirtualCakeScores
+  calculateVirtualCakeScores,
+  getApprovedPurchases,
+  calculateFinalScores
 };

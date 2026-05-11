@@ -78,6 +78,7 @@ window.initGame = function(socket, inventory, cakeGoal, evilLuckConfig) {
     CoolScene: window.CoolScene,
     DecorateScene: window.DecorateScene,
     PresentScene: window.PresentScene,
+    ResultScene: window.ResultScene,
     CowCombatScene: window.CowCombatScene,
     RacingOvenScene: window.RacingOvenScene,
     JewelSortScene: window.JewelSortScene,

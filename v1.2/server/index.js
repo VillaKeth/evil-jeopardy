@@ -1,9 +1,11 @@
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const fs = require('fs');
 const path = require('path');
 const { initDb } = require('./db');
-const { startBaking, pauseBaking, resumeBaking, getTimeRemaining, completePhase, getPhaseScores, calculateVirtualCakeScores } = require('./baking');
+const { startBaking, pauseBaking, resumeBaking, getTimeRemaining, completePhase, getPhaseScores, getApprovedPurchases, calculateFinalScores } = require('./baking');
+const cakeGenerator = require('./cake-generator');
 const {
   loadQuestions,
   getSlideQuestion,
@@ -368,6 +370,124 @@ function createApp(options = {}) {
     appendChaosLog(emittedEvent);
     io.emit('baking:chaos-event', emittedEvent);
     return emittedEvent;
+  }
+
+  function getCakeTypeForTeam(teamId) {
+    const cakePurchase = [...getApprovedPurchases(db.db, teamId)].reverse().find((entry) => entry.category === 'cakes');
+    if (!cakePurchase) {
+      return 'chocolate';
+    }
+
+    const item = getShopItem(cakePurchase.item_key);
+    return item?.name
+      ? item.name.replace(/\bcake\b/i, '').replace(/\s+/g, ' ').trim().toLowerCase() || item.name.toLowerCase()
+      : cakePurchase.item_key.replace(/^cake-/, '').replace(/-/g, ' ');
+  }
+
+  function getGalleryIngredients(teamId) {
+    return getApprovedPurchases(db.db, teamId)
+      .filter((entry) => entry.category === 'ingredients')
+      .map((entry) => getShopItem(entry.item_key)?.name || entry.item_key);
+  }
+
+  function getGalleryChaosSummary(teamId) {
+    const session = getBakingSessionState();
+    const chaosSource = Array.isArray(session.chaosLog) && session.chaosLog.length
+      ? session.chaosLog
+      : session.chaosEvents;
+
+    return (chaosSource || [])
+      .filter((event) => !teamId || !event.teamId || Number(event.teamId) === Number(teamId))
+      .slice(-6)
+      .map((event) => ({
+        title: event.name || event.phaseName || 'Chaos event',
+        description: event.description || 'Something unfair happened.',
+        phaseName: event.phaseName || event.phaseKey || 'Kitchen'
+      }));
+  }
+
+  function buildFallbackGalleryPayload(teamId, scores, chaosEvents = []) {
+    const safeScores = scores || { taste: 0, accuracy: 0, creativity: 0, total: 0 };
+    const tier = cakeGenerator.getScoreTier(Number(safeScores.total) || 0);
+
+    return {
+      imagePaths: [`/assets/cake-fallbacks/tier-${tier}-1.png`],
+      scores: safeScores,
+      chaosEvents,
+      teamId
+    };
+  }
+
+  async function buildCakeGalleryPayload(teamId) {
+    const resolvedTeam = getBakingTeam(teamId);
+    if (!resolvedTeam) {
+      throw new Error('No team available for gallery generation.');
+    }
+
+    const outputDir = path.join(__dirname, '..', 'public', 'assets', 'cake-results');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const scores = calculateFinalScores(db.db, resolvedTeam.id);
+    const chaosEvents = getGalleryChaosSummary(resolvedTeam.id);
+    const gallery = await cakeGenerator.generateGalleryWithFallback(
+      getCakeTypeForTeam(resolvedTeam.id),
+      scores,
+      getGalleryIngredients(resolvedTeam.id),
+      chaosEvents,
+      4
+    );
+
+    const imagePaths = [];
+    for (let index = 0; index < gallery.length; index += 1) {
+      const imageBuffer = gallery[index];
+      if (!imageBuffer) {
+        continue;
+      }
+
+      const filename = `team-${resolvedTeam.id}-cake-${index}.png`;
+      fs.writeFileSync(path.join(outputDir, filename), imageBuffer);
+      imagePaths.push(`/assets/cake-results/${filename}`);
+    }
+
+    if (!imagePaths.length) {
+      return buildFallbackGalleryPayload(resolvedTeam.id, scores, chaosEvents);
+    }
+
+    return {
+      imagePaths,
+      scores,
+      chaosEvents,
+      teamId: resolvedTeam.id
+    };
+  }
+
+  async function emitCakeGallery(teamId, target, { force = false } = {}) {
+    const resolvedTeam = getBakingTeam(teamId);
+    if (!resolvedTeam) {
+      throw new Error('No team available for gallery generation.');
+    }
+
+    if (!force && db.getState('baking_gallery_generated_team_id') === String(resolvedTeam.id)) {
+      return null;
+    }
+
+    try {
+      const payload = await buildCakeGalleryPayload(resolvedTeam.id);
+      db.setState('baking_gallery_generated_team_id', String(resolvedTeam.id));
+      target.emit('baking:cake-gallery', payload);
+      return payload;
+    } catch (error) {
+      const scores = (() => {
+        try {
+          return calculateFinalScores(db.db, resolvedTeam.id);
+        } catch {
+          return { taste: 0, accuracy: 0, creativity: 0, total: 0 };
+        }
+      })();
+      const payload = buildFallbackGalleryPayload(resolvedTeam.id, scores, getGalleryChaosSummary(resolvedTeam.id));
+      target.emit('baking:cake-gallery', payload);
+      return payload;
+    }
   }
   
   // Socket.io connection handling
@@ -786,6 +906,7 @@ function createApp(options = {}) {
         db.setState('baking_team_id', String(bakingTeam?.id || ''));
         db.setState('baking_chaos_level', chaosLevel);
         db.setState('baking_current_phase_index', '0');
+        db.setState('baking_gallery_generated_team_id', '');
         setJsonState('baking_minigames', minigameSelections);
         setJsonState('baking_chaos_events', chaosEvents);
         setJsonState('baking_chaos_log', []);
@@ -805,6 +926,9 @@ function createApp(options = {}) {
             clearInterval(bakingTimerInterval);
             bakingTimerInterval = null;
             io.emit('baking:time-up');
+            emitCakeGallery(bakingTeam?.id || null, io.to('host')).catch((error) => {
+              console.error('Auto gallery generation failed after time up:', error);
+            });
             console.log('Baking timer completed');
           }
         }, 1000);
@@ -874,6 +998,9 @@ function createApp(options = {}) {
             clearInterval(bakingTimerInterval);
             bakingTimerInterval = null;
             io.emit('baking:time-up');
+            emitCakeGallery(Number(db.getState('baking_team_id')) || null, io.to('host')).catch((error) => {
+              console.error('Auto gallery generation failed after resume timer ended:', error);
+            });
             console.log('Baking timer completed');
           }
         }, 1000);
@@ -943,6 +1070,12 @@ function createApp(options = {}) {
         if (teamId === activeTeamId && nextSelection) {
           emitChaosEventForSelection(nextSelection, activeTeamId);
         }
+
+        if (teamId === activeTeamId && !nextSelection) {
+          emitCakeGallery(activeTeamId, io.to('host')).catch((error) => {
+            console.error('Auto gallery generation failed after final phase:', error);
+          });
+        }
       } catch (err) {
         console.error('Failed to complete phase:', err);
         socket.emit('error', { message: 'Server error completing phase.' });
@@ -1000,6 +1133,51 @@ function createApp(options = {}) {
       } catch (err) {
         console.error('Failed to get judging results:', err);
         socket.emit('error', { message: 'Server error retrieving judging results.' });
+      }
+    });
+
+    socket.on('baking:generate-gallery', async ({ teamId } = {}) => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can generate cake galleries.' });
+          return;
+        }
+
+        await emitCakeGallery(teamId, io.to('host'), { force: true });
+      } catch (err) {
+        console.error('Gallery generation error:', err);
+        socket.emit('error', { message: 'Server error generating cake gallery.' });
+      }
+    });
+
+    socket.on('results:cake-reveal', (payload = {}) => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can reveal cake results.' });
+          return;
+        }
+
+        const cakeImagePath = typeof payload.cakeImagePath === 'string' ? payload.cakeImagePath : '';
+        if (!cakeImagePath) {
+          socket.emit('error', { message: 'Cake reveal requires an image path.' });
+          return;
+        }
+
+        const scores = payload.scores || {};
+        io.emit('results:cake-reveal', {
+          cakeImagePath,
+          scores: {
+            taste: Number(scores.taste) || 0,
+            accuracy: Number(scores.accuracy) || 0,
+            creativity: Number(scores.creativity) || 0,
+            total: Number(scores.total) || 0
+          },
+          chaosEvents: Array.isArray(payload.chaosEvents) ? payload.chaosEvents : [],
+          teamId: Number(payload.teamId) || null
+        });
+      } catch (err) {
+        console.error('Failed to reveal cake:', err);
+        socket.emit('error', { message: 'Server error revealing cake.' });
       }
     });
 

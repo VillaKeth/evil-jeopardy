@@ -1,5 +1,6 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
 const path = require('path');
 const { createApp } = require('../server/index.js');
 const io = require('socket.io-client');
@@ -373,6 +374,55 @@ describe('Server Integration', () => {
     assert.strictEqual(results[1].scores.total, 60);
     assert.strictEqual(results[2].teamName, 'Judge Alpha');
     assert.strictEqual(results[2].scores.total, 20);
+  });
+
+  it('should generate a cake gallery for the host after baking', async () => {
+    await ensureBakingPhase(app, hostSocket, screenSocket);
+
+    const team = ensureTeam(app, 'Gallery Virtual Team', 2500);
+    app.db.db.prepare('UPDATE teams SET is_virtual_team = 1 WHERE id = ?').run(team.id);
+    ['prep', 'mix', 'bake', 'cool', 'decorate', 'present'].forEach((phase, index) => {
+      app.db.db.prepare('INSERT INTO scores (team_id, phase, score, details) VALUES (?, ?, ?, ?)').run(team.id, phase, 70 + index, null);
+    });
+    app.db.db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(team.id, 'cake-chocolate-layer', 'cakes', 5000, 1);
+    app.db.db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(team.id, 'flour-premium', 'ingredients', 800, 1);
+
+    const galleryPayload = await onceEventOrTimeout(hostSocket, 'baking:cake-gallery', () => {
+      hostSocket.emit('baking:generate-gallery', { teamId: team.id });
+    }, 4000);
+
+    assert.strictEqual(galleryPayload.teamId, team.id);
+    assert.ok(Array.isArray(galleryPayload.imagePaths));
+    assert.ok(galleryPayload.imagePaths.length > 0, 'Should return at least one generated image path');
+    assert.ok(galleryPayload.scores.total > 0, 'Should include final scores');
+
+    galleryPayload.imagePaths.forEach((imagePath) => {
+      assert.match(imagePath, /^\/assets\/cake-results\/team-\d+-cake-\d+\.png$/);
+      const filePath = path.join(__dirname, '..', 'public', imagePath.replace(/^\/assets\//, 'assets/'));
+      assert.ok(fs.existsSync(filePath), `Generated gallery image should exist on disk: ${filePath}`);
+      fs.unlinkSync(filePath);
+    });
+  });
+
+  it('should broadcast cake reveal payload to screen and player clients', async () => {
+    const revealPayload = {
+      cakeImagePath: '/assets/cake-results/team-99-cake-0.png',
+      scores: { taste: 88, accuracy: 77, creativity: 66, total: 231 },
+      chaosEvents: [{ title: 'Butter spill', description: 'A slippery disaster nearly ruined the frosting.' }],
+      teamId: 99
+    };
+
+    const screenRevealPromise = onceEventOrTimeout(screenSocket, 'results:cake-reveal', null, 1500);
+    const playerRevealPromise = onceEventOrTimeout(playerSocket, 'results:cake-reveal', () => {
+      hostSocket.emit('results:cake-reveal', revealPayload);
+    }, 1500);
+
+    const [screenReveal, playerReveal] = await Promise.all([screenRevealPromise, playerRevealPromise]);
+
+    assert.deepStrictEqual(screenReveal, revealPayload);
+    assert.deepStrictEqual(playerReveal, revealPayload);
   });
 
   it('should reveal judging results to all clients', async () => {

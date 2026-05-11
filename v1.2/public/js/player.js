@@ -36,6 +36,8 @@ const playerShopPurchases = document.getElementById('player-shop-purchases');
 
 // Baking DOM elements
 const phaserContainer = document.getElementById('phaser-container');
+const resultsSection = document.getElementById('results-section');
+const phaserDefaultParent = phaserContainer ? phaserContainer.parentElement : null;
 
 // State
 let currentPhase = 'LOBBY';
@@ -63,6 +65,7 @@ let bakingSession = {
   chaosLevel: null,
   currentPhaseIndex: 0
 };
+let cakeRevealActive = false;
 
 // ===== Socket Event Handlers =====
 
@@ -311,6 +314,10 @@ socket.on('baking:time-up', () => {
   showNotification('Time is up! Baking complete.', 'success');
 });
 
+socket.on('results:cake-reveal', (payload) => {
+  showCakeReveal(payload);
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -343,8 +350,17 @@ function updatePhaseUI(phase) {
     section.classList.add('active');
   }
 
-  if (phase !== 'BAKING') {
+  const preserveCakeReveal = phase === 'RESULTS' && cakeRevealActive;
+  if (phase === 'BAKING') {
+    cakeRevealActive = false;
+    restorePhaserContainer();
+    renderPlayerResultsPlaceholder();
+    startBakingSession();
+  } else if (!preserveCakeReveal) {
+    cakeRevealActive = false;
+    restorePhaserContainer();
     destroyBakingSession();
+    renderPlayerResultsPlaceholder();
   }
 
   if (phase === 'TRIVIA') {
@@ -353,10 +369,6 @@ function updatePhaseUI(phase) {
 
   if (phase === 'SHOP') {
     renderShopDisplay();
-  }
-
-  if (phase === 'BAKING') {
-    startBakingSession();
   }
 }
 
@@ -842,6 +854,138 @@ function destroyBakingSession() {
 
   if (phaserContainer) {
     phaserContainer.style.display = 'none';
+  }
+}
+
+function setActivePhaseSection(sectionId) {
+  document.querySelectorAll('.phase-section').forEach((section) => {
+    section.classList.toggle('active', section.id === sectionId);
+  });
+}
+
+function restorePhaserContainer() {
+  if (phaserContainer && phaserDefaultParent && phaserContainer.parentElement !== phaserDefaultParent) {
+    phaserDefaultParent.prepend(phaserContainer);
+  }
+}
+
+function movePhaserContainerToResults() {
+  if (phaserContainer && resultsSection && phaserContainer.parentElement !== resultsSection) {
+    resultsSection.prepend(phaserContainer);
+  }
+}
+
+function renderPlayerResultsPlaceholder() {
+  if (!resultsSection) {
+    return;
+  }
+
+  resultsSection.innerHTML = `
+    <div class="card">
+      <div class="card-header text-center">
+        <h2>Final Results</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-muted text-center">
+          Results display will be added in later tasks...
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function formatRevealScore(value) {
+  const numeric = Math.round((Number(value) || 0) * 100) / 100;
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+}
+
+function normalizeCakeRevealPayload(payload = {}) {
+  const scores = payload.scores || {};
+  return {
+    cakeImagePath: payload.cakeImagePath || payload.imagePath || '',
+    scores: {
+      taste: Number(scores.taste) || 0,
+      accuracy: Number(scores.accuracy) || 0,
+      creativity: Number(scores.creativity) || 0,
+      total: Number(scores.total) || 0
+    },
+    chaosEvents: Array.isArray(payload.chaosEvents) ? payload.chaosEvents : [],
+    teamId: Number(payload.teamId) || bakingSession.teamId || myTeam?.id || null
+  };
+}
+
+function launchCakeRevealScene(payload) {
+  if (!phaserContainer || typeof window.initGame !== 'function' || typeof window.ResultScene !== 'function') {
+    return false;
+  }
+
+  renderPlayerResultsPlaceholder();
+  movePhaserContainerToResults();
+  const game = window.initGame(socket, getMyShopInventory(), {}, {
+    minigames: bakingSession.minigames,
+    chaosEvents: payload.chaosEvents,
+    chaosLevel: bakingSession.chaosLevel,
+    currentPhaseIndex: bakingSession.currentPhaseIndex,
+    teamId: payload.teamId
+  });
+
+  if (!game || !game.scene) {
+    return false;
+  }
+
+  if (typeof game.scene.getScene === 'function' && !game.scene.getScene('ResultScene') && typeof game.scene.add === 'function') {
+    game.scene.add('ResultScene', window.ResultScene, false);
+  }
+
+  game.scene.start('ResultScene', payload);
+  return true;
+}
+
+function renderCakeRevealFallback(payload) {
+  if (!resultsSection) {
+    return;
+  }
+
+  resultsSection.innerHTML = `
+    <div class="card">
+      <div class="card-header text-center">
+        <h2>Your cake is ready...</h2>
+      </div>
+      <div class="card-body" style="display:grid; gap: var(--spacing-lg);">
+        ${payload.cakeImagePath ? `<img src="${escapeHtml(payload.cakeImagePath)}" alt="Revealed cake" style="width:100%; max-width:420px; margin:0 auto; border-radius:16px; background:rgba(13,17,23,0.88);">` : ''}
+        <div class="scoreboard player-trivia-scoreboard">
+          ${[['Taste', payload.scores.taste], ['Accuracy', payload.scores.accuracy], ['Creativity', payload.scores.creativity], ['Total', payload.scores.total]].map(([label, value]) => `
+            <div class="score-card player-score-card">
+              <div class="score-team">${escapeHtml(label)}</div>
+              <div class="score-value">${formatRevealScore(value)}</div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="player-shop-purchase-list">
+          ${(payload.chaosEvents.length ? payload.chaosEvents : [{ title: 'Chaos Summary', description: 'No kitchen disasters survived the edit.' }]).slice(-4).map((event) => `
+            <article class="player-shop-purchase-item">
+              <div class="player-shop-purchase-row">
+                <strong>${escapeHtml(event.phaseName || event.title || 'Chaos Summary')}</strong>
+              </div>
+              <div class="player-shop-purchase-meta">${escapeHtml(event.description || event.title || 'Something unfair happened.')}</div>
+            </article>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showCakeReveal(rawPayload) {
+  const payload = normalizeCakeRevealPayload(rawPayload);
+  cakeRevealActive = true;
+  setActivePhaseSection('results-section');
+  phaseText.textContent = 'RESULTS';
+  phaseIndicator.className = 'phase-indicator phase-RESULTS';
+
+  if (!launchCakeRevealScene(payload)) {
+    restorePhaserContainer();
+    renderCakeRevealFallback(payload);
   }
 }
 

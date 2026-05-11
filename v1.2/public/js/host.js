@@ -67,6 +67,11 @@ const judgingResultsPreview = document.getElementById('judging-results-preview')
 const judgingStatusText = document.getElementById('judging-status-text');
 const revealResultsBtn = document.getElementById('reveal-results-btn');
 const resultsStandings = document.getElementById('results-standings');
+const cakeGallerySection = document.getElementById('cake-gallery-section');
+const cakeGalleryMeta = document.getElementById('cake-gallery-meta');
+const cakeGalleryGrid = document.getElementById('cake-gallery-grid');
+const generateGalleryBtn = document.getElementById('generate-gallery-btn');
+const revealCakeBtn = document.getElementById('reveal-cake-btn');
 
 // Buzz notification
 const buzzNotification = document.getElementById('buzz-notification');
@@ -101,6 +106,13 @@ let judgingResults = [];
 let judgingDraftScores = {};
 let judgedTeamIds = new Set();
 let allTeamsJudged = false;
+let cakeGalleryState = {
+  teamId: null,
+  imagePaths: [],
+  selectedImagePath: '',
+  scores: null,
+  chaosEvents: []
+};
 
 // ===== Socket Event Handlers =====
 
@@ -326,7 +338,15 @@ socket.on('shop:warning', (teamId, message) => {
 socket.on('baking:started', (payload) => {
   console.log('Baking started:', payload);
   bakingState = normalizeBakingState({ ...bakingState, ...payload });
+  cakeGalleryState = {
+    teamId: Number(payload?.teamId) || null,
+    imagePaths: [],
+    selectedImagePath: '',
+    scores: null,
+    chaosEvents: []
+  };
   renderBakingDashboard();
+  renderCakeGallery();
 });
 
 socket.on('baking:minigame-selections', (payload) => {
@@ -375,6 +395,19 @@ socket.on('baking:time-up', () => {
   showNotification('Baking timer finished.', 'success');
 });
 
+socket.on('baking:cake-gallery', (payload) => {
+  console.log('Cake gallery ready:', payload);
+  cakeGalleryState = {
+    teamId: Number(payload?.teamId) || null,
+    imagePaths: Array.isArray(payload?.imagePaths) ? payload.imagePaths : [],
+    selectedImagePath: Array.isArray(payload?.imagePaths) && payload.imagePaths.length ? payload.imagePaths[0] : '',
+    scores: payload?.scores || null,
+    chaosEvents: Array.isArray(payload?.chaosEvents) ? payload.chaosEvents : getCurrentChaosSummary()
+  };
+  renderCakeGallery();
+  showNotification('Cake gallery ready for selection.', 'success');
+});
+
 // ===== JUDGING EVENT HANDLERS =====
 
 socket.on('judging:scores-updated', (payload) => {
@@ -402,6 +435,22 @@ socket.on('judging:results', (results) => {
   renderJudgingResultsPreview();
   renderResultsStandings();
   updateRevealResultsState();
+});
+
+socket.on('results:cake-reveal', (payload) => {
+  if (!payload?.cakeImagePath) {
+    return;
+  }
+
+  cakeGalleryState = {
+    ...cakeGalleryState,
+    teamId: Number(payload.teamId) || cakeGalleryState.teamId || null,
+    selectedImagePath: payload.cakeImagePath,
+    scores: payload.scores || cakeGalleryState.scores,
+    chaosEvents: Array.isArray(payload.chaosEvents) ? payload.chaosEvents : cakeGalleryState.chaosEvents
+  };
+  renderCakeGallery();
+  showNotification('Cake reveal sent to all clients.', 'success');
 });
 
 socket.on('results:reveal', (results) => {
@@ -537,6 +586,65 @@ function normalizeShopCollections(collections) {
 function getTeamName(teamId) {
   const team = teams.find((entry) => entry.id === teamId);
   return team ? team.name : `Team ${teamId}`;
+}
+
+function getActiveVirtualTeam() {
+  return teams.find((team) => team.id === cakeGalleryState.teamId)
+    || teams.find((team) => team.id === bakingState.teamId)
+    || teams.find((team) => team.isVirtual)
+    || teams[0]
+    || null;
+}
+
+function getCurrentChaosSummary() {
+  const source = Array.isArray(bakingState.chaosLog) && bakingState.chaosLog.length
+    ? bakingState.chaosLog
+    : bakingState.chaosEvents;
+
+  return (source || []).slice(-6).map((event) => ({
+    title: event.name || event.phaseName || 'Chaos event',
+    description: event.description || 'Something unfair happened.',
+    phaseName: event.phaseName || event.phaseKey || 'Kitchen'
+  }));
+}
+
+function renderCakeGallery() {
+  if (!cakeGallerySection || !cakeGalleryGrid || !revealCakeBtn) {
+    return;
+  }
+
+  const shouldShow = currentPhase === 'JUDGING' || currentPhase === 'RESULTS' || cakeGalleryState.imagePaths.length > 0;
+  cakeGallerySection.style.display = shouldShow ? 'block' : 'none';
+
+  if (!shouldShow) {
+    return;
+  }
+
+  if (!cakeGalleryState.imagePaths.length) {
+    cakeGalleryGrid.innerHTML = '<div class="text-muted">Generate cake images once baking is complete.</div>';
+    if (cakeGalleryMeta) {
+      cakeGalleryMeta.innerHTML = `<span>${escapeHtml(getActiveVirtualTeam()?.name || 'Virtual team')} is ready for a gallery render.</span>`;
+    }
+    revealCakeBtn.disabled = true;
+    return;
+  }
+
+  cakeGalleryGrid.innerHTML = cakeGalleryState.imagePaths.map((imagePath, index) => `
+    <button type="button" class="gallery-card ${imagePath === cakeGalleryState.selectedImagePath ? 'is-selected' : ''}" data-image-path="${escapeHtml(imagePath)}">
+      <img src="${escapeHtml(imagePath)}" alt="Cake gallery option ${index + 1}">
+      <div class="gallery-card-label">Option ${index + 1}${imagePath === cakeGalleryState.selectedImagePath ? ' · selected' : ''}</div>
+    </button>
+  `).join('');
+
+  if (cakeGalleryMeta) {
+    const scores = cakeGalleryState.scores || {};
+    cakeGalleryMeta.innerHTML = `
+      <span>${escapeHtml(getTeamName(cakeGalleryState.teamId || getActiveVirtualTeam()?.id || 0))}</span>
+      <span>Taste ${formatScore(scores.taste)} · Accuracy ${formatScore(scores.accuracy)} · Creativity ${formatScore(scores.creativity)} · Total ${formatScore(scores.total)}</span>
+    `;
+  }
+
+  revealCakeBtn.disabled = !cakeGalleryState.selectedImagePath;
 }
 
 // ===== TRIVIA UI FUNCTIONS =====
@@ -1281,6 +1389,7 @@ function initializeJudgingUI() {
   renderJudgingResultsPreview();
   renderResultsStandings();
   updateRevealResultsState();
+  renderCakeGallery();
   socket.emit('judging:get-results');
 }
 
@@ -1288,6 +1397,7 @@ function initializeResultsUI() {
   renderJudgingResultsPreview();
   renderResultsStandings();
   updateRevealResultsState();
+  renderCakeGallery();
   socket.emit('judging:get-results');
 }
 
@@ -1385,6 +1495,46 @@ if (pauseBakingBtn) {
 if (resumeBakingBtn) {
   resumeBakingBtn.addEventListener('click', () => {
     socket.emit('baking:resume');
+  });
+}
+
+if (generateGalleryBtn) {
+  generateGalleryBtn.addEventListener('click', () => {
+    const activeTeam = getActiveVirtualTeam();
+    if (!activeTeam) {
+      showNotification('Add or select a virtual team before generating a gallery.', 'error');
+      return;
+    }
+
+    socket.emit('baking:generate-gallery', { teamId: activeTeam.id });
+  });
+}
+
+if (cakeGalleryGrid) {
+  cakeGalleryGrid.addEventListener('click', (event) => {
+    const card = event.target.closest('[data-image-path]');
+    if (!card) {
+      return;
+    }
+
+    cakeGalleryState.selectedImagePath = card.dataset.imagePath || '';
+    renderCakeGallery();
+  });
+}
+
+if (revealCakeBtn) {
+  revealCakeBtn.addEventListener('click', () => {
+    if (!cakeGalleryState.selectedImagePath) {
+      showNotification('Choose a cake image before revealing it.', 'error');
+      return;
+    }
+
+    socket.emit('results:cake-reveal', {
+      cakeImagePath: cakeGalleryState.selectedImagePath,
+      scores: cakeGalleryState.scores || { taste: 0, accuracy: 0, creativity: 0, total: 0 },
+      chaosEvents: cakeGalleryState.chaosEvents.length ? cakeGalleryState.chaosEvents : getCurrentChaosSummary(),
+      teamId: cakeGalleryState.teamId || getActiveVirtualTeam()?.id || null
+    });
   });
 }
 

@@ -32,6 +32,11 @@ const screenBakingPhase = document.getElementById('screen-baking-phase');
 const screenBakingProgress = document.getElementById('screen-baking-progress');
 const screenBakingScoreboard = document.getElementById('screen-baking-scoreboard');
 const screenBakingChaos = document.getElementById('screen-baking-chaos');
+const screenCakeReveal = document.getElementById('screen-cake-reveal');
+const screenCakeRevealTitle = document.querySelector('.screen-cake-reveal-title');
+const screenCakeRevealImage = document.getElementById('screen-cake-reveal-image');
+const screenCakeRevealScores = document.getElementById('screen-cake-reveal-scores');
+const screenCakeRevealChaos = document.getElementById('screen-cake-reveal-chaos');
 
 // State
 let currentPhase = 'LOBBY';
@@ -50,6 +55,7 @@ let pendingShopContext = null;
 let activeShopItemKey = null;
 let shopHighlightTimer = null;
 let shopBannerTimer = null;
+let cakeRevealTimers = [];
 let bakingState = {
   teamId: null,
   minigames: [],
@@ -296,6 +302,10 @@ socket.on('baking:time-up', () => {
   renderBakingDisplay();
 });
 
+socket.on('results:cake-reveal', (payload) => {
+  startCakeReveal(payload);
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -326,6 +336,10 @@ function updatePhaseUI(phase) {
   const section = document.getElementById(sectionId);
   if (section) {
     section.classList.add('active');
+  }
+
+  if (!['JUDGING', 'RESULTS'].includes(phase)) {
+    hideCakeReveal();
   }
 
   if (phase === 'TRIVIA') {
@@ -885,6 +899,90 @@ function formatBakingTime(totalSeconds) {
   const minutes = Math.floor(safeSeconds / 60);
   const seconds = safeSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function clearCakeRevealTimers() {
+  cakeRevealTimers.forEach((timerId) => clearTimeout(timerId));
+  cakeRevealTimers = [];
+}
+
+function hideCakeReveal() {
+  clearCakeRevealTimers();
+  if (!screenCakeReveal) {
+    return;
+  }
+
+  screenCakeReveal.classList.remove('is-active', 'is-open');
+  screenCakeReveal.classList.add('hidden');
+}
+
+function formatRevealScore(value) {
+  const numeric = Math.round((Number(value) || 0) * 100) / 100;
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(2).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+}
+
+function renderCakeRevealScores(scores = {}) {
+  if (!screenCakeRevealScores) {
+    return;
+  }
+
+  const entries = [
+    ['Taste', scores.taste],
+    ['Accuracy', scores.accuracy],
+    ['Creativity', scores.creativity],
+    ['Total', scores.total]
+  ];
+
+  screenCakeRevealScores.innerHTML = entries.map(([label, value]) => `
+    <article class="screen-cake-score-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${formatRevealScore(value)}</strong>
+    </article>
+  `).join('');
+}
+
+function renderCakeRevealChaos(chaosEvents = []) {
+  if (!screenCakeRevealChaos) {
+    return;
+  }
+
+  if (!Array.isArray(chaosEvents) || !chaosEvents.length) {
+    screenCakeRevealChaos.innerHTML = '<article class="screen-cake-chaos-item"><span>Chaos Summary</span><strong>No kitchen disasters survived the edit.</strong></article>';
+    return;
+  }
+
+  screenCakeRevealChaos.innerHTML = chaosEvents.slice(-4).map((event) => `
+    <article class="screen-cake-chaos-item">
+      <span>${escapeHtml(event.phaseName || event.title || 'Chaos Summary')}</span>
+      <strong>${escapeHtml(event.description || event.title || 'Something unfair happened.')}</strong>
+    </article>
+  `).join('');
+}
+
+function startCakeReveal(payload = {}) {
+  if (!screenCakeReveal || !screenCakeRevealImage) {
+    return;
+  }
+
+  clearCakeRevealTimers();
+  renderCakeRevealScores(payload.scores || {});
+  renderCakeRevealChaos(payload.chaosEvents || []);
+  if (screenCakeRevealTitle) {
+    screenCakeRevealTitle.textContent = 'Your cake is ready...';
+  }
+  screenCakeRevealImage.src = payload.cakeImagePath || '';
+  screenCakeReveal.classList.remove('hidden', 'is-open');
+  screenCakeReveal.classList.add('is-active');
+  phaseText.textContent = 'RESULTS';
+  phaseIndicator.className = 'phase-indicator phase-RESULTS';
+
+  cakeRevealTimers.push(setTimeout(() => {
+    screenCakeReveal.classList.add('is-open');
+  }, 2000));
+
+  cakeRevealTimers.push(setTimeout(() => {
+    hideCakeReveal();
+  }, 18000));
 }
 
 function normalizeTeams(teamList) {

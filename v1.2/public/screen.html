@@ -385,6 +385,152 @@
       gap: var(--spacing-sm);
     }
 
+    .screen-cake-reveal {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      padding: var(--spacing-xl);
+      background: rgba(0, 0, 0, 0.96);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: var(--spacing-xl);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.45s ease;
+    }
+
+    .screen-cake-reveal.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .screen-cake-reveal-title {
+      text-align: center;
+      font-size: clamp(2.8rem, 6vw, 4.8rem);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff3d6;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .screen-cake-reveal.is-active .screen-cake-reveal-title {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .screen-cake-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 166, 87, 0.28);
+      background: radial-gradient(circle at center, rgba(255, 166, 87, 0.16), rgba(13, 17, 23, 0.98));
+    }
+
+    .screen-cake-card {
+      width: min(52vw, 560px);
+      display: grid;
+      gap: var(--spacing-md);
+      justify-items: center;
+      opacity: 0;
+      transform: scale(0.88);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-card {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .screen-cake-card img {
+      width: 100%;
+      max-height: 52vh;
+      object-fit: contain;
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      background: rgba(13, 17, 23, 0.8);
+    }
+
+    .screen-cake-curtain {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50%;
+      background: linear-gradient(180deg, rgba(121, 28, 52, 0.98), rgba(58, 6, 18, 0.98));
+      transition: transform 1.15s ease;
+    }
+
+    .screen-cake-curtain.left {
+      left: 0;
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .screen-cake-curtain.right {
+      right: 0;
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-curtain.left {
+      transform: translateX(-105%);
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-curtain.right {
+      transform: translateX(105%);
+    }
+
+    .screen-cake-details {
+      display: grid;
+      gap: var(--spacing-lg);
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-details {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .screen-cake-score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .screen-cake-score-card,
+    .screen-cake-chaos-item {
+      border-radius: 14px;
+      border: 1px solid rgba(121, 192, 255, 0.24);
+      background: rgba(13, 17, 23, 0.88);
+      padding: var(--spacing-lg);
+    }
+
+    .screen-cake-score-card span,
+    .screen-cake-chaos-item span {
+      display: block;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-cake-score-card strong {
+      font-size: 2rem;
+      color: #ffd8a8;
+    }
+
+    .screen-cake-chaos-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--spacing-md);
+    }
+
     @keyframes shopPulse {
       0%, 100% { transform: translateY(-4px) scale(1); }
       50% { transform: translateY(-8px) scale(1.01); }
@@ -647,6 +793,21 @@
       </div>
     </section>
 
+  </div>
+
+  <div id="screen-cake-reveal" class="screen-cake-reveal hidden" aria-live="polite">
+    <div class="screen-cake-reveal-title">Your cake is ready...</div>
+    <div class="screen-cake-stage">
+      <div class="screen-cake-curtain left"></div>
+      <div class="screen-cake-curtain right"></div>
+      <div class="screen-cake-card">
+        <img id="screen-cake-reveal-image" alt="Revealed cake" src="">
+      </div>
+    </div>
+    <div class="screen-cake-details">
+      <div id="screen-cake-reveal-scores" class="screen-cake-score-grid"></div>
+      <div id="screen-cake-reveal-chaos" class="screen-cake-chaos-list"></div>
+    </div>
   </div>
 
   <!-- Socket.io client -->

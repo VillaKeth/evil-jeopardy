@@ -6,3 +6,4 @@
 - [ ] Rehydrate judging draft/results state for reconnecting host sessions without relying on a fresh `get-state` response.
 - [ ] Wire the full baking flow across server, player, host, and screen views.
 - [ ] Fix player Phaser overlay bootstrap to use the SceneManager getScene API.
+- [ ] Verify cake reveal gallery state rehydrates correctly for reconnecting host, screen, and player clients.

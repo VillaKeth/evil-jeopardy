@@ -11,7 +11,8 @@ const {
   completePhase,
   getPhaseScores,
   getTeamExtraTime,
-  calculateVirtualCakeScores
+  calculateVirtualCakeScores,
+  calculateFinalScores
 } = require('../server/baking');
 
 // Create test database
@@ -297,6 +298,39 @@ test('calculateVirtualCakeScores handles missing phase scores gracefully', () =>
     assert.ok(result.taste >= 0, 'Should handle missing scores for taste');
     assert.ok(result.accuracy >= 0, 'Should handle missing scores for accuracy');
     assert.ok(result.creativity >= 0, 'Should handle missing scores for creativity');
+  } finally {
+    db.close();
+    fs.unlinkSync(dbPath);
+  }
+});
+
+test('calculateFinalScores uses approved purchases from the database', () => {
+  const { db, dbPath } = createTestDb();
+
+  try {
+    db.prepare('INSERT INTO teams (name, money) VALUES (?, ?)').run('Final Score Team', 1000);
+    const team = db.prepare('SELECT id FROM teams WHERE name = ?').get('Final Score Team');
+
+    completePhase(db, team.id, 'prep', 90, null);
+    completePhase(db, team.id, 'mix', 80, null);
+    completePhase(db, team.id, 'bake', 85, null);
+    completePhase(db, team.id, 'decorate', 75, null);
+    completePhase(db, team.id, 'present', 88, null);
+
+    db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(team.id, 'cake-banana', 'cakes', 10000, 1);
+    db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(team.id, 'flour-premium', 'ingredients', 800, 1);
+    db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(team.id, 'eggs-premium', 'ingredients', 600, 1);
+    db.prepare('INSERT INTO purchases (team_id, item_key, category, price, approved_by_host) VALUES (?, ?, ?, ?, ?)')
+      .run(team.id, 'fondant', 'ingredients', 1500, 0);
+
+    const result = calculateFinalScores(db, team.id);
+
+    assert.ok(result.total > 0, 'Should return calculated scores');
+    assert.strictEqual(result.total, result.taste + result.accuracy + result.creativity, 'Total should match summed dimensions');
+    assert.ok(result.taste > 80, 'Approved premium ingredients should influence scoring');
   } finally {
     db.close();
     fs.unlinkSync(dbPath);
