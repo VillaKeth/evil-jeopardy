@@ -722,8 +722,6 @@ function renderCakeGallery() {
 // ===== TRIVIA UI FUNCTIONS =====
 
 function initializeTriviaUI() {
-  socket.emit('get-state');
-
   if (currentMode === 'JEOPARDY') {
     socket.emit('trivia:get-board');
   }
