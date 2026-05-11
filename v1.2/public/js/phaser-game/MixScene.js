@@ -846,47 +846,52 @@ class MixScene extends Phaser.Scene {
       return sum + (round.sampleCount > 0 ? (round.speedTotal / round.sampleCount) : 0);
     }, 0) / this.rounds.length) * 100);
 
+    // Track completion screen objects for cleanup
+    this.completionObjects = [];
+
     const overlay = this.add.rectangle(512, 384, 1024, 768, 0x000000, 0.76);
     overlay.setDepth(10);
+    this.completionObjects.push(overlay);
 
     const panel = this.add.rectangle(512, 384, 580, 360, 0x161b22, 0.96);
     panel.setStrokeStyle(3, 0x30363d);
     panel.setDepth(10);
+    this.completionObjects.push(panel);
 
-    this.add.text(512, 248, 'MIX COMPLETE!', {
+    this.completionObjects.push(this.add.text(512, 248, 'MIX COMPLETE!', {
       fontFamily: 'Arial',
       fontSize: '42px',
       color: '#ffa657',
       fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(11);
+    }).setOrigin(0.5).setDepth(11));
 
-    this.add.text(512, 308, `Score: ${score}/100`, {
+    this.completionObjects.push(this.add.text(512, 308, `Score: ${score}/100`, {
       fontFamily: 'Arial',
       fontSize: '38px',
       color: '#56d364',
       fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(11);
+    }).setOrigin(0.5).setDepth(11));
 
-    this.add.text(512, 370, `Path accuracy: ${accuracyPercent}%   •   Speed consistency: ${speedPercent}%`, {
+    this.completionObjects.push(this.add.text(512, 370, `Path accuracy: ${accuracyPercent}%   •   Speed consistency: ${speedPercent}%`, {
       fontFamily: 'Arial',
       fontSize: '21px',
       color: '#c9d1d9',
       align: 'center'
-    }).setOrigin(0.5).setDepth(11);
+    }).setOrigin(0.5).setDepth(11));
 
-    this.add.text(512, 410, `Chaos penalty: -${Math.round(this.chaosPenalty * 100)}%   •   Tool: ${this.hasElectricMixer ? 'Electric Mixer' : 'Manual Whisk'}`, {
+    this.completionObjects.push(this.add.text(512, 410, `Chaos penalty: -${Math.round(this.chaosPenalty * 100)}%   •   Tool: ${this.hasElectricMixer ? 'Electric Mixer' : 'Manual Whisk'}`, {
       fontFamily: 'Arial',
       fontSize: '19px',
       color: '#8b949e',
       align: 'center'
-    }).setOrigin(0.5).setDepth(11);
+    }).setOrigin(0.5).setDepth(11));
 
-    this.add.text(512, 468, 'Returning to phase select...', {
+    this.completionObjects.push(this.add.text(512, 468, 'Returning to phase select...', {
       fontFamily: 'Arial',
       fontSize: '20px',
       color: '#79c0ff',
       fontStyle: 'italic'
-    }).setOrigin(0.5).setDepth(11);
+    }).setOrigin(0.5).setDepth(11));
 
     this.cameras.main.fade(500, 0, 0, 0);
 
@@ -931,29 +936,34 @@ class MixScene extends Phaser.Scene {
       this.input.off('pointerupoutside', this._pointerUpHandler);
     }
 
-    if (this.guideGraphics) {
-      this.guideGraphics.destroy();
-      this.guideGraphics = null;
+    // Destroy graphics objects
+    const graphicsRefs = ['guideGraphics', 'trailGraphics', 'speedMeterGraphics', 'pointerIndicator', 'chaosOverlay', 'batterFill'];
+    for (const ref of graphicsRefs) {
+      if (this[ref]) {
+        this[ref].destroy();
+        this[ref] = null;
+      }
     }
 
-    if (this.trailGraphics) {
-      this.trailGraphics.destroy();
-      this.trailGraphics = null;
+    // Destroy text objects
+    const textRefs = ['timerText', 'roundText', 'progressText', 'instructionText', 'speedText', 'speedStateText', 'toolText'];
+    for (const ref of textRefs) {
+      if (this[ref]) {
+        this[ref].destroy();
+        this[ref] = null;
+      }
     }
 
-    if (this.speedMeterGraphics) {
-      this.speedMeterGraphics.destroy();
-      this.speedMeterGraphics = null;
+    // Destroy round dots
+    if (this.roundDots) {
+      this.roundDots.forEach(dot => { if (dot) dot.destroy(); });
+      this.roundDots = [];
     }
 
-    if (this.pointerIndicator) {
-      this.pointerIndicator.destroy();
-      this.pointerIndicator = null;
-    }
-
-    if (this.chaosOverlay) {
-      this.chaosOverlay.destroy();
-      this.chaosOverlay = null;
+    // Destroy completion screen objects
+    if (this.completionObjects) {
+      this.completionObjects.forEach(obj => { if (obj) obj.destroy(); });
+      this.completionObjects = [];
     }
 
     this.currentRound = null;
@@ -961,7 +971,6 @@ class MixScene extends Phaser.Scene {
     this.lastAngle = null;
     this.lastSampleTime = null;
     this.trailPoints = [];
-    this.roundDots = [];
   }
 }
 
