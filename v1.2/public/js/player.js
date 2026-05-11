@@ -63,6 +63,7 @@ let shopInventories = {};
 let shopPurchaseHistories = {};
 let playerShopStatusMessage = '';
 let playerShopStatusVariant = 'info';
+let babylonEngine = null;
 let bakingSession = {
   teamId: null,
   minigames: [],
@@ -877,8 +878,8 @@ function normalizeBakingSession(data = {}) {
   };
 }
 
-function startBakingSession() {
-  if (typeof window.initGame !== 'function' || !bakingSession.minigames.length) {
+async function startBakingSession() {
+  if (!window.BabylonGameEngine || !bakingSession.minigames.length) {
     return;
   }
 
@@ -888,40 +889,31 @@ function startBakingSession() {
   }
 
   const inventory = getMyShopInventory();
-  const boosts = buildBakingBoosts(inventory);
-  const game = window.initGame(socket, inventory, {}, {
-    minigames: bakingSession.minigames,
-    chaosEvents: bakingSession.chaosEvents,
-    chaosLevel: bakingSession.chaosLevel,
-    currentPhaseIndex: bakingSession.currentPhaseIndex,
+
+  // Destroy previous engine if exists
+  if (babylonEngine) {
+    babylonEngine.destroy();
+    babylonEngine = null;
+  }
+
+  babylonEngine = new BabylonGameEngine('phaser-container', socket, {
     teamId: activeTeamId
   });
+  await babylonEngine.init();
 
   const startSelection = getBakingStartSelection();
-  if (game && startSelection) {
-    game.scene.start('PhaseSelectScene', {
-      phaseName: startSelection.phaseName || startSelection.phase.toUpperCase(),
-      phaseKey: startSelection.phase,
-      description: startSelection.description || 'Get ready!',
-      minigame: startSelection.sceneKey,
-      isEvil: Boolean(startSelection.isAbsurd),
-      selectionIndex: bakingSession.currentPhaseIndex,
+  if (babylonEngine && startSelection) {
+    const sceneKey = startSelection.sceneKey || 'PrepScene';
+    await babylonEngine.startScene(sceneKey, {
       inventory,
-      boosts,
+      boosts: buildBakingBoosts(inventory),
+      teamId: activeTeamId,
       chaosEvents: bakingSession.chaosEvents,
-      teamId: activeTeamId
+      chaosLevel: bakingSession.chaosLevel,
+      isAbsurd: Boolean(startSelection.isAbsurd),
+      selectionIndex: bakingSession.currentPhaseIndex,
+      minigames: bakingSession.minigames
     });
-
-    if (
-      typeof game.scene.getScene === 'function' &&
-      game.scene.getScene('EvilEventOverlay') &&
-      !game.scene.isActive('EvilEventOverlay')
-    ) {
-      game.scene.launch('EvilEventOverlay', {
-        socket,
-        teamId: activeTeamId
-      });
-    }
   }
 }
 
@@ -930,8 +922,9 @@ function getBakingStartSelection() {
 }
 
 function destroyBakingSession() {
-  if (typeof window.destroyGame === 'function') {
-    window.destroyGame();
+  if (babylonEngine) {
+    babylonEngine.destroy();
+    babylonEngine = null;
   }
 
   if (phaserContainer) {
@@ -1005,30 +998,30 @@ function normalizeCakeRevealPayload(payload = {}) {
   };
 }
 
-function launchCakeRevealScene(payload) {
-  if (!phaserContainer || typeof window.initGame !== 'function' || typeof window.ResultScene !== 'function') {
+async function launchCakeRevealScene(payload) {
+  const container = document.getElementById('phaser-container');
+  if (!container || !window.BabylonGameEngine || !window.ResultScene3D) {
     return false;
   }
 
   renderPlayerResultsPlaceholder();
   movePhaserContainerToResults();
-  const game = window.initGame(socket, getMyShopInventory(), {}, {
-    minigames: bakingSession.minigames,
-    chaosEvents: payload.chaosEvents,
-    chaosLevel: bakingSession.chaosLevel,
-    currentPhaseIndex: bakingSession.currentPhaseIndex,
-    teamId: payload.teamId
+
+  if (babylonEngine) {
+    babylonEngine.destroy();
+    babylonEngine = null;
+  }
+
+  babylonEngine = new BabylonGameEngine('phaser-container', socket, {
+    teamId: payload.teamId || bakingSession.teamId
+  });
+  await babylonEngine.init();
+  await babylonEngine.startScene('ResultScene', {
+    cakeImagePath: payload.cakeImagePath,
+    scores: payload.scores,
+    chaosEvents: payload.chaosEvents
   });
 
-  if (!game || !game.scene) {
-    return false;
-  }
-
-  if (typeof game.scene.getScene === 'function' && !game.scene.getScene('ResultScene') && typeof game.scene.add === 'function') {
-    game.scene.add('ResultScene', window.ResultScene, false);
-  }
-
-  game.scene.start('ResultScene', payload);
   return true;
 }
 
