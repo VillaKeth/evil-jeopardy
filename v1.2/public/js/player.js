@@ -24,6 +24,16 @@ const playerTriviaStatus = document.getElementById('player-trivia-status');
 const playerTriviaScoreboard = document.getElementById('player-trivia-scoreboard');
 const playerTriviaTeamName = document.getElementById('player-trivia-team-name');
 
+// Shop DOM elements
+const playerShopStatus = document.getElementById('player-shop-status');
+const playerShopTeamName = document.getElementById('player-shop-team-name');
+const playerShopBalance = document.getElementById('player-shop-balance');
+const playerShopSummaryName = document.getElementById('player-shop-summary-name');
+const playerShopBalanceSummary = document.getElementById('player-shop-balance-summary');
+const playerShopCatalog = document.getElementById('player-shop-catalog');
+const playerShopInventory = document.getElementById('player-shop-inventory');
+const playerShopPurchases = document.getElementById('player-shop-purchases');
+
 // State
 let currentPhase = 'LOBBY';
 let myTeam = null;
@@ -37,6 +47,12 @@ let buzzPending = false;
 let forcedTeams = new Set();
 let answeredTeams = new Set();
 let latestAnswerResult = null;
+let shopCatalog = { categories: [], defaultKit: [] };
+let shopItemsByKey = new Map();
+let shopInventories = {};
+let shopPurchaseHistories = {};
+let playerShopStatusMessage = '';
+let playerShopStatusVariant = 'info';
 
 // ===== Socket Event Handlers =====
 
@@ -76,6 +92,7 @@ socket.on('state', (data) => {
   renderOtherTeamsList();
   renderTriviaScoreboard();
   updatePlayerTriviaView();
+  renderShopDisplay();
 });
 
 socket.on('team-joined', (team) => {
@@ -92,6 +109,7 @@ socket.on('team-joined', (team) => {
   renderOtherTeamsList();
   renderTriviaScoreboard();
   updateBuzzControls();
+  renderShopDisplay();
 });
 
 socket.on('teams-updated', (updatedTeams) => {
@@ -101,6 +119,7 @@ socket.on('teams-updated', (updatedTeams) => {
   renderOtherTeamsList();
   renderTriviaScoreboard();
   updateBuzzControls();
+  renderShopDisplay();
 });
 
 socket.on('error', (error) => {
@@ -133,6 +152,7 @@ socket.on('trivia:scores-updated', (scoreboard) => {
   syncMyTeamFromTeams();
   renderTriviaScoreboard();
   updateBuzzControls();
+  renderShopDisplay();
 });
 
 socket.on('trivia:buzz-received', (data) => {
@@ -159,6 +179,7 @@ socket.on('trivia:answer-result', (data) => {
   syncMyTeamFromTeams();
   renderTriviaScoreboard();
   updateBuzzControls();
+  renderShopDisplay();
 
   if (myTeam && data.teamId === myTeam.id) {
     showNotification(
@@ -186,6 +207,61 @@ socket.on('trivia:board-state', (board) => {
   console.log('Board state:', board);
   currentBoard = Array.isArray(board) ? board : [];
   renderCategoryBadge();
+});
+
+// ===== SHOP EVENT HANDLERS =====
+
+socket.on('shop:catalog', (data) => {
+  console.log('Shop catalog:', data);
+  shopCatalog = data || { categories: [], defaultKit: [] };
+  shopItemsByKey = buildShopItemIndex(shopCatalog);
+  shopInventories = normalizeShopCollections(shopCatalog.inventories);
+  shopPurchaseHistories = normalizeShopCollections(shopCatalog.purchaseHistories);
+
+  if (Array.isArray(shopCatalog.teams) && shopCatalog.teams.length > 0) {
+    allTeams = normalizeTeams(shopCatalog.teams);
+    syncMyTeamFromTeams();
+    renderOtherTeamsList();
+    renderTriviaScoreboard();
+  }
+
+  renderShopDisplay();
+});
+
+socket.on('shop:purchase-result', (teamId, result) => {
+  console.log('Shop purchase result:', teamId, result);
+
+  if (Array.isArray(result.purchaseHistory)) {
+    shopPurchaseHistories[String(teamId)] = result.purchaseHistory;
+  }
+
+  if (typeof result.newBalance === 'number') {
+    allTeams = mergeTeamList(allTeams, [{ id: teamId, money: result.newBalance }]);
+    syncMyTeamFromTeams();
+  }
+
+  if (myTeam && teamId === myTeam.id) {
+    const itemName = result.itemName || result.itemKey || 'item';
+
+    if (result.success) {
+      const overrideText = result.approvedByOverride ? ' with host override' : '';
+      showNotification(`Your team bought ${itemName}${overrideText}.`, 'success');
+      setPlayerShopStatus(`Your team bought ${itemName}.`, result.approvedByOverride ? 'warning' : 'success');
+    } else {
+      const warning = result.warning || 'Awaiting host review.';
+      showNotification(`${itemName}: ${warning}`, 'warning');
+      setPlayerShopStatus(`Purchase pending: ${itemName}. ${warning}`, 'warning');
+    }
+  }
+
+  renderTriviaScoreboard();
+  renderShopDisplay();
+});
+
+socket.on('shop:team-inventory-updated', (teamId, inventory) => {
+  console.log('Team inventory updated:', teamId, inventory);
+  shopInventories[String(teamId)] = Array.isArray(inventory) ? inventory : [];
+  renderShopDisplay();
 });
 
 // ===== UI Updates =====
@@ -223,6 +299,10 @@ function updatePhaseUI(phase) {
   if (phase === 'TRIVIA') {
     updatePlayerTriviaView();
   }
+
+  if (phase === 'SHOP') {
+    renderShopDisplay();
+  }
 }
 
 function showTeamDisplay() {
@@ -230,6 +310,7 @@ function showTeamDisplay() {
   teamDisplay.classList.remove('hidden');
   teamNameDisplay.textContent = myTeam ? myTeam.name : '';
   updatePlayerIdentity();
+  renderShopDisplay();
 }
 
 function renderOtherTeamsList() {
@@ -277,8 +358,27 @@ function updatePlayerTriviaView() {
 }
 
 function updatePlayerIdentity() {
+  const teamName = myTeam ? myTeam.name : 'Not joined';
+  const balanceText = formatMoney(myTeam ? myTeam.money : 0);
+
   if (playerTriviaTeamName) {
-    playerTriviaTeamName.textContent = myTeam ? myTeam.name : 'Not joined';
+    playerTriviaTeamName.textContent = teamName;
+  }
+
+  if (playerShopTeamName) {
+    playerShopTeamName.textContent = teamName;
+  }
+
+  if (playerShopSummaryName) {
+    playerShopSummaryName.textContent = teamName;
+  }
+
+  if (playerShopBalance) {
+    playerShopBalance.textContent = balanceText;
+  }
+
+  if (playerShopBalanceSummary) {
+    playerShopBalanceSummary.textContent = balanceText;
   }
 
   if (myTeam && teamNameDisplay.textContent !== myTeam.name) {
@@ -431,6 +531,191 @@ function getBuzzState() {
     message: 'Question live — buzz when ready.',
     variant: 'info'
   };
+}
+
+function renderShopDisplay() {
+  updatePlayerIdentity();
+  renderPlayerShopStatus();
+  renderPlayerShopCatalog();
+  renderPlayerShopInventory();
+  renderPlayerShopPurchases();
+}
+
+function renderPlayerShopStatus() {
+  if (!playerShopStatus) {
+    return;
+  }
+
+  if (!playerShopStatusMessage) {
+    playerShopStatusMessage = myTeam && myTeam.id
+      ? 'Host controls purchases for your team.'
+      : 'Join a team to track your purchases.';
+  }
+
+  playerShopStatus.textContent = playerShopStatusMessage;
+  playerShopStatus.className = `player-shop-status ${playerShopStatusVariant}`;
+}
+
+function setPlayerShopStatus(message, variant = 'info') {
+  playerShopStatusMessage = message;
+  playerShopStatusVariant = variant;
+  renderPlayerShopStatus();
+}
+
+function renderPlayerShopCatalog() {
+  if (!playerShopCatalog) {
+    return;
+  }
+
+  if (!shopCatalog || !Array.isArray(shopCatalog.categories) || shopCatalog.categories.length === 0) {
+    playerShopCatalog.innerHTML = `
+      <div class="card">
+        <div class="card-body">
+          <p class="text-muted text-center">Waiting for host to open the shop...</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const inventory = getMyShopInventory();
+
+  playerShopCatalog.innerHTML = shopCatalog.categories.map((category) => `
+    <section class="player-shop-category">
+      <h3>${escapeHtml(category.name)}</h3>
+      ${category.description ? `<p class="text-muted">${escapeHtml(category.description)}</p>` : ''}
+      <div class="player-shop-items">
+        ${(category.items || []).map((item) => {
+          const ownedCount = inventory.filter((entry) => entry.item_key === item.key).length;
+          const meta = buildShopItemMeta(item);
+          return `
+            <article class="player-shop-item ${ownedCount > 0 ? 'owned' : ''}">
+              <div class="player-shop-item-header">
+                <div>
+                  <h4>${escapeHtml(item.name)}</h4>
+                  ${item.description ? `<p class="text-muted">${escapeHtml(item.description)}</p>` : ''}
+                </div>
+                <span class="player-shop-item-price">${formatMoney(item.price)}</span>
+              </div>
+              ${meta ? `<div class="player-shop-meta">${escapeHtml(meta)}</div>` : ''}
+              <div class="player-shop-owned ${ownedCount > 0 ? 'is-owned' : ''}">${ownedCount > 0 ? `✓ Bought ×${ownedCount}` : 'Available via host'}</div>
+              <div class="player-shop-host-note">Host controls purchases.</div>
+            </article>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `).join('');
+}
+
+function renderPlayerShopInventory() {
+  if (!playerShopInventory) {
+    return;
+  }
+
+  const inventorySummary = summarizeInventory(getMyShopInventory());
+  playerShopInventory.innerHTML = inventorySummary.length
+    ? inventorySummary.map(({ itemKey, count }) => {
+      const item = shopItemsByKey.get(itemKey);
+      const itemName = item ? item.name : itemKey;
+      return `<span class="player-shop-chip">✓ ${escapeHtml(itemName)}${count > 1 ? ` ×${count}` : ''}</span>`;
+    }).join('')
+    : '<span class="text-muted">No purchases yet.</span>';
+}
+
+function renderPlayerShopPurchases() {
+  if (!playerShopPurchases) {
+    return;
+  }
+
+  const purchases = getMyShopPurchaseHistory();
+  playerShopPurchases.innerHTML = purchases.length
+    ? purchases.map((purchase) => {
+      const item = shopItemsByKey.get(purchase.item_key);
+      const itemName = item ? item.name : purchase.item_key;
+      const categoryName = item ? item.categoryName : purchase.category;
+      return `
+        <article class="player-shop-purchase-item">
+          <div class="player-shop-purchase-row">
+            <strong>${escapeHtml(itemName)}</strong>
+            <span class="text-muted">${formatMoney(purchase.price)}</span>
+          </div>
+          <div class="player-shop-purchase-meta">${escapeHtml(categoryName || 'Shop Item')}</div>
+        </article>
+      `;
+    }).join('')
+    : '<div class="text-muted">Host approvals will appear here in real time.</div>';
+}
+
+function getMyShopInventory() {
+  return myTeam && myTeam.id ? (shopInventories[String(myTeam.id)] || []) : [];
+}
+
+function getMyShopPurchaseHistory() {
+  return myTeam && myTeam.id ? (shopPurchaseHistories[String(myTeam.id)] || []) : [];
+}
+
+function summarizeInventory(inventory) {
+  const summary = new Map();
+
+  inventory.forEach((item) => {
+    const itemKey = item.item_key;
+    summary.set(itemKey, (summary.get(itemKey) || 0) + 1);
+  });
+
+  return Array.from(summary.entries()).map(([itemKey, count]) => ({ itemKey, count }));
+}
+
+function buildShopItemIndex(data) {
+  const itemMap = new Map();
+
+  (data.categories || []).forEach((category) => {
+    (category.items || []).forEach((item) => {
+      itemMap.set(item.key, {
+        ...item,
+        category: category.key,
+        categoryName: category.name
+      });
+    });
+  });
+
+  return itemMap;
+}
+
+function normalizeShopCollections(collections) {
+  const normalized = {};
+
+  Object.entries(collections || {}).forEach(([key, value]) => {
+    normalized[String(key)] = Array.isArray(value) ? value : [];
+  });
+
+  return normalized;
+}
+
+function buildShopItemMeta(item) {
+  const tags = [];
+
+  if (typeof item.difficulty === 'number') {
+    tags.push(`Difficulty ${item.difficulty}`);
+  }
+
+  if (typeof item.quality === 'number') {
+    tags.push(`Quality ${item.quality}`);
+  }
+
+  if (typeof item.bonus === 'number') {
+    tags.push(`${item.bonus}x bonus`);
+  }
+
+  if (item.effect) {
+    tags.push(`Effect: ${item.effect}`);
+  }
+
+  if (typeof item.value === 'number' && item.effect) {
+    tags.push(`Value ${item.value}`);
+  }
+
+  return tags.join(' • ');
 }
 
 function displayMedia(container, media) {

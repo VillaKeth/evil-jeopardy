@@ -171,9 +171,214 @@
       gap: var(--spacing-sm);
     }
 
+    .player-shop-layout {
+      display: grid;
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+
+    .player-shop-stack,
+    .player-shop-sidebar {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .player-shop-hero {
+      background: linear-gradient(145deg, rgba(210, 168, 255, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(210, 168, 255, 0.45);
+    }
+
+    .player-shop-heading,
+    .player-shop-toolbar,
+    .player-shop-purchase-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .player-shop-toolbar {
+      margin-top: var(--spacing-lg);
+      align-items: center;
+    }
+
+    .player-shop-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.45);
+      background: rgba(121, 192, 255, 0.15);
+      color: #d2e7ff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .player-shop-status.success {
+      border-color: rgba(35, 134, 54, 0.45);
+      background: rgba(35, 134, 54, 0.16);
+      color: #9ae6b4;
+    }
+
+    .player-shop-status.warning {
+      border-color: rgba(255, 166, 87, 0.45);
+      background: rgba(255, 166, 87, 0.16);
+      color: #ffd2a8;
+    }
+
+    .player-shop-status.error {
+      border-color: rgba(218, 54, 51, 0.45);
+      background: rgba(218, 54, 51, 0.16);
+      color: #ffb4ac;
+    }
+
+    .player-shop-balance-pill,
+    .player-shop-balance-panel {
+      border-radius: 14px;
+      border: 1px solid rgba(210, 168, 255, 0.45);
+      background: rgba(210, 168, 255, 0.12);
+    }
+
+    .player-shop-balance-pill {
+      min-width: 170px;
+      padding: var(--spacing-md) var(--spacing-lg);
+      text-align: right;
+    }
+
+    .player-shop-balance-pill strong,
+    .player-shop-balance-value {
+      display: block;
+      color: var(--color-shop);
+      font-weight: 800;
+    }
+
+    .player-shop-balance-pill strong {
+      font-size: 1.75rem;
+      margin-top: var(--spacing-xs);
+    }
+
+    .player-shop-balance-panel {
+      padding: var(--spacing-lg);
+      text-align: center;
+      margin-top: var(--spacing-md);
+    }
+
+    .player-shop-balance-value {
+      font-size: clamp(2rem, 8vw, 3rem);
+    }
+
+    .player-shop-catalog {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .player-shop-category {
+      border-radius: 16px;
+      border: 1px solid rgba(210, 168, 255, 0.24);
+      background: linear-gradient(145deg, rgba(22, 27, 34, 0.98), rgba(13, 17, 23, 0.98));
+      padding: var(--spacing-lg);
+    }
+
+    .player-shop-category h3 {
+      color: var(--color-shop);
+      margin-bottom: var(--spacing-sm);
+      font-size: 1.35rem;
+    }
+
+    .player-shop-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-md);
+    }
+
+    .player-shop-item {
+      border-radius: 14px;
+      border: 1px solid var(--border-default);
+      background: rgba(33, 38, 45, 0.92);
+      padding: var(--spacing-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-height: 220px;
+    }
+
+    .player-shop-item.owned {
+      border-color: rgba(210, 168, 255, 0.55);
+      box-shadow: 0 0 0 2px rgba(210, 168, 255, 0.14);
+    }
+
+    .player-shop-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+
+    .player-shop-item-price {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--color-results);
+      white-space: nowrap;
+    }
+
+    .player-shop-meta,
+    .player-shop-host-note,
+    .player-shop-purchase-meta {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .player-shop-owned {
+      margin-top: auto;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .player-shop-owned.is-owned {
+      color: #d2a8ff;
+    }
+
+    .player-shop-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+    }
+
+    .player-shop-chip {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: 999px;
+      border: 1px solid rgba(210, 168, 255, 0.38);
+      background: rgba(210, 168, 255, 0.12);
+      font-size: 0.9rem;
+    }
+
+    .player-shop-purchase-list {
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .player-shop-purchase-item {
+      padding: var(--spacing-md);
+      border-radius: 12px;
+      border: 1px solid var(--border-default);
+      background: rgba(33, 38, 45, 0.92);
+    }
+
     .player-score-card.me {
       border-color: var(--color-trivia);
       box-shadow: 0 0 0 1px rgba(247, 129, 102, 0.45);
+    }
+
+    @media (min-width: 980px) {
+      .player-shop-layout {
+        grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+      }
     }
   </style>
 </head>
@@ -295,17 +500,75 @@
       </div>
     </section>
 
-    <!-- SHOP PHASE (placeholder) -->
+    <!-- SHOP PHASE -->
     <section id="shop-section" class="phase-section">
-      <div class="card">
-        <div class="card-header text-center">
-          <h2>Shop Phase</h2>
+      <div class="player-shop-layout">
+        <div class="player-shop-stack">
+          <div class="card player-shop-hero">
+            <div class="card-body">
+              <div class="player-shop-heading">
+                <div>
+                  <p class="player-eyebrow">Virtual Player View</p>
+                  <h2 style="margin-bottom: var(--spacing-sm); color: var(--color-shop);">Shop Catalog</h2>
+                  <p class="text-muted">Browse the full catalog while the host handles every purchase.</p>
+                </div>
+                <div id="player-shop-status" class="player-shop-status">Host controls purchases</div>
+              </div>
+
+              <div class="player-shop-toolbar">
+                <p class="player-team-label">Shopping as <span id="player-shop-team-name">Not joined</span></p>
+                <div class="player-shop-balance-pill">
+                  <span class="text-muted text-small">Current Balance</span>
+                  <strong id="player-shop-balance">$0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="player-shop-catalog" class="player-shop-catalog">
+            <div class="card">
+              <div class="card-body">
+                <p class="text-muted text-center">Waiting for host to open the shop...</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card-body">
-          <p class="text-muted text-center">
-            Shop interface will be added in later tasks...
-          </p>
-        </div>
+
+        <aside class="player-shop-sidebar">
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Your Team Balance</h3>
+            </div>
+            <div class="card-body">
+              <p class="player-team-label">Balance for <span id="player-shop-summary-name">Not joined</span></p>
+              <div class="player-shop-balance-panel">
+                <div id="player-shop-balance-summary" class="player-shop-balance-value">$0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Your team bought</h3>
+            </div>
+            <div class="card-body">
+              <div id="player-shop-inventory" class="player-shop-chip-list">
+                <span class="text-muted">No purchases yet.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Purchase Activity</h3>
+            </div>
+            <div class="card-body">
+              <div id="player-shop-purchases" class="player-shop-purchase-list">
+                <div class="text-muted">Host approvals will appear here in real time.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
 
