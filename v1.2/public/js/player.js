@@ -37,6 +37,7 @@ const playerShopPurchases = document.getElementById('player-shop-purchases');
 // Baking DOM elements
 const phaserContainer = document.getElementById('phaser-container');
 const resultsSection = document.getElementById('results-section');
+const playerResultsContainer = document.getElementById('player-results-container');
 const phaserDefaultParent = phaserContainer ? phaserContainer.parentElement : null;
 
 // State
@@ -66,6 +67,7 @@ let bakingSession = {
   currentPhaseIndex: 0
 };
 let cakeRevealActive = false;
+let revealedResults = [];
 
 // ===== Socket Event Handlers =====
 
@@ -318,6 +320,18 @@ socket.on('results:cake-reveal', (payload) => {
   showCakeReveal(payload);
 });
 
+socket.on('results:reveal', (results) => {
+  revealedResults = normalizeRevealedResults(results);
+  currentPhase = 'RESULTS';
+  cakeRevealActive = false;
+  restorePhaserContainer();
+  destroyBakingSession();
+  setActivePhaseSection('results-section');
+  phaseText.textContent = 'RESULTS';
+  phaseIndicator.className = 'phase-indicator phase-RESULTS';
+  renderPlayerResultsView();
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -356,6 +370,12 @@ function updatePhaseUI(phase) {
     restorePhaserContainer();
     renderPlayerResultsPlaceholder();
     startBakingSession();
+  } else if (phase === 'RESULTS') {
+    restorePhaserContainer();
+    destroyBakingSession();
+    if (!preserveCakeReveal) {
+      renderPlayerResultsView();
+    }
   } else if (!preserveCakeReveal) {
     cakeRevealActive = false;
     restorePhaserContainer();
@@ -876,19 +896,14 @@ function movePhaserContainerToResults() {
 }
 
 function renderPlayerResultsPlaceholder() {
-  if (!resultsSection) {
+  if (!playerResultsContainer) {
     return;
   }
 
-  resultsSection.innerHTML = `
-    <div class="card">
-      <div class="card-header text-center">
-        <h2>Final Results</h2>
-      </div>
+  playerResultsContainer.innerHTML = `
+    <div class="card player-results-empty">
       <div class="card-body">
-        <p class="text-muted text-center">
-          Results display will be added in later tasks...
-        </p>
+        <p class="text-muted text-center">Waiting for the host to reveal the final standings...</p>
       </div>
     </div>
   `;
@@ -942,11 +957,11 @@ function launchCakeRevealScene(payload) {
 }
 
 function renderCakeRevealFallback(payload) {
-  if (!resultsSection) {
+  if (!playerResultsContainer) {
     return;
   }
 
-  resultsSection.innerHTML = `
+  playerResultsContainer.innerHTML = `
     <div class="card">
       <div class="card-header text-center">
         <h2>Your cake is ready...</h2>
@@ -972,6 +987,195 @@ function renderCakeRevealFallback(payload) {
           `).join('')}
         </div>
       </div>
+    </div>
+  `;
+}
+
+function normalizeRevealedResults(results) {
+  return [...(results || [])]
+    .filter(Boolean)
+    .map((entry) => ({
+      ...entry,
+      rank: Number(entry.rank) || 0,
+      teamId: Number(entry.teamId) || 0,
+      cakeImagePath: entry.cakeImagePath || '',
+      isVirtualTeam: Boolean(entry.isVirtualTeam),
+      scores: {
+        ...(entry.scores || {}),
+        taste: Number(entry.scores?.taste) || 0,
+        accuracy: Number(entry.scores?.accuracy) || 0,
+        creativity: Number(entry.scores?.creativity) || 0,
+        total: Number(entry.scores?.total) || 0,
+        physicalAverage: Number(entry.scores?.physicalAverage) || 0,
+        virtualAverage: Number(entry.scores?.virtualAverage) || 0,
+        virtualScores: entry.scores?.virtualScores || null
+      }
+    }))
+    .sort((left, right) => left.rank - right.rank);
+}
+
+function roundResultScore(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function averageResultScore(values) {
+  const safeValues = Array.isArray(values) ? values.map((value) => Number(value) || 0) : [];
+  if (!safeValues.length) {
+    return 0;
+  }
+
+  return safeValues.reduce((sum, value) => sum + value, 0) / safeValues.length;
+}
+
+function getVirtualAverage(virtualScores) {
+  if (!virtualScores) {
+    return 0;
+  }
+
+  if (typeof virtualScores.average === 'number') {
+    return virtualScores.average;
+  }
+
+  return averageResultScore([virtualScores.taste, virtualScores.accuracy, virtualScores.creativity]);
+}
+
+function getPhysicalAverage(scores = {}) {
+  if (typeof scores.physicalAverage === 'number' && scores.physicalAverage > 0) {
+    return scores.physicalAverage;
+  }
+
+  return averageResultScore([scores.taste, scores.accuracy, scores.creativity]);
+}
+
+function getOrdinalLabel(rank) {
+  const safeRank = Number(rank) || 0;
+  const remainder = safeRank % 10;
+  const remainderHundred = safeRank % 100;
+  if (remainder === 1 && remainderHundred !== 11) {
+    return `${safeRank}st`;
+  }
+  if (remainder === 2 && remainderHundred !== 12) {
+    return `${safeRank}nd`;
+  }
+  if (remainder === 3 && remainderHundred !== 13) {
+    return `${safeRank}rd`;
+  }
+  return `${safeRank}th`;
+}
+
+function buildCelebrationParticles() {
+  return Array.from({ length: 16 }, (_, index) => {
+    const hue = [42, 16, 198, 320][index % 4];
+    const left = (index * 7) % 100;
+    const drift = ((index % 2 === 0 ? 1 : -1) * (14 + ((index * 5) % 20)));
+    const delay = (index % 5) * 0.18;
+    return `<span style="left:${left}%; background:hsl(${hue} 95% 68%); animation-delay:${delay}s; --drift:${drift}px;"></span>`;
+  }).join('');
+}
+
+function getMyRevealedResult() {
+  if (!myTeam) {
+    return null;
+  }
+
+  return revealedResults.find((entry) => entry.teamId === myTeam.id || entry.teamName === myTeam.name) || null;
+}
+
+function renderPlayerResultsStandings() {
+  if (!revealedResults.length) {
+    return '<div class="text-muted">No standings yet.</div>';
+  }
+
+  return `
+    <div class="player-results-standings-list">
+      ${revealedResults.map((entry) => `
+        <div class="player-results-standings-row ${myTeam && entry.teamId === myTeam.id ? 'me' : ''}">
+          <div>
+            <strong>#${getOrdinalLabel(entry.rank)} · ${escapeHtml(entry.teamName)}</strong>
+            <div class="player-shop-purchase-meta">${entry.isVirtualTeam ? 'Virtual hybrid score' : 'Physical judging score'}</div>
+          </div>
+          <strong>${formatRevealScore(entry.scores.total)}</strong>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderPlayerResultsView() {
+  if (!playerResultsContainer) {
+    return;
+  }
+
+  if (!revealedResults.length) {
+    renderPlayerResultsPlaceholder();
+    return;
+  }
+
+  const myResult = getMyRevealedResult();
+  if (!myResult) {
+    playerResultsContainer.innerHTML = `
+      <div class="card player-results-empty">
+        <div class="card-header text-center">
+          <h2>Final Results</h2>
+        </div>
+        <div class="card-body">
+          ${renderPlayerResultsStandings()}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const isWinner = myResult.rank === 1;
+  const physicalAverage = roundResultScore(getPhysicalAverage(myResult.scores));
+  const virtualAverage = roundResultScore(getVirtualAverage(myResult.scores.virtualScores));
+  const contributionMarkup = myResult.isVirtualTeam ? `
+    <div class="player-results-highlight">
+      <span>Your virtual cake contribution</span>
+      <strong>Physical: ${formatRevealScore(physicalAverage)} + Virtual: ${formatRevealScore(virtualAverage)} = Average: ${formatRevealScore(myResult.scores.total)}</strong>
+    </div>
+  ` : '';
+  const imageMarkup = myResult.cakeImagePath
+    ? `<img src="${escapeHtml(myResult.cakeImagePath)}" alt="${escapeHtml(myResult.teamName)} cake">`
+    : '<div class="player-results-image-placeholder">No virtual cake render</div>';
+
+  playerResultsContainer.innerHTML = `
+    <div class="player-results-shell">
+      <article class="player-results-card ${isWinner ? 'is-winner' : 'is-consolation'}">
+        ${isWinner ? `<div class="player-results-burst">${buildCelebrationParticles()}</div>` : ''}
+        <div class="player-results-body">
+          <div class="player-results-topline">
+            <div>
+              <div class="player-results-rank-pill">#${getOrdinalLabel(myResult.rank)} place</div>
+              <h2 class="player-results-title">${escapeHtml(myResult.teamName)}</h2>
+              <p class="player-results-copy">${isWinner ? 'You won!' : 'Better luck next time'} ${isWinner ? 'The virtual oven somehow conquered the judges.' : 'Your cake still made the finale and the judges noticed every chaotic choice.'}</p>
+            </div>
+            <div class="player-results-status-pill ${isWinner ? 'is-winner' : ''}">${isWinner ? 'Champion' : 'Finalist'}</div>
+          </div>
+
+          <div class="player-results-layout">
+            <div class="player-results-poster">
+              ${imageMarkup}
+            </div>
+            <div style="display:grid; gap: var(--spacing-md);">
+              <div class="player-results-score-grid">
+                ${[['Taste', myResult.scores.taste], ['Accuracy', myResult.scores.accuracy], ['Creativity', myResult.scores.creativity], ['Total', myResult.scores.total]].map(([label, value]) => `
+                  <article class="player-results-score-card">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${formatRevealScore(value)}</strong>
+                  </article>
+                `).join('')}
+              </div>
+              ${contributionMarkup}
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <section class="player-results-standings">
+        <h3>Full Standings</h3>
+        ${renderPlayerResultsStandings()}
+      </section>
     </div>
   `;
 }

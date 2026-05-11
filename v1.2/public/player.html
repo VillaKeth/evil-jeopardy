@@ -375,9 +375,245 @@
       box-shadow: 0 0 0 1px rgba(247, 129, 102, 0.45);
     }
 
+    .player-results-shell {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .player-results-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 26px;
+      border: 1px solid rgba(255, 215, 110, 0.25);
+      background:
+        radial-gradient(circle at top, rgba(255, 220, 130, 0.16), transparent 38%),
+        linear-gradient(165deg, rgba(27, 21, 40, 0.98), rgba(70, 23, 43, 0.92));
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+    }
+
+    .player-results-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.04), transparent 30%, transparent 70%, rgba(255, 255, 255, 0.04));
+      pointer-events: none;
+    }
+
+    .player-results-card.is-winner {
+      border-color: rgba(255, 215, 110, 0.58);
+      box-shadow: 0 0 0 2px rgba(255, 215, 110, 0.18), 0 0 42px rgba(255, 215, 110, 0.22), 0 24px 60px rgba(0, 0, 0, 0.36);
+      animation: playerResultGlow 1.2s ease-in-out infinite;
+    }
+
+    .player-results-card.is-consolation {
+      border-color: rgba(121, 192, 255, 0.3);
+    }
+
+    .player-results-body {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: var(--spacing-lg);
+      padding: clamp(1.25rem, 3vw, 2rem);
+    }
+
+    .player-results-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .player-results-rank-pill,
+    .player-results-status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .player-results-rank-pill {
+      border: 1px solid rgba(255, 215, 110, 0.32);
+      background: rgba(7, 10, 24, 0.45);
+      color: #fff0b4;
+    }
+
+    .player-results-status-pill {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff7df;
+    }
+
+    .player-results-status-pill.is-winner {
+      background: rgba(255, 215, 110, 0.22);
+      border-color: rgba(255, 215, 110, 0.42);
+      color: #fff0b4;
+    }
+
+    .player-results-title {
+      margin: 0;
+      font-size: clamp(2.2rem, 7vw, 3.4rem);
+      line-height: 0.95;
+      text-transform: uppercase;
+      color: #fff6dc;
+    }
+
+    .player-results-copy {
+      color: rgba(255, 242, 214, 0.76);
+      font-size: 1rem;
+    }
+
+    .player-results-layout {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .player-results-poster {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 215, 110, 0.18);
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.14), rgba(12, 15, 30, 0.94));
+    }
+
+    .player-results-poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .player-results-image-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: var(--spacing-lg);
+      color: rgba(255, 242, 214, 0.62);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.9rem;
+    }
+
+    .player-results-score-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--spacing-sm);
+    }
+
+    .player-results-score-card,
+    .player-results-highlight,
+    .player-results-standings,
+    .player-results-empty {
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(8, 12, 28, 0.45);
+      padding: 1rem;
+    }
+
+    .player-results-score-card span,
+    .player-results-highlight span,
+    .player-results-standings h3 {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.72rem;
+    }
+
+    .player-results-score-card strong {
+      font-size: 1.45rem;
+      color: #fff2c9;
+    }
+
+    .player-results-highlight {
+      border-color: rgba(255, 215, 110, 0.26);
+      background: linear-gradient(135deg, rgba(255, 215, 110, 0.12), rgba(88, 166, 255, 0.12));
+      color: #fff4cf;
+    }
+
+    .player-results-highlight strong {
+      display: block;
+      font-size: 1.02rem;
+      line-height: 1.5;
+    }
+
+    .player-results-standings-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .player-results-standings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: 0.85rem 0.95rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .player-results-standings-row.me {
+      border: 1px solid rgba(255, 215, 110, 0.28);
+      background: rgba(255, 215, 110, 0.08);
+    }
+
+    .player-results-burst {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .player-results-burst span {
+      position: absolute;
+      top: -8%;
+      width: 10px;
+      height: 20px;
+      border-radius: 999px;
+      opacity: 0;
+      animation: playerConfetti 2.5s linear infinite;
+    }
+
+    .player-results-empty {
+      text-align: center;
+    }
+
+    @keyframes playerResultGlow {
+      0%, 100% { filter: saturate(1); }
+      50% { filter: saturate(1.25) brightness(1.08); }
+    }
+
+    @keyframes playerConfetti {
+      0% {
+        transform: translate3d(0, -10%, 0) rotate(0deg);
+        opacity: 0;
+      }
+      14% {
+        opacity: 1;
+      }
+      100% {
+        transform: translate3d(var(--drift, 0px), 115vh, 0) rotate(540deg);
+        opacity: 0;
+      }
+    }
+
     @media (min-width: 980px) {
       .player-shop-layout {
         grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+      }
+
+      .player-results-layout {
+        grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+        align-items: start;
       }
     }
   </style>
@@ -592,16 +828,12 @@
       </div>
     </section>
 
-    <!-- RESULTS PHASE (placeholder) -->
     <section id="results-section" class="phase-section">
-      <div class="card">
-        <div class="card-header text-center">
-          <h2>Final Results</h2>
-        </div>
-        <div class="card-body">
-          <p class="text-muted text-center">
-            Results display will be added in later tasks...
-          </p>
+      <div id="player-results-container" class="player-results-shell">
+        <div class="card player-results-empty">
+          <div class="card-body">
+            <p class="text-muted text-center">Waiting for the host to reveal the final standings...</p>
+          </div>
         </div>
       </div>
     </section>

@@ -37,6 +37,7 @@ const screenCakeRevealTitle = document.querySelector('.screen-cake-reveal-title'
 const screenCakeRevealImage = document.getElementById('screen-cake-reveal-image');
 const screenCakeRevealScores = document.getElementById('screen-cake-reveal-scores');
 const screenCakeRevealChaos = document.getElementById('screen-cake-reveal-chaos');
+const screenResultsContainer = document.getElementById('results-container');
 
 // State
 let currentPhase = 'LOBBY';
@@ -65,6 +66,8 @@ let bakingState = {
   scoreboard: [],
   chaosLog: []
 };
+let revealedResults = [];
+let resultsRevealTimers = [];
 
 // ===== Socket Event Handlers =====
 
@@ -306,6 +309,14 @@ socket.on('results:cake-reveal', (payload) => {
   startCakeReveal(payload);
 });
 
+socket.on('results:reveal', (results) => {
+  revealedResults = normalizeRevealedResults(results);
+  currentPhase = 'RESULTS';
+  hideCakeReveal();
+  updatePhaseUI('RESULTS');
+  startResultsRevealSequence();
+});
+
 // ===== UI Updates =====
 
 function updateConnectionStatus(message, type) {
@@ -338,6 +349,10 @@ function updatePhaseUI(phase) {
     section.classList.add('active');
   }
 
+  if (phase !== 'RESULTS') {
+    clearResultsRevealSequence();
+  }
+
   if (!['JUDGING', 'RESULTS'].includes(phase)) {
     hideCakeReveal();
   }
@@ -349,6 +364,9 @@ function updatePhaseUI(phase) {
   } else if (phase === 'BAKING') {
     clearShopBanner();
     initializeBakingDisplay();
+  } else if (phase === 'RESULTS') {
+    clearShopBanner();
+    initializeResultsDisplay();
   } else {
     clearShopBanner();
   }
@@ -364,6 +382,26 @@ function initializeTriviaDisplay() {
 
 function initializeShopDisplay() {
   renderShopDisplay();
+}
+
+function initializeResultsDisplay() {
+  if (!revealedResults.length) {
+    renderResultsPlaceholder();
+  }
+}
+
+function renderResultsPlaceholder() {
+  if (!screenResultsContainer) {
+    return;
+  }
+
+  screenResultsContainer.innerHTML = `
+    <div class="screen-results-shell screen-results-shell-empty">
+      <p class="screen-results-kicker">Final Ceremony</p>
+      <h2 class="screen-results-headline">Awaiting the host's dramatic reveal...</h2>
+      <p class="screen-results-subtitle">The podium is set. The frosting panic is eternal.</p>
+    </div>
+  `;
 }
 
 function renderTeamsList() {
@@ -983,6 +1021,199 @@ function startCakeReveal(payload = {}) {
   cakeRevealTimers.push(setTimeout(() => {
     hideCakeReveal();
   }, 18000));
+}
+
+function clearResultsRevealSequence() {
+  resultsRevealTimers.forEach((timerId) => clearTimeout(timerId));
+  resultsRevealTimers = [];
+}
+
+function normalizeRevealedResults(results) {
+  return [...(results || [])]
+    .filter(Boolean)
+    .map((entry) => ({
+      ...entry,
+      rank: Number(entry.rank) || 0,
+      teamId: Number(entry.teamId) || 0,
+      isVirtualTeam: Boolean(entry.isVirtualTeam),
+      cakeImagePath: entry.cakeImagePath || '',
+      scores: {
+        ...(entry.scores || {}),
+        taste: Number(entry.scores?.taste) || 0,
+        accuracy: Number(entry.scores?.accuracy) || 0,
+        creativity: Number(entry.scores?.creativity) || 0,
+        total: Number(entry.scores?.total) || 0,
+        physicalAverage: Number(entry.scores?.physicalAverage) || 0,
+        virtualAverage: Number(entry.scores?.virtualAverage) || 0,
+        virtualScores: entry.scores?.virtualScores || null
+      }
+    }))
+    .sort((left, right) => left.rank - right.rank);
+}
+
+function roundScore(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function averageScore(values) {
+  const safeValues = Array.isArray(values) ? values.map((value) => Number(value) || 0) : [];
+  if (!safeValues.length) {
+    return 0;
+  }
+
+  return safeValues.reduce((sum, value) => sum + value, 0) / safeValues.length;
+}
+
+function getVirtualAverage(virtualScores) {
+  if (!virtualScores) {
+    return 0;
+  }
+
+  if (typeof virtualScores.average === 'number') {
+    return virtualScores.average;
+  }
+
+  return averageScore([virtualScores.taste, virtualScores.accuracy, virtualScores.creativity]);
+}
+
+function getPhysicalAverage(scores = {}) {
+  if (typeof scores.physicalAverage === 'number' && scores.physicalAverage > 0) {
+    return scores.physicalAverage;
+  }
+
+  return averageScore([scores.taste, scores.accuracy, scores.creativity]);
+}
+
+function getOrdinalLabel(rank) {
+  const safeRank = Number(rank) || 0;
+  const remainder = safeRank % 10;
+  const remainderHundred = safeRank % 100;
+  if (remainder === 1 && remainderHundred !== 11) {
+    return `${safeRank}st`;
+  }
+  if (remainder === 2 && remainderHundred !== 12) {
+    return `${safeRank}nd`;
+  }
+  if (remainder === 3 && remainderHundred !== 13) {
+    return `${safeRank}rd`;
+  }
+  return `${safeRank}th`;
+}
+
+function startResultsRevealSequence() {
+  if (!screenResultsContainer) {
+    return;
+  }
+
+  clearResultsRevealSequence();
+
+  if (!revealedResults.length) {
+    renderResultsPlaceholder();
+    return;
+  }
+
+  const revealOrder = [...revealedResults].sort((left, right) => right.rank - left.rank);
+  renderResultsRevealBoard(revealOrder);
+
+  revealOrder.forEach((entry, index) => {
+    const delay = 2000 + (index * 3000);
+    resultsRevealTimers.push(setTimeout(() => {
+      const card = screenResultsContainer.querySelector(`[data-team-id="${entry.teamId}"]`);
+      if (!card) {
+        return;
+      }
+
+      card.classList.add('is-visible');
+      if (entry.rank === 1) {
+        card.classList.add('is-winner');
+        createWinnerParticles(card.querySelector('.screen-results-particles'));
+      }
+    }, delay));
+  });
+}
+
+function renderResultsRevealBoard(revealOrder) {
+  screenResultsContainer.innerHTML = `
+    <div class="screen-results-shell">
+      <div class="screen-results-podium">
+        <header>
+          <p class="screen-results-kicker">Final Ceremony</p>
+          <h2 class="screen-results-headline">The judges have decided.</h2>
+          <p class="screen-results-subtitle">One by one, the cakes rise from the wreckage. The dramatic reveal runs from the bottom of the podium to the top.</p>
+        </header>
+        ${revealOrder.map((entry) => buildResultCardMarkup(entry)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function buildResultCardMarkup(entry) {
+  const physicalAverage = roundScore(getPhysicalAverage(entry.scores));
+  const virtualAverage = roundScore(getVirtualAverage(entry.scores.virtualScores));
+  const scoreCards = [
+    ['Taste', entry.scores.taste],
+    ['Accuracy', entry.scores.accuracy],
+    ['Creativity', entry.scores.creativity],
+    ['Total', entry.scores.total]
+  ].map(([label, value]) => `
+    <article class="screen-result-score">
+      <span>${escapeHtml(label)}</span>
+      <strong>${formatRevealScore(value)}</strong>
+    </article>
+  `).join('');
+  const formulaMarkup = entry.isVirtualTeam ? `
+    <div class="screen-result-formula">
+      <span>Your hybrid judging formula</span>
+      <strong>Physical: ${formatRevealScore(physicalAverage)} + Virtual: ${formatRevealScore(virtualAverage)} = Average: ${formatRevealScore(entry.scores.total)}</strong>
+    </div>
+  ` : '';
+  const winnerMarkup = entry.rank === 1 ? '<div class="screen-result-winner-label">WINNER!</div>' : '';
+  const imageMarkup = entry.cakeImagePath
+    ? `<img src="${escapeHtml(entry.cakeImagePath)}" alt="${escapeHtml(entry.teamName)} cake">`
+    : '<div class="screen-result-image-placeholder">No virtual cake render</div>';
+
+  return `
+    <article class="screen-result-card rank-${entry.rank}" data-team-id="${entry.teamId}">
+      <div class="screen-results-particles"></div>
+      <div class="screen-result-poster">
+        <div class="screen-result-rank">#${getOrdinalLabel(entry.rank)}</div>
+        ${imageMarkup}
+      </div>
+      <div class="screen-result-copy">
+        <div class="screen-result-title-row">
+          <div>
+            <div class="screen-result-meta">${entry.isVirtualTeam ? 'Virtual hybrid finalist' : 'Physical finalist'}</div>
+            <h3 class="screen-result-team">${escapeHtml(entry.teamName)}</h3>
+          </div>
+          <div class="screen-result-total">
+            <span>Final total</span>
+            <strong>${formatRevealScore(entry.scores.total)}</strong>
+          </div>
+        </div>
+        ${winnerMarkup}
+        <div class="screen-result-grid">${scoreCards}</div>
+        ${formulaMarkup}
+      </div>
+    </article>
+  `;
+}
+
+function buildWinnerParticles() {
+  return Array.from({ length: 20 }, (_, index) => {
+    const hue = [42, 352, 198, 24][index % 4];
+    const left = (index * 5) % 100;
+    const drift = ((index % 2 === 0 ? 1 : -1) * (18 + ((index * 7) % 26)));
+    const delay = (index % 6) * 0.18;
+    return `<span style="left:${left}%; background:hsl(${hue} 95% 70%); animation-delay:${delay}s; --drift:${drift}px;"></span>`;
+  }).join('');
+}
+
+function createWinnerParticles(container) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = buildWinnerParticles();
 }
 
 function normalizeTeams(teamList) {

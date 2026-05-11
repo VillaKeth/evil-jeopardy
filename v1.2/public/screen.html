@@ -571,6 +571,341 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .screen-results-shell {
+      position: relative;
+      min-height: 72vh;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 215, 110, 0.3);
+      padding: clamp(1.5rem, 3vw, 2.5rem);
+      background:
+        radial-gradient(circle at top, rgba(255, 212, 121, 0.2), transparent 42%),
+        linear-gradient(180deg, rgba(53, 10, 28, 0.95), rgba(10, 10, 24, 0.98));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    .screen-results-shell::before,
+    .screen-results-shell::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .screen-results-shell::before {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.03) 0,
+        rgba(255, 255, 255, 0.03) 2px,
+        transparent 2px,
+        transparent 90px
+      );
+      mix-blend-mode: screen;
+      opacity: 0.25;
+    }
+
+    .screen-results-shell::after {
+      background: radial-gradient(circle at center, transparent 0 55%, rgba(0, 0, 0, 0.35) 100%);
+    }
+
+    .screen-results-shell-empty {
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .screen-results-kicker {
+      margin: 0 0 var(--spacing-sm);
+      color: #ffd891;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.32em;
+      font-weight: 800;
+    }
+
+    .screen-results-headline {
+      font-size: clamp(2.8rem, 6vw, 5.6rem);
+      line-height: 0.95;
+      margin-bottom: var(--spacing-md);
+      color: #fff5d8;
+      text-transform: uppercase;
+    }
+
+    .screen-results-subtitle {
+      max-width: 760px;
+      margin: 0 auto;
+      font-size: 1.2rem;
+      color: rgba(255, 242, 214, 0.78);
+    }
+
+    .screen-results-podium {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: var(--spacing-xl);
+      margin-top: var(--spacing-xl);
+    }
+
+    .screen-result-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+      gap: clamp(1rem, 2vw, 2rem);
+      align-items: center;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 222, 154, 0.2);
+      background: linear-gradient(135deg, rgba(23, 22, 40, 0.92), rgba(54, 18, 41, 0.88));
+      padding: clamp(1rem, 2vw, 1.6rem);
+      transform: translateY(36px) scale(0.96);
+      opacity: 0;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    .screen-result-card.is-visible {
+      animation: screenResultReveal 0.85s cubic-bezier(.2,.8,.2,1) forwards;
+    }
+
+    .screen-result-card.rank-1 {
+      border-color: rgba(255, 215, 110, 0.55);
+      background: linear-gradient(135deg, rgba(63, 20, 28, 0.96), rgba(115, 76, 16, 0.9));
+    }
+
+    .screen-result-card.rank-2 {
+      border-color: rgba(198, 211, 230, 0.34);
+    }
+
+    .screen-result-card.rank-3 {
+      border-color: rgba(255, 166, 121, 0.34);
+    }
+
+    .screen-result-card.is-winner {
+      box-shadow: 0 0 0 2px rgba(255, 214, 102, 0.2), 0 0 48px rgba(255, 214, 102, 0.28), 0 24px 60px rgba(0, 0, 0, 0.35);
+      animation: screenResultReveal 0.85s cubic-bezier(.2,.8,.2,1) forwards, winnerPulse 1s ease-in-out infinite 0.9s;
+    }
+
+    .screen-result-poster {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 234, 182, 0.22);
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.16), rgba(11, 13, 30, 0.96));
+    }
+
+    .screen-result-poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .screen-result-image-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: var(--spacing-lg);
+      color: rgba(255, 242, 214, 0.68);
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .screen-result-rank {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(11, 13, 30, 0.78);
+      border: 1px solid rgba(255, 215, 110, 0.4);
+      color: #fff1b9;
+      font-size: 0.95rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .screen-result-copy {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .screen-result-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--spacing-md);
+      align-items: flex-start;
+    }
+
+    .screen-result-team {
+      font-size: clamp(2.4rem, 4vw, 4rem);
+      line-height: 0.95;
+      text-transform: uppercase;
+      color: #fff7df;
+      margin: 0;
+    }
+
+    .screen-result-meta {
+      color: rgba(255, 242, 214, 0.7);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.95rem;
+    }
+
+    .screen-result-total {
+      text-align: right;
+    }
+
+    .screen-result-total span {
+      display: block;
+      color: rgba(255, 242, 214, 0.7);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .screen-result-total strong {
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      color: #ffe59a;
+    }
+
+    .screen-result-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--spacing-sm);
+    }
+
+    .screen-result-score {
+      border-radius: 16px;
+      padding: 0.95rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(7, 10, 24, 0.5);
+    }
+
+    .screen-result-score span,
+    .screen-result-formula span {
+      display: block;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.72rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .screen-result-score strong {
+      font-size: 1.6rem;
+      color: #fff4cf;
+    }
+
+    .screen-result-formula {
+      padding: 1rem 1.15rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 215, 110, 0.24);
+      background: linear-gradient(135deg, rgba(255, 214, 102, 0.12), rgba(121, 28, 52, 0.14));
+      color: #fff1c4;
+    }
+
+    .screen-result-formula strong {
+      font-size: 1.05rem;
+      line-height: 1.4;
+    }
+
+    .screen-result-winner-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 0.6rem 1.3rem;
+      border-radius: 999px;
+      background: #ffe07a;
+      color: #420b1c;
+      font-size: 1.1rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 900;
+      box-shadow: 0 0 24px rgba(255, 224, 122, 0.45);
+      animation: winnerFlash 0.85s steps(2) infinite;
+    }
+
+    .screen-results-particles {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .screen-results-particles span {
+      position: absolute;
+      top: -10%;
+      width: 12px;
+      height: 24px;
+      border-radius: 999px;
+      opacity: 0;
+      animation: confettiFall 2.8s linear infinite;
+    }
+
+    @keyframes screenResultReveal {
+      from {
+        opacity: 0;
+        transform: translateY(36px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes winnerPulse {
+      0%, 100% {
+        filter: saturate(1);
+      }
+      50% {
+        filter: saturate(1.3) brightness(1.08);
+      }
+    }
+
+    @keyframes winnerFlash {
+      0%, 100% {
+        transform: rotate(-1deg) scale(1);
+        background: #ffe07a;
+      }
+      50% {
+        transform: rotate(1deg) scale(1.04);
+        background: #fff6c1;
+      }
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translate3d(0, -12%, 0) rotate(0deg);
+        opacity: 0;
+      }
+      12% {
+        opacity: 1;
+      }
+      100% {
+        transform: translate3d(var(--drift, 0px), 120vh, 0) rotate(600deg);
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .screen-result-card {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-result-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .screen-result-total {
+        text-align: left;
+      }
+    }
   </style>
 </head>
 <body class="screen-view">
@@ -781,15 +1116,13 @@
       </div>
     </section>
 
-    <!-- RESULTS PHASE (placeholder) -->
     <section id="results-section" class="phase-section">
-      <div class="text-center">
-        <h2 style="font-size: 2.5rem; color: var(--color-results);">
-          Final Results
-        </h2>
-        <p class="text-muted" style="font-size: 1.25rem;">
-          Results display will be added in later tasks...
-        </p>
+      <div id="results-container">
+        <div class="screen-results-shell screen-results-shell-empty">
+          <p class="screen-results-kicker">Final Ceremony</p>
+          <h2 class="screen-results-headline">Awaiting the host's dramatic reveal...</h2>
+          <p class="screen-results-subtitle">The podium is set. The frosting panic is eternal.</p>
+        </div>
       </div>
     </section>
 

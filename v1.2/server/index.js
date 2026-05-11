@@ -202,8 +202,83 @@ function createApp(options = {}) {
     return (teamCountRow?.count || 0) > 0 && (teamCountRow?.count || 0) === (scoredCountRow?.count || 0);
   }
 
+  function roundRevealScore(value) {
+    return Math.round((Number(value) || 0) * 100) / 100;
+  }
+
+  function averageRevealScores(values) {
+    const safeValues = Array.isArray(values) ? values.map((value) => Number(value) || 0) : [];
+    if (!safeValues.length) {
+      return 0;
+    }
+
+    return safeValues.reduce((sum, value) => sum + value, 0) / safeValues.length;
+  }
+
+  function getGeneratedCakeImagePaths(teamId) {
+    const safeTeamId = Number(teamId);
+    if (!Number.isInteger(safeTeamId) || safeTeamId <= 0) {
+      return [];
+    }
+
+    const outputDir = path.join(__dirname, '..', 'public', 'assets', 'cake-results');
+    if (!fs.existsSync(outputDir)) {
+      return [];
+    }
+
+    return fs.readdirSync(outputDir)
+      .filter((filename) => filename.startsWith(`team-${safeTeamId}-cake-`) && filename.toLowerCase().endsWith('.png'))
+      .sort((left, right) => {
+        const leftIndex = Number((left.match(/cake-(\d+)/) || [])[1]) || 0;
+        const rightIndex = Number((right.match(/cake-(\d+)/) || [])[1]) || 0;
+        return leftIndex - rightIndex;
+      })
+      .map((filename) => `/assets/cake-results/${filename}`);
+  }
+
+  function getResultCakeImagePath(result) {
+    const generatedImages = getGeneratedCakeImagePaths(result.teamId);
+    if (generatedImages.length) {
+      return generatedImages[0];
+    }
+
+    if (result.isVirtualTeam) {
+      const tier = cakeGenerator.getScoreTier(Number(result.scores?.total) || 0);
+      return `/assets/cake-fallbacks/tier-${tier}-1.png`;
+    }
+
+    return '';
+  }
+
   function buildJudgingResults() {
-    return getResults(db.db);
+    return getResults(db.db).map((entry) => {
+      const physicalAverage = roundRevealScore(averageRevealScores([
+        entry.scores?.taste,
+        entry.scores?.accuracy,
+        entry.scores?.creativity
+      ]));
+      const virtualAverage = entry.scores?.virtualScores
+        ? roundRevealScore(
+            typeof entry.scores.virtualScores.average === 'number'
+              ? entry.scores.virtualScores.average
+              : averageRevealScores([
+                  entry.scores.virtualScores.taste,
+                  entry.scores.virtualScores.accuracy,
+                  entry.scores.virtualScores.creativity
+                ])
+          )
+        : 0;
+
+      return {
+        ...entry,
+        cakeImagePath: getResultCakeImagePath(entry),
+        scores: {
+          ...entry.scores,
+          physicalAverage,
+          virtualAverage
+        }
+      };
+    });
   }
 
   function parseJsonState(key, fallback) {
@@ -597,6 +672,10 @@ function createApp(options = {}) {
             results: buildJudgingResults(),
             allTeamsScored: areAllTeamsJudged()
           });
+        }
+
+        if (phase === 'RESULTS') {
+          socket.emit('results:reveal', buildJudgingResults());
         }
       } catch (err) {
         console.error('Failed to get state:', err);

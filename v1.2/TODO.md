@@ -7,3 +7,4 @@
 - [ ] Wire the full baking flow across server, player, host, and screen views.
 - [ ] Fix player Phaser overlay bootstrap to use the SceneManager getScene API.
 - [ ] Verify cake reveal gallery state rehydrates correctly for reconnecting host, screen, and player clients.
+- [ ] Smoke test the dramatic results reveal with a generated cake gallery on host, screen, and player clients.

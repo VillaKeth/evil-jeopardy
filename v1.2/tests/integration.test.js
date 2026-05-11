@@ -446,4 +446,17 @@ describe('Server Integration', () => {
     assert.strictEqual(screenResults[0].teamName, 'Judge Bravo');
     assert.strictEqual(playerResults[0].teamName, 'Judge Bravo');
   });
+
+  it('should rehydrate revealed results when a client requests state during RESULTS phase', async () => {
+    const statePromise = onceEventOrTimeout(screenSocket, 'state', null, 1500);
+    const resultsPromise = onceEventOrTimeout(screenSocket, 'results:reveal', () => {
+      screenSocket.emit('get-state');
+    }, 1500);
+
+    const [state, results] = await Promise.all([statePromise, resultsPromise]);
+
+    assert.strictEqual(state.phase, 'RESULTS');
+    assert.ok(Array.isArray(results));
+    assert.strictEqual(results[0].teamName, 'Judge Bravo');
+  });
 });
