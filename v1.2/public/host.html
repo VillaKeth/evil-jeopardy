@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy 1.2 - Host Control</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .trivia-phase-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .shop-host-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+
+    .shop-toolbar {
+      display: flex;
+      gap: var(--spacing-md);
+      align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .shop-team-select-group {
+      flex: 1 1 280px;
+      margin-bottom: 0;
+    }
+
+    .shop-balance-pill {
+      min-width: 220px;
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-radius: 10px;
+      border: 1px solid rgba(121, 192, 255, 0.35);
+      background: rgba(121, 192, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .shop-balance-pill strong {
+      font-size: 1.75rem;
+      color: #d2e7ff;
+    }
+
+    .shop-catalog-grid {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .shop-category-card {
+      background: linear-gradient(145deg, rgba(13, 17, 23, 0.98), rgba(33, 38, 45, 0.96));
+      border: 1px solid rgba(121, 192, 255, 0.22);
+      border-radius: 12px;
+      padding: var(--spacing-lg);
+    }
+
+    .shop-category-card h3 {
+      color: var(--color-shop);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .shop-item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .shop-item-card {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-default);
+      border-radius: 10px;
+      padding: var(--spacing-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-height: 220px;
+    }
+
+    .shop-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+
+    .shop-item-price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-results);
+      white-space: nowrap;
+    }
+
+    .shop-item-meta,
+    .shop-item-owned {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .shop-item-card .btn {
+      margin-top: auto;
+    }
+
+    .shop-team-summary h2 {
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .shop-inventory-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-sm);
+    }
+
+    .shop-inventory-chip {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.3);
+      background: rgba(121, 192, 255, 0.1);
+      font-size: 0.875rem;
+    }
+
+    .shop-history-list {
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .shop-history-item {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      border: 1px solid var(--border-default);
+      background: var(--bg-tertiary);
+    }
+
+    .shop-warning-modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-lg);
+      background: rgba(13, 17, 23, 0.82);
+      z-index: 1200;
+    }
+
+    .shop-warning-dialog {
+      width: min(100%, 520px);
+      background: linear-gradient(145deg, rgba(33, 38, 45, 0.98), rgba(13, 17, 23, 0.98));
+      border: 1px solid rgba(255, 166, 87, 0.45);
+      border-radius: 14px;
+      padding: var(--spacing-xl);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+    }
+
+    .shop-warning-dialog h2 {
+      color: #ffb86b;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .shop-warning-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: var(--spacing-lg);
+    }
+
+    .baking-host-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+      gap: var(--spacing-lg);
+      align-items: start;
+    }
+
+    .baking-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .baking-metric-card {
+      padding: var(--spacing-lg);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 166, 87, 0.28);
+      background: linear-gradient(145deg, rgba(13, 17, 23, 0.98), rgba(33, 38, 45, 0.96));
+    }
+
+    .baking-metric-card strong {
+      display: block;
+      font-size: 2rem;
+      margin-top: var(--spacing-xs);
+      color: var(--color-baking);
+    }
+
+    .baking-controls {
+      display: flex;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .baking-score-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .baking-score-table th,
+    .baking-score-table td {
+      padding: var(--spacing-sm);
+      border-bottom: 1px solid var(--border-default);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .baking-chaos-log {
+      display: grid;
+      gap: var(--spacing-sm);
+      max-height: 460px;
+      overflow-y: auto;
+    }
+
+    .baking-chaos-item {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 123, 114, 0.24);
+      background: rgba(255, 123, 114, 0.08);
+    }
+
+    .judging-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .judging-status-pill {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.32);
+      background: rgba(121, 192, 255, 0.12);
+      color: #d2e7ff;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .judging-team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: var(--spacing-lg);
+    }
+
+    .judging-team-card {
+      border: 1px solid rgba(121, 192, 255, 0.24);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(13, 17, 23, 0.98), rgba(33, 38, 45, 0.96));
+      padding: var(--spacing-lg);
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .judging-team-card.virtual-team {
+      box-shadow: 0 0 0 1px rgba(121, 192, 255, 0.1), 0 12px 28px rgba(7, 17, 28, 0.35);
+    }
+
+    .judging-team-header,
+    .judging-score-line,
+    .judging-virtual-score-line,
+    .judging-standing-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+    }
+
+    .judging-preview-total {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--color-judging);
+    }
+
+    .judging-slider-group {
+      display: grid;
+      gap: var(--spacing-xs);
+    }
+
+    .judging-slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .judging-range {
+      width: 100%;
+      accent-color: var(--color-judging);
+    }
+
+    .judging-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .judging-virtual-panel,
+    .judging-results-panel {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      background: rgba(121, 192, 255, 0.08);
+      border: 1px solid rgba(121, 192, 255, 0.18);
+    }
+
+    .judging-virtual-panel h4,
+    .judging-results-panel h3 {
+      margin-bottom: var(--spacing-sm);
+      color: var(--color-judging);
+    }
+
+    .judging-standing-list {
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .judging-standing-row {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-default);
+    }
+
+    .judging-standing-rank {
+      color: var(--color-judging);
+      font-weight: 700;
+      min-width: 48px;
+    }
+
+    .judging-submit-state {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-md);
+    }
+
+    .gallery-card {
+      border: 1px solid rgba(121, 192, 255, 0.22);
+      border-radius: 12px;
+      background: rgba(13, 17, 23, 0.82);
+      padding: var(--spacing-sm);
+      display: grid;
+      gap: var(--spacing-sm);
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .gallery-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(121, 192, 255, 0.5);
+    }
+
+    .gallery-card.is-selected {
+      border-color: rgba(255, 166, 87, 0.75);
+      box-shadow: 0 0 0 2px rgba(255, 166, 87, 0.18);
+    }
+
+    .gallery-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .gallery-card-label {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      text-align: left;
+    }
+
+    .gallery-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 960px) {
+      .shop-host-layout,
+      .baking-host-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="flex flex-between mb-3">
+      <h1>Evil Jeopardy 1.2</h1>
+      <div class="phase-indicator" id="phase-indicator">
+        <span id="phase-text">LOBBY</span>
+      </div>
+    </header>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="status status-info">
+      <span>Connecting to server...</span>
+    </div>
+
+    <div id="connection-overlay" class="connection-overlay hidden" aria-live="assertive">
+      <div class="connection-message">
+        <div class="spinner"></div>
+        <p>Connection lost. Reconnecting...</p>
+      </div>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay hidden" aria-live="polite">
+      <div class="connection-message">
+        <div class="spinner"></div>
+        <p>Loading latest show state...</p>
+      </div>
+    </div>
+
+    <!-- LOBBY PHASE -->
+    <section id="lobby-section" class="phase-section active">
+      <div class="card">
+        <div class="card-header">
+          <h2>Lobby - Team Management</h2>
+        </div>
+        <div class="card-body">
+          <!-- Add Team Form -->
+          <div class="form-group">
+            <label class="form-label" for="team-name">Team Name</label>
+            <div class="flex gap-md">
+              <input 
+                type="text" 
+                id="team-name" 
+                class="form-input" 
+                placeholder="Enter team name..."
+                style="flex: 1;"
+              >
+              <button class="btn btn-primary" id="add-team-btn">Add Team</button>
+            </div>
+          </div>
+
+          <div class="form-checkbox">
+            <input type="checkbox" id="team-virtual">
+            <label for="team-virtual">Virtual Team (remote player)</label>
+          </div>
+
+          <!-- Connected Teams -->
+          <div class="mt-3">
+            <h3>Connected Teams</h3>
+            <ul id="teams-list" class="team-list">
+              <li class="text-muted text-center">No teams connected yet...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase Control -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Game Control</h2>
+        </div>
+        <div class="card-body">
+          <button class="btn btn-primary btn-large w-full" id="start-game-btn" disabled>
+            Start Game
+          </button>
+          <p class="text-muted text-small text-center mt-2">
+            Add at least one team to start the game
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRIVIA PHASE -->
+    <section id="trivia-section" class="phase-section">
+      <!-- Scoreboard -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Live Scoreboard</h2>
+        </div>
+        <div class="card-body">
+          <div id="trivia-scoreboard" class="scoreboard">
+            <div class="text-muted text-center">Loading teams...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode Toggle -->
+      <div class="card">
+        <div class="card-header flex flex-between">
+          <h2>Trivia Mode: <span id="trivia-current-mode">SLIDE</span></h2>
+          <button class="btn btn-secondary" id="trivia-mode-toggle">
+            Switch to Jeopardy Mode
+          </button>
+        </div>
+      </div>
+
+      <!-- Slide Mode -->
+      <div id="slide-mode-section" class="trivia-mode-section active">
+        <div class="card">
+          <div class="card-header">
+            <h2>Current Question</h2>
+          </div>
+          <div class="card-body">
+            <div id="slide-question-display" class="question-display">
+              <p class="text-muted text-center">Click "Next Question" to start</p>
+            </div>
+            <div id="slide-media-area" class="media-area hidden">
+              <!-- Media will be displayed here -->
+            </div>
+            <div class="mt-3 text-center">
+              <button class="btn btn-primary btn-large" id="next-slide-btn">
+                Next Question
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Answer Controls -->
+        <div class="card">
+          <div class="card-header flex flex-between">
+            <h2>Team Answers</h2>
+            <button class="btn btn-danger" id="force-answer-btn">
+              Force All Answer
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="slide-team-answers" class="team-answers">
+              <p class="text-muted text-center">No teams to display</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jeopardy Mode -->
+      <div id="jeopardy-mode-section" class="trivia-mode-section">
+        <div class="card">
+          <div class="card-header">
+            <h2>Jeopardy Board</h2>
+          </div>
+          <div class="card-body">
+            <div id="jeopardy-board" class="jeopardy-board">
+              <p class="text-muted text-center">Loading board...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Current Question Display -->
+        <div class="card" id="jeopardy-question-card" style="display: none;">
+          <div class="card-header">
+            <h2>Current Question</h2>
+          </div>
+          <div class="card-body">
+            <div id="jeopardy-question-display" class="question-display">
+              <!-- Question will be displayed here -->
+            </div>
+            <div id="jeopardy-media-area" class="media-area hidden">
+              <!-- Media will be displayed here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Answer Controls for Jeopardy -->
+        <div class="card" id="jeopardy-answers-card" style="display: none;">
+          <div class="card-header flex flex-between">
+            <h2>Team Answers</h2>
+            <button class="btn btn-danger" id="force-answer-jeopardy-btn">
+              Force All Answer
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="jeopardy-team-answers" class="team-answers">
+              <p class="text-muted text-center">No teams to display</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header flex flex-between">
+          <h2>Phase Transition</h2>
+          <button class="btn btn-secondary" id="open-shop-btn">Open Shop Phase</button>
+        </div>
+        <div class="card-body">
+          <div class="trivia-phase-actions">
+            <p class="text-muted">Move the game into the shopping round once trivia scoring is complete.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buzz Notifications -->
+      <div id="buzz-notification" class="buzz-notification hidden">
+        <span id="buzz-team-name"></span> buzzed in!
+      </div>
+    </section>
+
+    <!-- SHOP PHASE -->
+    <section id="shop-section" class="phase-section">
+      <div class="shop-host-layout">
+        <div>
+          <div class="card">
+            <div class="card-header flex flex-between">
+              <div>
+                <h2>Shop Dashboard</h2>
+                <p class="text-muted">Select a team, buy items from each category, and manage overrides from one place.</p>
+              </div>
+              <button class="btn btn-primary" id="close-shop-btn">Close Shop</button>
+            </div>
+            <div class="card-body">
+              <div class="shop-toolbar">
+                <div class="form-group shop-team-select-group">
+                  <label class="form-label" for="shop-team-select">Active Team</label>
+                  <select id="shop-team-select" class="form-input"></select>
+                </div>
+                <div class="shop-balance-pill">
+                  <span class="text-muted text-small">Current Balance</span>
+                  <strong id="shop-team-balance">$0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="shop-catalog" class="shop-catalog-grid">
+            <div class="card">
+              <div class="card-body">
+                <p class="text-muted text-center">Waiting for the host to open the shop...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="shop-host-sidebar">
+          <div class="card shop-team-summary">
+            <div class="card-header">
+              <h2 id="shop-selected-team-name">Selected Team</h2>
+              <p class="text-muted">Live inventory and purchase history</p>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <h3>Inventory</h3>
+                <div id="shop-team-inventory" class="shop-inventory-list">
+                  <span class="text-muted">No purchases yet.</span>
+                </div>
+              </div>
+
+              <div>
+                <h3>Purchase History</h3>
+                <div id="shop-team-history" class="shop-history-list">
+                  <div class="text-muted">No purchases recorded yet.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="shop-warning-modal" class="shop-warning-modal hidden">
+        <div class="shop-warning-dialog">
+          <h2 id="shop-warning-title">Purchase Warning</h2>
+          <p id="shop-warning-copy" class="text-muted">This team cannot afford the selected item.</p>
+          <div class="shop-warning-actions">
+            <button class="btn btn-danger" id="shop-override-btn">Override &amp; Approve</button>
+            <button class="btn btn-secondary" id="shop-warning-cancel-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BAKING PHASE -->
+    <section id="baking-section" class="phase-section">
+      <div class="baking-host-layout">
+        <div>
+          <div class="card">
+            <div class="card-header flex flex-between">
+              <div>
+                <h2>Baking Control Room</h2>
+                <p class="text-muted">Run the virtual baking round, monitor phase progress, and react to chaos in real time.</p>
+              </div>
+              <div class="baking-controls">
+                <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+                  <label class="form-label" for="baking-duration-input">Timer (sec)</label>
+                  <input type="number" id="baking-duration-input" class="form-input" min="30" step="30" value="300">
+                </div>
+                <button class="btn btn-primary" id="start-baking-btn">Start Baking</button>
+                <button class="btn btn-secondary" id="pause-baking-btn">Pause</button>
+                <button class="btn btn-secondary" id="resume-baking-btn">Resume</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="baking-metrics">
+                <div class="baking-metric-card">
+                  <span class="text-muted text-small">Countdown</span>
+                  <strong id="baking-timer-display">05:00</strong>
+                </div>
+                <div class="baking-metric-card">
+                  <span class="text-muted text-small">Current Phase</span>
+                  <strong id="baking-current-phase">Waiting to start</strong>
+                </div>
+                <div class="baking-metric-card">
+                  <span class="text-muted text-small">Progress</span>
+                  <strong id="baking-progress-display">0 / 6</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Live Phase Scores</h3>
+            </div>
+            <div class="card-body">
+              <div id="baking-scoreboard-wrapper">
+                <div class="text-muted text-center">Start baking to track the virtual team.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <h3 style="margin-bottom: 0;">Chaos Events Log</h3>
+            </div>
+            <div class="card-body">
+              <div id="baking-chaos-log" class="baking-chaos-log">
+                <div class="text-muted">Chaos events will appear here as the bake unfolds.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- JUDGING PHASE -->
+    <section id="judging-section" class="phase-section">
+      <div class="card">
+        <div class="card-header judging-toolbar">
+          <div>
+            <h2>Judging Control Room</h2>
+            <p class="text-muted">Score each team on taste, accuracy, and creativity, then reveal the final standings.</p>
+          </div>
+          <div id="judging-status-text" class="judging-status-pill">Waiting for judging submissions.</div>
+        </div>
+        <div class="card-body">
+          <div id="judging-results-preview" class="judging-results-panel mb-3">
+            <h3>Live Standings Preview</h3>
+            <div class="text-muted">Scores will appear here once judging begins.</div>
+          </div>
+
+          <div id="cake-gallery-section" class="judging-results-panel mb-3" style="display:none;">
+            <div class="judging-toolbar">
+              <div>
+                <h3>Virtual Cake Gallery</h3>
+                <p class="text-muted">Generate four AI cake images, choose the best reveal, then send it to the room.</p>
+              </div>
+              <div class="judging-actions">
+                <button id="generate-gallery-btn" class="btn btn-primary">Generate Cake Images</button>
+                <button id="reveal-cake-btn" class="btn btn-success" disabled>Reveal Cake</button>
+              </div>
+            </div>
+            <div id="cake-gallery-meta" class="gallery-meta text-muted">
+              <span>Generated cake images appear here.</span>
+            </div>
+            <div id="cake-gallery-grid" class="gallery-grid">
+              <div class="text-muted">Generated cake images appear here.</div>
+            </div>
+          </div>
+
+          <div id="judging-team-panels" class="judging-team-grid">
+            <div class="text-muted text-center">No teams available for judging.</div>
+          </div>
+
+          <div class="mt-3 text-right">
+            <button class="btn btn-primary btn-large" id="reveal-results-btn" disabled>
+              Reveal Results
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS PHASE -->
+    <section id="results-section" class="phase-section">
+      <div class="card">
+        <div class="card-header">
+          <h2>Final Results</h2>
+          <p class="text-muted">Official standings after physical judging and hybrid virtual scoring.</p>
+        </div>
+        <div class="card-body">
+          <div id="results-standings" class="judging-results-panel">
+            <h3>Standings</h3>
+            <div class="text-muted">Reveal the results to publish the final leaderboard.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/host.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "phases": {
+    "prep": {
+      "normal": ["prep-measure"],
+      "absurd": ["prep-measure"],
+      "absurdExcluded": true
+    },
+    "mix": {
+      "normal": ["mix-circular"],
+      "absurd": ["mix-cow-combat"]
+    },
+    "bake": {
+      "normal": ["bake-temperature"],
+      "absurd": ["bake-racing"]
+    },
+    "cool": {
+      "normal": ["cool-patience"],
+      "absurd": ["cool-jewel-sort"]
+    },
+    "decorate": {
+      "normal": ["decorate-freeform"],
+      "absurd": ["decorate-gravity-flip"]
+    },
+    "present": {
+      "normal": ["present-arrange"],
+      "absurd": ["present-obstacle-course"]
+    }
+  }
+}

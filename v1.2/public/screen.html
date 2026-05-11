@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evil Jeopardy 1.2 - Screen Display</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .screen-trivia-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+      gap: var(--spacing-xl);
+      align-items: start;
+    }
+
+    .screen-question-card {
+      background: linear-gradient(145deg, rgba(247, 129, 102, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(247, 129, 102, 0.45);
+    }
+
+    .screen-trivia-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
+      flex-wrap: wrap;
+    }
+
+    .screen-kicker {
+      margin: 0 0 var(--spacing-sm);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .screen-mode-badge,
+    .screen-category-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-radius: 999px;
+      border: 1px solid rgba(247, 129, 102, 0.45);
+      background-color: rgba(247, 129, 102, 0.16);
+      color: #ffd4cb;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .screen-category-badge {
+      margin-bottom: var(--spacing-lg);
+      font-size: 1rem;
+    }
+
+    .screen-question-display {
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--spacing-md);
+    }
+
+    .screen-question-copy {
+      font-size: clamp(2rem, 2.6vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .screen-question-meta {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .screen-status-banner {
+      margin-top: var(--spacing-lg);
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-radius: 10px;
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      background-color: rgba(88, 166, 255, 0.12);
+      color: #d2e7ff;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .screen-trivia-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-trivia-scoreboard .score-card {
+      text-align: left;
+      padding: var(--spacing-md) var(--spacing-lg);
+      background: linear-gradient(135deg, rgba(22, 27, 34, 0.98), rgba(33, 38, 45, 0.96));
+    }
+
+    .screen-trivia-scoreboard .score-team {
+      font-size: 1.4rem;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-trivia-scoreboard .score-value {
+      font-size: 2rem;
+    }
+
+    .screen-status-list {
+      list-style: none;
+      display: grid;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-status-item {
+      padding: var(--spacing-md);
+      border-radius: 10px;
+      border: 1px solid var(--border-default);
+      background-color: var(--bg-tertiary);
+    }
+
+    .screen-status-label {
+      display: block;
+      margin-bottom: var(--spacing-xs);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .screen-status-value {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .screen-jeopardy-panel.hidden {
+      display: none;
+    }
+
+    .screen-jeopardy-board {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .screen-jeopardy-board .jeopardy-category {
+      font-size: 1rem;
+      padding: var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .screen-jeopardy-board .jeopardy-cell {
+      cursor: default;
+      min-height: 110px;
+      font-size: 1.9rem;
+    }
+
+    .screen-jeopardy-board .jeopardy-cell:hover:not(.answered) {
+      transform: none;
+      background-color: var(--bg-tertiary);
+      border-color: var(--border-default);
+    }
+
+    .screen-jeopardy-board .jeopardy-cell.answered {
+      opacity: 0.25;
+    }
+
+    .screen-jeopardy-board .blank-cell {
+      opacity: 0;
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .screen-shop-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.9fr) minmax(360px, 1fr);
+      gap: var(--spacing-xl);
+      align-items: start;
+    }
+
+    .screen-shop-hero {
+      background: linear-gradient(145deg, rgba(121, 192, 255, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(121, 192, 255, 0.45);
+    }
+
+    .screen-shop-live-banner {
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-radius: 999px;
+      border: 1px solid rgba(121, 192, 255, 0.45);
+      background: rgba(121, 192, 255, 0.15);
+      color: #d2e7ff;
+      font-size: 1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .screen-shop-live-banner.pending {
+      border-color: rgba(255, 166, 87, 0.45);
+      background: rgba(255, 166, 87, 0.16);
+      color: #ffd2a8;
+    }
+
+    .screen-shop-live-banner.override {
+      border-color: rgba(255, 123, 114, 0.45);
+      background: rgba(255, 123, 114, 0.16);
+      color: #ffc1bc;
+    }
+
+    .screen-shop-catalog {
+      display: grid;
+      gap: var(--spacing-lg);
+    }
+
+    .screen-shop-category {
+      border-radius: 16px;
+      border: 1px solid rgba(121, 192, 255, 0.22);
+      background: linear-gradient(145deg, rgba(22, 27, 34, 0.98), rgba(13, 17, 23, 0.98));
+      padding: var(--spacing-xl);
+    }
+
+    .screen-shop-category h3 {
+      font-size: 2rem;
+      color: var(--color-shop);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .screen-shop-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-lg);
+    }
+
+    .screen-shop-item {
+      border-radius: 14px;
+      border: 1px solid var(--border-default);
+      background: rgba(33, 38, 45, 0.92);
+      padding: var(--spacing-lg);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+      min-height: 220px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .screen-shop-item.is-live {
+      border-color: rgba(121, 192, 255, 0.75);
+      box-shadow: 0 0 0 3px rgba(121, 192, 255, 0.18);
+      transform: translateY(-4px);
+      animation: shopPulse 1s ease 2;
+    }
+
+    .screen-shop-item.pending {
+      border-color: rgba(255, 166, 87, 0.7);
+      box-shadow: 0 0 0 3px rgba(255, 166, 87, 0.14);
+    }
+
+    .screen-shop-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+
+    .screen-shop-item-price {
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: var(--color-results);
+      white-space: nowrap;
+    }
+
+    .screen-shop-meta {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      line-height: 1.4;
+    }
+
+    .screen-shop-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-shop-scoreboard .score-card {
+      text-align: left;
+      background: linear-gradient(135deg, rgba(22, 27, 34, 0.98), rgba(33, 38, 45, 0.96));
+    }
+
+    .screen-shop-scoreboard .score-team {
+      font-size: 1.35rem;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-shop-team-meta {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .screen-shop-activity {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .screen-shop-activity-item {
+      padding: var(--spacing-lg);
+      border-radius: 12px;
+      border: 1px solid var(--border-default);
+      background: rgba(33, 38, 45, 0.92);
+    }
+
+    .screen-shop-activity-item.is-new {
+      animation: slideIn 0.7s ease;
+    }
+
+    .screen-shop-activity-item.pending {
+      border-color: rgba(255, 166, 87, 0.6);
+      background: rgba(255, 166, 87, 0.1);
+    }
+
+    .screen-shop-activity-item.override {
+      border-color: rgba(255, 123, 114, 0.6);
+      background: rgba(255, 123, 114, 0.1);
+    }
+
+    .screen-shop-activity-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-shop-activity-copy {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .screen-baking-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+      gap: var(--spacing-xl);
+      align-items: start;
+    }
+
+    .screen-baking-hero {
+      background: linear-gradient(145deg, rgba(255, 166, 87, 0.12), rgba(13, 17, 23, 0.98));
+      border-color: rgba(255, 166, 87, 0.45);
+    }
+
+    .screen-baking-timer {
+      font-size: clamp(4rem, 12vw, 8rem);
+      font-weight: 800;
+      color: var(--color-baking);
+      line-height: 1;
+      margin: var(--spacing-lg) 0;
+    }
+
+    .screen-baking-phase {
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      color: #ffd8a8;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .screen-baking-progress {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .screen-baking-chaos-feed {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .screen-baking-chaos-card {
+      padding: var(--spacing-lg);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 123, 114, 0.28);
+      background: rgba(255, 123, 114, 0.1);
+    }
+
+    .screen-baking-scoreboard {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-sm);
+    }
+
+    .screen-cake-reveal {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      padding: var(--spacing-xl);
+      background: rgba(0, 0, 0, 0.96);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: var(--spacing-xl);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.45s ease;
+    }
+
+    .screen-cake-reveal.is-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .screen-cake-reveal-title {
+      text-align: center;
+      font-size: clamp(2.8rem, 6vw, 4.8rem);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff3d6;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .screen-cake-reveal.is-active .screen-cake-reveal-title {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .screen-cake-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 166, 87, 0.28);
+      background: radial-gradient(circle at center, rgba(255, 166, 87, 0.16), rgba(13, 17, 23, 0.98));
+    }
+
+    .screen-cake-card {
+      width: min(52vw, 560px);
+      display: grid;
+      gap: var(--spacing-md);
+      justify-items: center;
+      opacity: 0;
+      transform: scale(0.88);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-card {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .screen-cake-card img {
+      width: 100%;
+      max-height: 52vh;
+      object-fit: contain;
+      border-radius: 20px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      background: rgba(13, 17, 23, 0.8);
+    }
+
+    .screen-cake-curtain {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50%;
+      background: linear-gradient(180deg, rgba(121, 28, 52, 0.98), rgba(58, 6, 18, 0.98));
+      transition: transform 1.15s ease;
+    }
+
+    .screen-cake-curtain.left {
+      left: 0;
+      border-right: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .screen-cake-curtain.right {
+      right: 0;
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-curtain.left {
+      transform: translateX(-105%);
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-curtain.right {
+      transform: translateX(105%);
+    }
+
+    .screen-cake-details {
+      display: grid;
+      gap: var(--spacing-lg);
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+
+    .screen-cake-reveal.is-open .screen-cake-details {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .screen-cake-score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    .screen-cake-score-card,
+    .screen-cake-chaos-item {
+      border-radius: 14px;
+      border: 1px solid rgba(121, 192, 255, 0.24);
+      background: rgba(13, 17, 23, 0.88);
+      padding: var(--spacing-lg);
+    }
+
+    .screen-cake-score-card span,
+    .screen-cake-chaos-item span {
+      display: block;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .screen-cake-score-card strong {
+      font-size: 2rem;
+      color: #ffd8a8;
+    }
+
+    .screen-cake-chaos-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--spacing-md);
+    }
+
+    @keyframes shopPulse {
+      0%, 100% { transform: translateY(-4px) scale(1); }
+      50% { transform: translateY(-8px) scale(1.01); }
+    }
+
+    @keyframes slideIn {
+      0% { opacity: 0; transform: translateX(20px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+
+    @media (max-width: 1400px) {
+      .screen-trivia-layout,
+      .screen-shop-layout,
+      .screen-baking-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-trivia-scoreboard {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 960px) {
+      .screen-question-copy {
+        font-size: 2rem;
+      }
+
+      .screen-jeopardy-board {
+        overflow-x: auto;
+      }
+
+      .screen-jeopardy-board .jeopardy-cell {
+        min-height: 80px;
+        font-size: 1.3rem;
+      }
+
+      .screen-shop-items {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .screen-results-shell {
+      position: relative;
+      min-height: 72vh;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 215, 110, 0.3);
+      padding: clamp(1.5rem, 3vw, 2.5rem);
+      background:
+        radial-gradient(circle at top, rgba(255, 212, 121, 0.2), transparent 42%),
+        linear-gradient(180deg, rgba(53, 10, 28, 0.95), rgba(10, 10, 24, 0.98));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    .screen-results-shell::before,
+    .screen-results-shell::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .screen-results-shell::before {
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.03) 0,
+        rgba(255, 255, 255, 0.03) 2px,
+        transparent 2px,
+        transparent 90px
+      );
+      mix-blend-mode: screen;
+      opacity: 0.25;
+    }
+
+    .screen-results-shell::after {
+      background: radial-gradient(circle at center, transparent 0 55%, rgba(0, 0, 0, 0.35) 100%);
+    }
+
+    .screen-results-shell-empty {
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .screen-results-kicker {
+      margin: 0 0 var(--spacing-sm);
+      color: #ffd891;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.32em;
+      font-weight: 800;
+    }
+
+    .screen-results-headline {
+      font-size: clamp(2.8rem, 6vw, 5.6rem);
+      line-height: 0.95;
+      margin-bottom: var(--spacing-md);
+      color: #fff5d8;
+      text-transform: uppercase;
+    }
+
+    .screen-results-subtitle {
+      max-width: 760px;
+      margin: 0 auto;
+      font-size: 1.2rem;
+      color: rgba(255, 242, 214, 0.78);
+    }
+
+    .screen-results-podium {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: var(--spacing-xl);
+      margin-top: var(--spacing-xl);
+    }
+
+    .screen-result-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+      gap: clamp(1rem, 2vw, 2rem);
+      align-items: center;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 222, 154, 0.2);
+      background: linear-gradient(135deg, rgba(23, 22, 40, 0.92), rgba(54, 18, 41, 0.88));
+      padding: clamp(1rem, 2vw, 1.6rem);
+      transform: translateY(36px) scale(0.96);
+      opacity: 0;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    .screen-result-card.is-visible {
+      animation: screenResultReveal 0.85s cubic-bezier(.2,.8,.2,1) forwards;
+    }
+
+    .screen-result-card.rank-1 {
+      border-color: rgba(255, 215, 110, 0.55);
+      background: linear-gradient(135deg, rgba(63, 20, 28, 0.96), rgba(115, 76, 16, 0.9));
+    }
+
+    .screen-result-card.rank-2 {
+      border-color: rgba(198, 211, 230, 0.34);
+    }
+
+    .screen-result-card.rank-3 {
+      border-color: rgba(255, 166, 121, 0.34);
+    }
+
+    .screen-result-card.is-winner {
+      box-shadow: 0 0 0 2px rgba(255, 214, 102, 0.2), 0 0 48px rgba(255, 214, 102, 0.28), 0 24px 60px rgba(0, 0, 0, 0.35);
+      animation: screenResultReveal 0.85s cubic-bezier(.2,.8,.2,1) forwards, winnerPulse 1s ease-in-out infinite 0.9s;
+    }
+
+    .screen-result-poster {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 234, 182, 0.22);
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.16), rgba(11, 13, 30, 0.96));
+    }
+
+    .screen-result-poster img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .screen-result-image-placeholder {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: var(--spacing-lg);
+      color: rgba(255, 242, 214, 0.68);
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .screen-result-rank {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(11, 13, 30, 0.78);
+      border: 1px solid rgba(255, 215, 110, 0.4);
+      color: #fff1b9;
+      font-size: 0.95rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .screen-result-copy {
+      display: grid;
+      gap: var(--spacing-md);
+    }
+
+    .screen-result-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--spacing-md);
+      align-items: flex-start;
+    }
+
+    .screen-result-team {
+      font-size: clamp(2.4rem, 4vw, 4rem);
+      line-height: 0.95;
+      text-transform: uppercase;
+      color: #fff7df;
+      margin: 0;
+    }
+
+    .screen-result-meta {
+      color: rgba(255, 242, 214, 0.7);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.95rem;
+    }
+
+    .screen-result-total {
+      text-align: right;
+    }
+
+    .screen-result-total span {
+      display: block;
+      color: rgba(255, 242, 214, 0.7);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .screen-result-total strong {
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      color: #ffe59a;
+    }
+
+    .screen-result-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--spacing-sm);
+    }
+
+    .screen-result-score {
+      border-radius: 16px;
+      padding: 0.95rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(7, 10, 24, 0.5);
+    }
+
+    .screen-result-score span,
+    .screen-result-formula span {
+      display: block;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.72rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .screen-result-score strong {
+      font-size: 1.6rem;
+      color: #fff4cf;
+    }
+
+    .screen-result-formula {
+      padding: 1rem 1.15rem;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 215, 110, 0.24);
+      background: linear-gradient(135deg, rgba(255, 214, 102, 0.12), rgba(121, 28, 52, 0.14));
+      color: #fff1c4;
+    }
+
+    .screen-result-formula strong {
+      font-size: 1.05rem;
+      line-height: 1.4;
+    }
+
+    .screen-result-winner-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 0.6rem 1.3rem;
+      border-radius: 999px;
+      background: #ffe07a;
+      color: #420b1c;
+      font-size: 1.1rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-weight: 900;
+      box-shadow: 0 0 24px rgba(255, 224, 122, 0.45);
+      animation: winnerFlash 0.85s steps(2) infinite;
+    }
+
+    .screen-results-particles {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .screen-results-particles span {
+      position: absolute;
+      top: -10%;
+      width: 12px;
+      height: 24px;
+      border-radius: 999px;
+      opacity: 0;
+      animation: confettiFall 2.8s linear infinite;
+    }
+
+    @keyframes screenResultReveal {
+      from {
+        opacity: 0;
+        transform: translateY(36px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes winnerPulse {
+      0%, 100% {
+        filter: saturate(1);
+      }
+      50% {
+        filter: saturate(1.3) brightness(1.08);
+      }
+    }
+
+    @keyframes winnerFlash {
+      0%, 100% {
+        transform: rotate(-1deg) scale(1);
+        background: #ffe07a;
+      }
+      50% {
+        transform: rotate(1deg) scale(1.04);
+        background: #fff6c1;
+      }
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translate3d(0, -12%, 0) rotate(0deg);
+        opacity: 0;
+      }
+      12% {
+        opacity: 1;
+      }
+      100% {
+        transform: translate3d(var(--drift, 0px), 120vh, 0) rotate(600deg);
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .screen-result-card {
+        grid-template-columns: 1fr;
+      }
+
+      .screen-result-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .screen-result-total {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body class="screen-view">
+  <!-- Header -->
+  <header class="screen-header">
+    <h1 class="screen-title">Evil Jeopardy 1.2</h1>
+    <div class="phase-indicator" id="phase-indicator">
+      <span id="phase-text">LOBBY</span>
+    </div>
+  </header>
+
+  <!-- Connection Status -->
+  <div id="connection-status" class="status status-info" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <span style="font-size: 0.75rem;">Connecting...</span>
+  </div>
+
+  <div id="connection-overlay" class="connection-overlay hidden" aria-live="assertive">
+    <div class="connection-message">
+      <div class="spinner"></div>
+      <p>Connection lost. Reconnecting...</p>
+    </div>
+  </div>
+
+  <div id="loading-overlay" class="loading-overlay hidden" aria-live="polite">
+    <div class="connection-message">
+      <div class="spinner"></div>
+      <p>Loading latest show state...</p>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="screen-content">
+    
+    <!-- LOBBY PHASE -->
+    <section id="lobby-section" class="phase-section active">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; margin-bottom: 2rem; color: var(--color-lobby);">
+          Waiting for Teams...
+        </h2>
+        
+        <div id="teams-display">
+          <ul id="teams-list" class="team-list" style="max-width: 800px; margin: 0 auto;">
+            <li class="text-muted text-center" style="font-size: 1.5rem;">
+              No teams connected yet
+            </li>
+          </ul>
+        </div>
+
+        <p class="text-muted mt-3" style="font-size: 1.25rem;">
+          Host will start the game when ready
+        </p>
+      </div>
+    </section>
+
+    <!-- TRIVIA PHASE -->
+    <section id="trivia-section" class="phase-section">
+      <div class="screen-trivia-layout">
+        <div>
+          <div class="card screen-question-card">
+            <div class="screen-trivia-heading">
+              <div>
+                <p class="screen-kicker">Projection Display</p>
+                <h2 style="font-size: 2.4rem; margin-bottom: 0; color: var(--color-trivia);">Current Question</h2>
+              </div>
+              <div id="screen-trivia-mode-badge" class="screen-mode-badge">Slide Round</div>
+            </div>
+
+            <div id="screen-trivia-category" class="screen-category-badge hidden"></div>
+            <div id="screen-question-display" class="question-display screen-question-display">
+              <p class="text-muted text-center">Waiting for host to reveal a question...</p>
+            </div>
+            <div id="screen-media-area" class="media-area hidden"></div>
+            <div id="screen-trivia-status" class="screen-status-banner">
+              Waiting for host to reveal a question.
+            </div>
+          </div>
+
+          <div id="screen-jeopardy-panel" class="card screen-jeopardy-panel hidden">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Jeopardy Board</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-jeopardy-board" class="jeopardy-board screen-jeopardy-board">
+                <p class="text-muted text-center">Board will appear when Jeopardy mode starts.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Live Scoreboard</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-trivia-scoreboard" class="scoreboard screen-trivia-scoreboard">
+                <div class="text-muted text-center">Waiting for teams...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 style="font-size: 1.5rem; margin-bottom: 0;">Round Updates</h3>
+            </div>
+            <div class="card-body">
+              <ul class="screen-status-list">
+                <li class="screen-status-item">
+                  <span class="screen-status-label">Buzz Status</span>
+                  <div id="screen-buzz-status" class="screen-status-value">No buzz received yet.</div>
+                </li>
+                <li class="screen-status-item">
+                  <span class="screen-status-label">Answer Status</span>
+                  <div id="screen-answer-status" class="screen-status-value">No answer scored yet.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- SHOP PHASE -->
+    <section id="shop-section" class="phase-section">
+      <div class="screen-shop-layout">
+        <div>
+          <div class="card screen-shop-hero">
+            <div class="screen-trivia-heading">
+              <div>
+                <p class="screen-kicker">Projection Display</p>
+                <h2 style="font-size: 2.4rem; margin-bottom: 0; color: var(--color-shop);">Shop Catalog</h2>
+              </div>
+              <div id="screen-shop-live-banner" class="screen-shop-live-banner hidden"></div>
+            </div>
+            <p class="text-muted" style="font-size: 1.15rem;">
+              Teams are spending their trivia winnings on cakes, ingredients, tools, and boosts.
+            </p>
+          </div>
+
+          <div id="screen-shop-catalog" class="screen-shop-catalog">
+            <div class="card">
+              <div class="card-body">
+                <p class="text-muted text-center">Waiting for host to open the shop...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Team Balances</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-shop-teams" class="scoreboard screen-shop-scoreboard">
+                <div class="text-muted text-center">Waiting for teams...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Live Purchases</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-shop-activity" class="screen-shop-activity">
+                <div class="text-muted text-center">Purchases will animate here in real time.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- BAKING PHASE -->
+    <section id="baking-section" class="phase-section">
+      <div class="screen-baking-layout">
+        <div class="card screen-baking-hero">
+          <div class="card-body">
+            <p class="screen-kicker">Projection Display</p>
+            <div id="screen-baking-timer" class="screen-baking-timer">05:00</div>
+            <div id="screen-baking-phase" class="screen-baking-phase">Waiting to start</div>
+            <div id="screen-baking-progress" class="screen-baking-progress">Phase 0 of 6</div>
+          </div>
+        </div>
+
+        <aside style="display: grid; gap: var(--spacing-lg);">
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Virtual Scoreboard</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-baking-scoreboard" class="scoreboard screen-baking-scoreboard">
+                <div class="text-muted text-center">Virtual baking scores will appear here.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 style="font-size: 2rem; margin-bottom: 0;">Chaos Feed</h2>
+            </div>
+            <div class="card-body">
+              <div id="screen-baking-chaos" class="screen-baking-chaos-feed">
+                <div class="text-muted text-center">Chaos alerts will slam onto the screen here.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- JUDGING PHASE (placeholder) -->
+    <section id="judging-section" class="phase-section">
+      <div class="text-center">
+        <h2 style="font-size: 2.5rem; color: var(--color-judging);">
+          Judging Phase
+        </h2>
+        <p class="text-muted" style="font-size: 1.25rem;">
+          Judging display will be added in later tasks...
+        </p>
+      </div>
+    </section>
+
+    <section id="results-section" class="phase-section">
+      <div id="results-container">
+        <div class="screen-results-shell screen-results-shell-empty">
+          <p class="screen-results-kicker">Final Ceremony</p>
+          <h2 class="screen-results-headline">Awaiting the host's dramatic reveal...</h2>
+          <p class="screen-results-subtitle">The podium is set. The frosting panic is eternal.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="screen-cake-reveal" class="screen-cake-reveal hidden" aria-live="polite">
+    <div class="screen-cake-reveal-title">Your cake is ready...</div>
+    <div class="screen-cake-stage">
+      <div class="screen-cake-curtain left"></div>
+      <div class="screen-cake-curtain right"></div>
+      <div class="screen-cake-card">
+        <img id="screen-cake-reveal-image" alt="Revealed cake" src="">
+      </div>
+    </div>
+    <div class="screen-cake-details">
+      <div id="screen-cake-reveal-scores" class="screen-cake-score-grid"></div>
+      <div id="screen-cake-reveal-chaos" class="screen-cake-chaos-list"></div>
+    </div>
+  </div>
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/screen.js"></script>
+</body>
+</html>

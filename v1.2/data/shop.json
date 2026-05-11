@@ -1,0 +1,55 @@
+{
+  "categories": [
+    {
+      "key": "cakes",
+      "name": "Cake Selection",
+      "description": "Choose your cake — harder cakes are cheaper!",
+      "items": [
+        { "key": "cake-banana", "name": "Banana Cake", "price": 10000, "difficulty": 1, "description": "Simple and sweet", "referenceImage": "assets/cake-fallbacks/banana-ref.png" },
+        { "key": "cake-chocolate-layer", "name": "3-Layer Chocolate Cake", "price": 5000, "difficulty": 3, "description": "Rich and layered" },
+        { "key": "cake-wedding", "name": "Wedding Cake", "price": 2000, "difficulty": 5, "description": "Tiered elegance" },
+        { "key": "cake-statue-liberty", "name": "Statue of Liberty Cake", "price": 0, "difficulty": 10, "description": "Hyperrealistic sculpture cake. Good luck." }
+      ]
+    },
+    {
+      "key": "ingredients",
+      "name": "Ingredients",
+      "items": [
+        { "key": "flour-basic", "name": "Basic Flour", "price": 200, "quality": 1 },
+        { "key": "flour-premium", "name": "Premium Flour", "price": 800, "quality": 3 },
+        { "key": "eggs-basic", "name": "Eggs (Basic)", "price": 150, "quality": 1 },
+        { "key": "eggs-premium", "name": "Farm Fresh Eggs", "price": 600, "quality": 3 },
+        { "key": "butter-basic", "name": "Margarine", "price": 100, "quality": 1 },
+        { "key": "butter-premium", "name": "European Butter", "price": 500, "quality": 3 },
+        { "key": "sugar", "name": "Sugar", "price": 100, "quality": 2 },
+        { "key": "chocolate", "name": "Belgian Chocolate", "price": 700, "quality": 3 },
+        { "key": "vanilla", "name": "Vanilla Extract", "price": 300, "quality": 2 },
+        { "key": "fondant", "name": "Fondant Roll", "price": 1500, "quality": 3 },
+        { "key": "food-coloring", "name": "Food Coloring Set", "price": 400, "quality": 2 },
+        { "key": "fruits", "name": "Fresh Fruit Assortment", "price": 600, "quality": 2 }
+      ]
+    },
+    {
+      "key": "tools",
+      "name": "Tools",
+      "items": [
+        { "key": "mixer-manual", "name": "Manual Whisk", "price": 200, "bonus": 1.0 },
+        { "key": "mixer-electric", "name": "Electric Mixer", "price": 2000, "bonus": 1.5 },
+        { "key": "pans-basic", "name": "Basic Cake Pan", "price": 300, "bonus": 1.0 },
+        { "key": "pans-set", "name": "Professional Pan Set", "price": 1200, "bonus": 1.3 },
+        { "key": "piping-tips", "name": "Piping Tips Set", "price": 800, "bonus": 1.2 },
+        { "key": "thermometer", "name": "Oven Thermometer", "price": 500, "bonus": 1.1 }
+      ]
+    },
+    {
+      "key": "boosts",
+      "name": "Boosts",
+      "items": [
+        { "key": "extra-time", "name": "Extra Time (+5 min)", "price": 3000, "effect": "extra-time", "value": 300 },
+        { "key": "recipe-hint", "name": "Recipe Hint Card", "price": 1500, "effect": "hint", "value": 1 },
+        { "key": "reroll", "name": "Re-roll Bad Luck", "price": 2500, "effect": "reroll", "value": 1 }
+      ]
+    }
+  ],
+  "defaultKit": ["flour-basic", "eggs-basic", "butter-basic", "sugar", "mixer-manual", "pans-basic"]
+}

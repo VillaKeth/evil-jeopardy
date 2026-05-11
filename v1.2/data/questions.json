@@ -1,0 +1,181 @@
+{
+  "slides": [
+    {
+      "id": "s1",
+      "text": "What year did the first iPhone release?",
+      "answer": "2007",
+      "value": 500,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s2",
+      "text": "Name this adorable amphibian",
+      "answer": "Axolotl",
+      "value": 300,
+      "media": { "type": "image", "src": "assets/media/axolotl.gif" },
+      "awardType": "money"
+    },
+    {
+      "id": "s3",
+      "text": "What 90s sitcom featured Central Perk coffee shop?",
+      "answer": "Friends",
+      "value": 400,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s4",
+      "text": "Which planet is known as the 'Red Planet'?",
+      "answer": "Mars",
+      "value": 200,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s5",
+      "text": "Complete the famous phrase: 'To be or not to be, that is the...'",
+      "answer": "question",
+      "value": 350,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s-bonus1",
+      "text": "Bonus: What's the main ingredient in traditional meringue?",
+      "answer": "Egg whites",
+      "value": 0,
+      "media": null,
+      "awardType": "ingredient",
+      "awardItem": "eggs-premium"
+    },
+    {
+      "id": "s6",
+      "text": "What is the capital of Japan?",
+      "answer": "Tokyo",
+      "value": 250,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s7",
+      "text": "How many strings does a standard guitar have?",
+      "answer": "6",
+      "value": 150,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s-bonus2",
+      "text": "Bonus: What spice is derived from the Crocus sativus flower and is the world's most expensive spice?",
+      "answer": "Saffron",
+      "value": 0,
+      "media": null,
+      "awardType": "ingredient",
+      "awardItem": "saffron-threads"
+    },
+    {
+      "id": "s8",
+      "text": "What does 'HTTP' stand for?",
+      "answer": "HyperText Transfer Protocol",
+      "value": 450,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s9",
+      "text": "Which artist painted the Mona Lisa?",
+      "answer": "Leonardo da Vinci",
+      "value": 300,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s10",
+      "text": "What is the smallest bone in the human body?",
+      "answer": "Stapes (or stirrup bone in the ear)",
+      "value": 500,
+      "media": null,
+      "awardType": "money"
+    },
+    {
+      "id": "s-bonus3",
+      "text": "Bonus: What French term means 'already in place' and refers to ingredients prepped before cooking?",
+      "answer": "Mise en place",
+      "value": 0,
+      "media": null,
+      "awardType": "ingredient",
+      "awardItem": "chef-knife"
+    }
+  ],
+  "jeopardy": {
+    "categories": [
+      {
+        "name": "Science",
+        "questions": [
+          { "id": "j1", "text": "This planet has the most moons in our solar system", "answer": "Saturn", "value": 100, "media": null },
+          { "id": "j2", "text": "The chemical symbol for gold", "answer": "Au", "value": 200, "media": null },
+          { "id": "j3", "text": "This force keeps planets in orbit around the sun", "answer": "Gravity", "value": 300, "media": null },
+          { "id": "j4", "text": "The number of bones in the adult human body", "answer": "206", "value": 400, "media": null },
+          { "id": "j5", "text": "The speed of light in kilometers per second (approximate)", "answer": "300,000", "value": 500, "media": null },
+          { "id": "j6", "text": "This element has atomic number 1 on the periodic table", "answer": "Hydrogen", "value": 600, "media": null }
+        ]
+      },
+      {
+        "name": "Pop Culture",
+        "questions": [
+          { "id": "j7", "text": "The social media platform known for 280-character posts", "answer": "Twitter (or X)", "value": 100, "media": null },
+          { "id": "j8", "text": "The wizarding school Harry Potter attends", "answer": "Hogwarts", "value": 200, "media": null },
+          { "id": "j9", "text": "This artist had a 2023 tour that boosted local economies, called the 'Eras Tour'", "answer": "Taylor Swift", "value": 300, "media": null },
+          { "id": "j10", "text": "The name of Baby Yoda's species in The Mandalorian", "answer": "Grogu (or The Child)", "value": 400, "media": null },
+          { "id": "j11", "text": "This video game features building, mining, and blocky graphics", "answer": "Minecraft", "value": 500, "media": null },
+          { "id": "j12", "text": "The platform where content creators earn from subscribers and Super Chats", "answer": "YouTube", "value": 600, "media": null }
+        ]
+      },
+      {
+        "name": "History",
+        "questions": [
+          { "id": "j13", "text": "The year World War II ended", "answer": "1945", "value": 100, "media": null },
+          { "id": "j14", "text": "The first president of the United States", "answer": "George Washington", "value": 200, "media": null },
+          { "id": "j15", "text": "The ancient wonder that still stands today, located in Egypt", "answer": "The Great Pyramid of Giza", "value": 300, "media": null },
+          { "id": "j16", "text": "The ship that sank in 1912 after hitting an iceberg", "answer": "RMS Titanic", "value": 400, "media": null },
+          { "id": "j17", "text": "The year the Berlin Wall fell", "answer": "1989", "value": 500, "media": null },
+          { "id": "j18", "text": "The name of the project that developed the first atomic bomb", "answer": "The Manhattan Project", "value": 600, "media": null }
+        ]
+      },
+      {
+        "name": "Food & Cooking",
+        "questions": [
+          { "id": "j19", "text": "The primary ingredient in guacamole", "answer": "Avocado", "value": 100, "media": null },
+          { "id": "j20", "text": "The Italian dish that translates to 'pick me up'", "answer": "Tiramisu", "value": 200, "media": null },
+          { "id": "j21", "text": "The French cooking term for vegetables cut into thin strips", "answer": "Julienne", "value": 300, "media": null },
+          { "id": "j22", "text": "The only fruit with seeds on the outside", "answer": "Strawberry", "value": 400, "media": null },
+          { "id": "j23", "text": "This chef is known for yelling 'It's raw!' on Hell's Kitchen", "answer": "Gordon Ramsay", "value": 500, "media": null },
+          { "id": "j24", "text": "The temperature in Fahrenheit at which water boils at sea level", "answer": "212°F", "value": 600, "media": null }
+        ]
+      },
+      {
+        "name": "Geography",
+        "questions": [
+          { "id": "j25", "text": "The largest ocean on Earth", "answer": "Pacific Ocean", "value": 100, "media": null },
+          { "id": "j26", "text": "The country with the most natural lakes", "answer": "Canada", "value": 200, "media": null },
+          { "id": "j27", "text": "The only continent with no active volcanoes", "answer": "Australia", "value": 300, "media": null },
+          { "id": "j28", "text": "The world's longest river", "answer": "The Nile", "value": 400, "media": null },
+          { "id": "j29", "text": "The number of time zones in Russia", "answer": "11", "value": 500, "media": null },
+          { "id": "j30", "text": "The smallest country in the world by land area", "answer": "Vatican City", "value": 600, "media": null }
+        ]
+      },
+      {
+        "name": "Wild Cards",
+        "questions": [
+          { "id": "j31", "text": "The fear of long words is ironically called this", "answer": "Hippopotomonstrosesquippedaliophobia", "value": 100, "media": null },
+          { "id": "j32", "text": "The only mammal capable of true flight", "answer": "Bat", "value": 200, "media": null },
+          { "id": "j33", "text": "The board game with properties named after Atlantic City streets", "answer": "Monopoly", "value": 300, "media": null },
+          { "id": "j34", "text": "The collective noun for a group of crows", "answer": "A murder", "value": 400, "media": null },
+          { "id": "j35", "text": "The number of dots on a standard six-sided die", "answer": "21", "value": 500, "media": null },
+          { "id": "j36", "text": "The world record for the longest hiccuping spurt in years", "answer": "68 years", "value": 600, "media": null }
+        ]
+      }
+    ]
+  }
+}
