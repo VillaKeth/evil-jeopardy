@@ -857,32 +857,38 @@
   <!-- Socket.io client -->
   <script src="/socket.io/socket.io.js"></script>
   
-  <!-- Phaser 3 -->
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-  
-  <!-- Phaser Game Scripts -->
-  <script src="/js/phaser-game/config.js"></script>
-  <script src="/js/phaser-game/HUDScene.js"></script>
-  <script src="/js/phaser-game/PhaseSelectScene.js"></script>
+  <!-- Babylon.js 3D Engine -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
 
-  <!-- Normal minigames -->
-  <script src="/js/phaser-game/PrepScene.js"></script>
-  <script src="/js/phaser-game/MixScene.js"></script>
-  <script src="/js/phaser-game/BakeScene.js"></script>
-  <script src="/js/phaser-game/CoolScene.js"></script>
-  <script src="/js/phaser-game/DecorateScene.js"></script>
-  <script src="/js/phaser-game/PresentScene.js"></script>
-  <script src="/js/phaser-game/ResultScene.js"></script>
+  <!-- Babylon Game Engine (core) -->
+  <script src="/js/babylon-game/shared/lighting.js"></script>
+  <script src="/js/babylon-game/shared/materials.js"></script>
+  <script src="/js/babylon-game/shared/particles.js"></script>
+  <script src="/js/babylon-game/shared/physics-helpers.js"></script>
+  <script src="/js/babylon-game/shared/camera-rigs.js"></script>
+  <script src="/js/babylon-game/socket-bridge.js"></script>
+  <script src="/js/babylon-game/hud.js"></script>
+  <script src="/js/babylon-game/scene-manager.js"></script>
+  <script src="/js/babylon-game/engine.js"></script>
 
-  <!-- Absurd minigames -->
-  <script src="/js/phaser-game/absurd/CowCombatScene.js"></script>
-  <script src="/js/phaser-game/absurd/RacingOvenScene.js"></script>
-  <script src="/js/phaser-game/absurd/JewelSortScene.js"></script>
-  <script src="/js/phaser-game/absurd/GravityFlipScene.js"></script>
-  <script src="/js/phaser-game/absurd/ObstacleCourseScene.js"></script>
+  <!-- Babylon Scenes (normal) -->
+  <script src="/js/babylon-game/scenes/PrepScene3D.js"></script>
+  <script src="/js/babylon-game/scenes/MixScene3D.js"></script>
+  <script src="/js/babylon-game/scenes/BakeScene3D.js"></script>
+  <script src="/js/babylon-game/scenes/CoolScene3D.js"></script>
+  <script src="/js/babylon-game/scenes/DecorateScene3D.js"></script>
+  <script src="/js/babylon-game/scenes/PresentScene3D.js"></script>
+  <script src="/js/babylon-game/scenes/ResultScene3D.js"></script>
 
-  <!-- Overlay -->
-  <script src="/js/phaser-game/EvilEventOverlay.js"></script>
+  <!-- Babylon Scenes (absurd/chaos) -->
+  <script src="/js/babylon-game/scenes-absurd/CowCombat3D.js"></script>
+  <script src="/js/babylon-game/scenes-absurd/RacingOven3D.js"></script>
+  <script src="/js/babylon-game/scenes-absurd/JewelSort3D.js"></script>
+  <script src="/js/babylon-game/scenes-absurd/GravityFlip3D.js"></script>
+  <script src="/js/babylon-game/scenes-absurd/ObstacleCourse3D.js"></script>
   
   <!-- Player Client -->
   <script src="/js/player.js"></script>
