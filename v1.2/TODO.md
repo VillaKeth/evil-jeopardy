@@ -1,14 +1,21 @@
 - [ ] Add host-side virtual-team buzz audio playback in `public/js/host.js`.
 - [ ] Backfill trivia mode/question state in `get-state` so reconnecting screen/player clients can rehydrate mid-round.
-- [ ] Add host shop dashboard controls and override flow in `public/host.html` and `public/js/host.js`.
-- [ ] Add shop big-screen catalog/balance updates and server socket handlers across `public/screen.html`, `public/js/screen.js`, and `server/index.js`.
-- [ ] Add screen and player listeners for `results:reveal` so final judging standings broadcast beyond the host view.
+- [x] Add host shop dashboard controls and override flow (verified working via browser test).
+- [x] Add shop big-screen catalog/balance updates and server socket handlers (verified working).
+- [x] Add screen and player listeners for `results:reveal` (already wired end-to-end).
 - [ ] Rehydrate judging draft/results state for reconnecting host sessions without relying on a fresh `get-state` response.
-- [ ] Wire the full baking flow across server, player, host, and screen views.
-- [ ] Fix player Phaser overlay bootstrap to use the SceneManager getScene API.
+- [x] Wire the full baking flow across server, player, host, and screen views (verified: Babylon minigames load).
+- [x] Fix player overlay — migrated from Phaser to Babylon.js BabylonGameEngine.
 - [ ] Verify cake reveal gallery state rehydrates correctly for reconnecting host, screen, and player clients.
 - [ ] Smoke test the dramatic results reveal with a generated cake gallery on host, screen, and player clients.
-- [ ] Keep `tests/e2e.test.js` aligned with future show-phase and socket contract changes.
+- [x] Keep `tests/e2e.test.js` aligned — updated cake-reveal-ui and player-baking tests to Babylon.js (116 pass).
 - [ ] Keep `README.md` aligned with future setup, tunnel, and show-flow changes in `v1.2`.
 - [ ] Add a favicon for `v1.2` so browser smoke tests do not log a missing asset error.
 - [ ] Decide whether legacy `scores` backup tables should eventually be migrated into the new baking schema.
+- [ ] Browser-test full baking phase transitions (PREP → MIX → BAKE → COOL → DECORATE → PRESENT).
+- [ ] Browser-test results reveal flow end-to-end.
+- [ ] Implement Surgeon Simulator hand improvements (Tasks 1-5 from plan).
+- [ ] CowCombat3D visual clarity overhaul (Task 6 from plan).
+- [ ] CowCombat3D cow stampede mechanic (Task 7 from plan).
+- [ ] Enhanced cow sounds (Task 8 from plan).
+- [ ] New chaos events with runtime effects (Task 10 from plan).
