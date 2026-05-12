@@ -350,6 +350,199 @@ class RoomBuilder {
       eyes
     };
   }
+
+  // ─── ROOM 6: The Sink ───
+  _room6_theSink() {
+    const shell = this._createRoomShell('sink', 5, 3, 8,
+      new BABYLON.Color3(0.3, 0.4, 0.45));
+    const { root } = shell;
+
+    const water = BABYLON.MeshBuilder.CreateGround('water', { width: 5, height: 8 }, this.scene);
+    const waterMat = new BABYLON.StandardMaterial('waterMat', this.scene);
+    waterMat.diffuseColor = new BABYLON.Color3(0.2, 0.35, 0.5);
+    waterMat.alpha = 0.4;
+    water.material = waterMat;
+    water.position.y = 0.05;
+    water.parent = root;
+
+    for (let i = 0; i < 3; i++) {
+      const drain = BABYLON.MeshBuilder.CreateCylinder(`drain_${i}`, {
+        diameter: 0.4, height: 0.05, tessellation: 16
+      }, this.scene);
+      drain.position = new BABYLON.Vector3((i - 1) * 1.5, 0.02, -1 + i * 2.5);
+      drain.material = this.materials.metal();
+      drain.parent = root;
+    }
+
+    const eyes = this._addJudgeEyes(root, 3, { x: 4, z: 7 });
+    return {
+      root, roomLength: 8,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [{ type: 'medium', trigger: 'position', z: 4, sound: 'ambientDrip' }],
+      hasSideRoom: true, eyes
+    };
+  }
+
+  // ─── ROOM 7: Dish Pit ───
+  _room7_dishPit() {
+    const shell = this._createRoomShell('dishes', 6, 3.5, 9,
+      new BABYLON.Color3(0.4, 0.4, 0.4));
+    const { root } = shell;
+
+    for (let t = 0; t < 4; t++) {
+      const towerX = -2 + t * 1.5;
+      const towerZ = -2 + t * 2;
+      for (let d = 0; d < 5 + Math.floor(Math.random() * 4); d++) {
+        const plate = BABYLON.MeshBuilder.CreateCylinder(`plate_${t}_${d}`, {
+          diameter: 0.5, height: 0.04, tessellation: 16
+        }, this.scene);
+        plate.position = new BABYLON.Vector3(towerX, 0.02 + d * 0.05, towerZ);
+        plate.material = this.materials.food(new BABYLON.Color3(0.9, 0.9, 0.85));
+        plate.parent = root;
+      }
+    }
+
+    const eyes = this._addJudgeEyes(root, 3, { x: 5, z: 8 });
+    return {
+      root, roomLength: 9,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [
+        { type: 'medium', trigger: 'position', z: 2, sound: 'metalCreak' },
+        { type: 'medium', trigger: 'position', z: 4.5, sound: 'knifeWhoosh' },
+        { type: 'medium', trigger: 'position', z: 7, sound: 'metalCreak' }
+      ],
+      hasSideRoom: false, eyes
+    };
+  }
+
+  // ─── ROOM 8: The Oven ───
+  _room8_theOven() {
+    const shell = this._createRoomShell('oven', 6, 4, 9,
+      new BABYLON.Color3(0.5, 0.3, 0.15));
+    const { root } = shell;
+
+    const oven = BABYLON.MeshBuilder.CreateBox('giantOven', {
+      width: 3, height: 2.5, depth: 2
+    }, this.scene);
+    oven.position = new BABYLON.Vector3(0, 1.25, 3);
+    oven.material = this.materials.metal();
+    oven.parent = root;
+
+    const door = BABYLON.MeshBuilder.CreateBox('ovenDoor', {
+      width: 1.5, height: 1.2, depth: 0.08
+    }, this.scene);
+    door.position = new BABYLON.Vector3(0, 1.0, 1.98);
+    const doorMat = new BABYLON.StandardMaterial('ovenDoorMat', this.scene);
+    doorMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+    doorMat.emissiveColor = new BABYLON.Color3(0.3, 0.1, 0);
+    door.material = doorMat;
+    door.parent = root;
+
+    for (let i = 0; i < 3; i++) {
+      const glow = BABYLON.MeshBuilder.CreateSphere(`fireGlow_${i}`, {
+        diameter: 0.3, segments: 8
+      }, this.scene);
+      glow.position = new BABYLON.Vector3(-0.5 + i * 0.5, 0.5, 3);
+      const glowMat = new BABYLON.StandardMaterial(`glowMat_${i}`, this.scene);
+      glowMat.emissiveColor = new BABYLON.Color3(1, 0.4, 0);
+      glowMat.alpha = 0.5;
+      glow.material = glowMat;
+      glow.parent = root;
+    }
+
+    const eyes = this._addJudgeEyes(root, 4, { x: 5, z: 8 });
+    return {
+      root, roomLength: 9,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [
+        { type: 'heavy', trigger: 'position', z: 3, sound: 'steamHiss' },
+        { type: 'heavy', trigger: 'position', z: 6, sound: 'scareString' }
+      ],
+      hasSideRoom: false, eyes
+    };
+  }
+
+  // ─── ROOM 9: Spice Gauntlet ───
+  _room9_spiceGauntlet() {
+    const shell = this._createRoomShell('spice', 4, 3, 10,
+      new BABYLON.Color3(0.5, 0.4, 0.25));
+    const { root } = shell;
+
+    for (let side = -1; side <= 1; side += 2) {
+      for (let z = -4; z <= 4; z += 2) {
+        const shelf = BABYLON.MeshBuilder.CreateBox(`spiceShelf_${side}_${z}`, {
+          width: 0.6, height: 2.5, depth: 0.4
+        }, this.scene);
+        shelf.position = new BABYLON.Vector3(side * 1.6, 1.25, z);
+        shelf.material = this.materials.wood();
+        shelf.parent = root;
+      }
+    }
+
+    const eyes = this._addJudgeEyes(root, 4, { x: 3, z: 9 });
+    return {
+      root, roomLength: 10,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [{ type: 'heavy', trigger: 'middle', delay: 1500, sound: 'metalCreak' }],
+      hasSideRoom: true, eyes
+    };
+  }
+
+  // ─── ROOM 10: The Walk-In ───
+  _room10_walkIn() {
+    const shell = this._createRoomShell('walkin', 4, 3, 7,
+      new BABYLON.Color3(0.15, 0.15, 0.18));
+    const { root } = shell;
+
+    const doorFrame = BABYLON.MeshBuilder.CreateBox('walkInFrame', {
+      width: 2.5, height: 3, depth: 0.3
+    }, this.scene);
+    doorFrame.position = new BABYLON.Vector3(0, 1.5, -3.3);
+    doorFrame.material = this.materials.metal();
+    doorFrame.parent = root;
+
+    const eyes = this._addJudgeEyes(root, 5, { x: 3.5, z: 6 });
+    return {
+      root, roomLength: 7,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [
+        { type: 'heavy', trigger: 'enter', delay: 1000, sound: 'doorSlam' },
+        { type: 'jumpscare', trigger: 'middle', delay: 3000, sound: 'jumpscareHit' }
+      ],
+      hasSideRoom: false, eyes
+    };
+  }
+
+  // ─── ROOM 11: The Dumbwaiter ───
+  _room11_dumbwaiter() {
+    const shell = this._createRoomShell('dumbwaiter', 3, 4, 6,
+      new BABYLON.Color3(0.25, 0.25, 0.28));
+    const { root } = shell;
+
+    for (let i = 0; i < 3; i++) {
+      const cable = BABYLON.MeshBuilder.CreateCylinder(`cable_${i}`, {
+        diameter: 0.03, height: 4, tessellation: 6
+      }, this.scene);
+      cable.position = new BABYLON.Vector3(-0.8 + i * 0.8, 2, 1);
+      cable.material = this.materials.metal();
+      cable.parent = root;
+    }
+
+    const box = BABYLON.MeshBuilder.CreateBox('dumbwaiterBox', {
+      width: 1.2, height: 1.2, depth: 1.2
+    }, this.scene);
+    box.position = new BABYLON.Vector3(0, 2.5, 1);
+    box.material = this.materials.metal();
+    box.parent = root;
+
+    const eyes = this._addJudgeEyes(root, 5, { x: 2.5, z: 5 });
+    return {
+      root, roomLength: 6,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [{ type: 'heavy', trigger: 'position', z: 2, sound: 'metalCreak' }],
+      hasSideRoom: false, eyes
+    };
+  }
 }
 
 window.RoomBuilder = RoomBuilder;
