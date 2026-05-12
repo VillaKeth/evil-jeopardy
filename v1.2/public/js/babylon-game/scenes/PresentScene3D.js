@@ -49,17 +49,23 @@ class PresentScene3D extends BaseMinigameScene {
       new BABYLON.Vector3(0, 1.7, 0), this.scene);
     this.camera.minZ = 0.1;
     this.camera.speed = 0;
-    // Remove ALL default inputs — we handle everything manually
+    // Remove ALL default inputs AND kill internal rotation updates
     this.camera.inputs.clear();
+    this.camera._checkInputs = () => {}; // Prevent Babylon from applying residual rotation
+    this.camera.cameraRotation = new BABYLON.Vector2(0, 0);
     this.scene.activeCamera = this.camera;
 
     // Raw mouse look via pointer lock — zero drift, instant response
     this._mouseSensitivity = 0.002;
+    this._yaw = 0;
+    this._pitch = 0;
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.canvas) return;
-      this.camera.rotation.y += e.movementX * this._mouseSensitivity;
-      this.camera.rotation.x += e.movementY * this._mouseSensitivity;
-      this.camera.rotation.x = BABYLON.Scalar.Clamp(this.camera.rotation.x, -0.785, 0.785);
+      this._yaw += e.movementX * this._mouseSensitivity;
+      this._pitch += e.movementY * this._mouseSensitivity;
+      this._pitch = BABYLON.Scalar.Clamp(this._pitch, -0.785, 0.785);
+      this.camera.rotation.x = this._pitch;
+      this.camera.rotation.y = this._yaw;
     };
     document.addEventListener('mousemove', this._onMouseMove);
 
@@ -124,50 +130,76 @@ class PresentScene3D extends BaseMinigameScene {
   }
 
   _buildHeldCake() {
-    // 3-layer cake held in front of camera, visible when looking down
+    // Colorful 3-layer cake held prominently in front — yellow, white, pink
     const cakeRoot = new BABYLON.TransformNode('heldCake', this.scene);
 
     const layers = [
-      { r: 0.18, h: 0.08, y: 0, color: new BABYLON.Color3(0.85, 0.75, 0.55) },
-      { r: 0.15, h: 0.07, y: 0.08, color: new BABYLON.Color3(0.9, 0.8, 0.6) },
-      { r: 0.11, h: 0.06, y: 0.15, color: new BABYLON.Color3(0.95, 0.85, 0.65) }
+      { r: 0.22, h: 0.09, y: 0, color: new BABYLON.Color3(1.0, 0.85, 0.2) },   // Yellow base
+      { r: 0.18, h: 0.08, y: 0.09, color: new BABYLON.Color3(1.0, 1.0, 0.95) }, // White middle
+      { r: 0.13, h: 0.07, y: 0.17, color: new BABYLON.Color3(1.0, 0.55, 0.7) }  // Pink top
     ];
 
+    this._cakeLayers = [];
     layers.forEach((l, i) => {
       const layer = BABYLON.MeshBuilder.CreateCylinder(`cakeLayer${i}`, {
-        diameter: l.r * 2, height: l.h, tessellation: 16
+        diameter: l.r * 2, height: l.h, tessellation: 20
       }, this.scene);
       layer.position.y = l.y + l.h / 2;
       const mat = new BABYLON.StandardMaterial(`cakeMat${i}`, this.scene);
       mat.diffuseColor = l.color;
+      mat.emissiveColor = l.color.scale(0.15);
       mat.specularPower = 64;
       layer.material = mat;
       layer.parent = cakeRoot;
+      this._cakeLayers.push({ mesh: layer, mat, originalColor: l.color.clone() });
     });
 
-    // Frosting drip on top
+    // White frosting drip on top
     const frosting = BABYLON.MeshBuilder.CreateCylinder('frosting', {
-      diameter: 0.24, height: 0.015, tessellation: 16
+      diameter: 0.28, height: 0.02, tessellation: 20
     }, this.scene);
-    frosting.position.y = 0.215;
+    frosting.position.y = 0.245;
     const frostMat = new BABYLON.StandardMaterial('frostMat', this.scene);
-    frostMat.diffuseColor = new BABYLON.Color3(1, 0.95, 0.9);
-    frostMat.emissiveColor = new BABYLON.Color3(0.1, 0.08, 0.06);
+    frostMat.diffuseColor = new BABYLON.Color3(1, 0.97, 0.95);
+    frostMat.emissiveColor = new BABYLON.Color3(0.15, 0.12, 0.1);
     frosting.material = frostMat;
     frosting.parent = cakeRoot;
 
-    // Plate under the cake
+    // Plate
     const plate = BABYLON.MeshBuilder.CreateCylinder('plate', {
-      diameter: 0.45, height: 0.015, tessellation: 20
+      diameter: 0.5, height: 0.015, tessellation: 24
     }, this.scene);
     plate.position.y = -0.01;
     const plateMat = new BABYLON.StandardMaterial('plateMat', this.scene);
-    plateMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.92);
+    plateMat.diffuseColor = new BABYLON.Color3(0.92, 0.92, 0.95);
     plateMat.specularPower = 128;
     plate.material = plateMat;
     plate.parent = cakeRoot;
 
     this._heldCake = cakeRoot;
+    this._lastCakeIntegrity = 100;
+  }
+
+  _updateCakeDamageVisual() {
+    if (!this._cakeLayers || !this.cakeHealth) return;
+    const integrity = this.cakeHealth.getIntegrity();
+    if (integrity === this._lastCakeIntegrity) return;
+    this._lastCakeIntegrity = integrity;
+
+    // Darken and redden cake layers as integrity drops
+    const dmgFactor = 1 - (integrity / 100);
+    this._cakeLayers.forEach((layer, i) => {
+      const orig = layer.originalColor;
+      const r = BABYLON.Scalar.Lerp(orig.r, 0.3, dmgFactor * 0.7);
+      const g = BABYLON.Scalar.Lerp(orig.g, 0.15, dmgFactor * 0.8);
+      const b = BABYLON.Scalar.Lerp(orig.b, 0.1, dmgFactor * 0.8);
+      layer.mat.diffuseColor = new BABYLON.Color3(r, g, b);
+      layer.mat.emissiveColor = new BABYLON.Color3(r * 0.15, g * 0.1, b * 0.1);
+
+      // Tilt layers slightly as damage increases
+      layer.mesh.rotation.z = dmgFactor * 0.15 * (i === 1 ? -1 : 1);
+      layer.mesh.rotation.x = dmgFactor * 0.1 * (i === 2 ? 1 : -0.5);
+    });
   }
 
   _bindMovement() {
@@ -487,12 +519,17 @@ class PresentScene3D extends BaseMinigameScene {
       this.playerLight.position.copyFrom(this.camera.position);
     }
 
-    // Held cake follows camera — positioned below and in front
+    // Held cake follows camera — prominent, right in front
     if (this._heldCake) {
       const forward = this.camera.getDirection(BABYLON.Vector3.Forward());
-      const down = new BABYLON.Vector3(0, -0.55, 0);
-      this._heldCake.position = this.camera.position.add(forward.scale(0.5)).add(down);
+      const right = this.camera.getDirection(BABYLON.Vector3.Right());
+      const pos = this.camera.position
+        .add(forward.scale(0.4))
+        .add(right.scale(0.1))
+        .add(new BABYLON.Vector3(0, -0.4, 0));
+      this._heldCake.position = pos;
       this._heldCake.rotation.y = this.camera.rotation.y;
+      this._updateCakeDamageVisual();
     }
 
     // Check position-based scares
