@@ -184,22 +184,90 @@ class PresentScene3D extends BaseMinigameScene {
     if (!this._cakeLayers || !this.cakeHealth) return;
     const integrity = this.cakeHealth.getIntegrity();
     if (integrity === this._lastCakeIntegrity) return;
-    this._lastCakeIntegrity = integrity;
 
-    // Darken and redden cake layers as integrity drops
+    const justTookDamage = integrity < this._lastCakeIntegrity;
+    this._lastCakeIntegrity = integrity;
     const dmgFactor = 1 - (integrity / 100);
+
     this._cakeLayers.forEach((layer, i) => {
       const orig = layer.originalColor;
-      const r = BABYLON.Scalar.Lerp(orig.r, 0.3, dmgFactor * 0.7);
-      const g = BABYLON.Scalar.Lerp(orig.g, 0.15, dmgFactor * 0.8);
-      const b = BABYLON.Scalar.Lerp(orig.b, 0.1, dmgFactor * 0.8);
-      layer.mat.diffuseColor = new BABYLON.Color3(r, g, b);
-      layer.mat.emissiveColor = new BABYLON.Color3(r * 0.15, g * 0.1, b * 0.1);
 
-      // Tilt layers slightly as damage increases
-      layer.mesh.rotation.z = dmgFactor * 0.15 * (i === 1 ? -1 : 1);
-      layer.mesh.rotation.x = dmgFactor * 0.1 * (i === 2 ? 1 : -0.5);
+      // Color: darken + brown/burnt tint
+      const r = BABYLON.Scalar.Lerp(orig.r, 0.25, dmgFactor * 0.8);
+      const g = BABYLON.Scalar.Lerp(orig.g, 0.12, dmgFactor * 0.85);
+      const b = BABYLON.Scalar.Lerp(orig.b, 0.08, dmgFactor * 0.9);
+      layer.mat.diffuseColor = new BABYLON.Color3(r, g, b);
+      layer.mat.emissiveColor = new BABYLON.Color3(r * 0.1, g * 0.05, b * 0.05);
+
+      // Layers shrink unevenly — like chunks bitten off
+      const shrink = 1 - dmgFactor * 0.4 * (i === 2 ? 1.5 : i === 1 ? 1.2 : 1);
+      layer.mesh.scaling.x = shrink + Math.sin(dmgFactor * 10 + i) * dmgFactor * 0.15;
+      layer.mesh.scaling.z = shrink + Math.cos(dmgFactor * 8 + i * 2) * dmgFactor * 0.15;
+      // Height collapses
+      layer.mesh.scaling.y = Math.max(0.3, 1 - dmgFactor * 0.5);
+
+      // Tilt and offset — cake falling apart
+      layer.mesh.rotation.z = dmgFactor * 0.3 * (i === 1 ? -1 : 1);
+      layer.mesh.rotation.x = dmgFactor * 0.2 * (i === 2 ? 1.5 : -0.5);
+      // Layers slide off-center
+      layer.mesh.position.x = dmgFactor * 0.03 * (i - 1);
+      layer.mesh.position.z = dmgFactor * 0.02 * (i === 2 ? 1 : -1);
     });
+
+    // Top layer disappears below 40%
+    if (integrity < 40 && this._cakeLayers[2]) {
+      this._cakeLayers[2].mesh.isVisible = false;
+    }
+    // Middle layer disappears below 20%
+    if (integrity < 20 && this._cakeLayers[1]) {
+      this._cakeLayers[1].mesh.isVisible = false;
+    }
+
+    // Spawn crumb particles on damage
+    if (justTookDamage && this._heldCake) {
+      this._spawnCrumbs();
+    }
+  }
+
+  _spawnCrumbs() {
+    if (!this._heldCake) return;
+    for (let i = 0; i < 5; i++) {
+      const crumb = BABYLON.MeshBuilder.CreateBox(`crumb${Date.now()}_${i}`, {
+        width: 0.015 + Math.random() * 0.02,
+        height: 0.01 + Math.random() * 0.015,
+        depth: 0.015 + Math.random() * 0.02
+      }, this.scene);
+      crumb.position = this._heldCake.position.clone();
+      crumb.position.x += (Math.random() - 0.5) * 0.3;
+      crumb.position.z += (Math.random() - 0.5) * 0.3;
+      const crumbMat = new BABYLON.StandardMaterial(`crumbMat${i}`, this.scene);
+      crumbMat.diffuseColor = new BABYLON.Color3(
+        0.8 + Math.random() * 0.2,
+        0.6 + Math.random() * 0.3,
+        0.2 + Math.random() * 0.3
+      );
+      crumb.material = crumbMat;
+
+      // Animate falling
+      const vy = -1 - Math.random() * 2;
+      const vx = (Math.random() - 0.5) * 0.5;
+      const vz = (Math.random() - 0.5) * 0.5;
+      let t = 0;
+      const startY = crumb.position.y;
+      const obs = this.scene.onBeforeRenderObservable.add(() => {
+        t += 0.016;
+        crumb.position.y = startY + vy * t;
+        crumb.position.x += vx * 0.016;
+        crumb.position.z += vz * 0.016;
+        crumb.rotation.x += 3 * 0.016;
+        crumb.rotation.z += 2 * 0.016;
+        if (t > 1) {
+          this.scene.onBeforeRenderObservable.remove(obs);
+          crumb.dispose();
+          crumbMat.dispose();
+        }
+      });
+    }
   }
 
   _bindMovement() {
