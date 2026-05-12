@@ -307,6 +307,7 @@ class RacingOven3D extends BaseMinigameScene {
     this.addScore(-10);
     this.statusText.text = message;
     this.screenFlash.background = 'rgba(255,80,80,0.35)';
+    if (this.sounds) this.sounds.obstacleHit();
   }
 
   update(dt) {
@@ -366,6 +367,7 @@ class RacingOven3D extends BaseMinigameScene {
           this.orbsCollected += 1;
           this.addScore(5);
           this.statusText.text = 'Temperature orb collected.';
+          if (this.sounds) this.sounds.jewelCollect();
           const sparkles = ParticlePresets.sparkles(this.scene, obstacle.root.position.clone(), { rate: 25 });
           sparkles.start();
           setTimeout(() => {

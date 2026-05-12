@@ -247,7 +247,10 @@ class BakeScene3D extends BaseMinigameScene {
     button.paddingRight = '8px';
     button.background = direction > 0 ? '#d84f2f' : '#2f72d8';
 
-    const press = () => { this.controlDirection = direction; };
+    const press = () => {
+      this.controlDirection = direction;
+      if (this.sounds) this.sounds.tempAdjust();
+    };
     const release = () => {
       if (this.controlDirection === direction) {
         this.controlDirection = 0;
@@ -324,6 +327,12 @@ class BakeScene3D extends BaseMinigameScene {
       this.timeInZone += dt;
       this.cakeRise = BABYLON.Scalar.Lerp(this.cakeRise, 1.0, dt * 1.8);
       this.burnMeter = Math.max(0, this.burnMeter - dt * 0.5);
+      // Periodic sizzle when baking in zone
+      if (!this._sizzleCooldown) {
+        this._sizzleCooldown = true;
+        if (this.sounds) this.sounds.sizzle();
+        setTimeout(() => { this._sizzleCooldown = false; }, 2000);
+      }
     } else if (tooHot) {
       this.cakeRise = BABYLON.Scalar.Lerp(this.cakeRise, 1.5, dt * 1.4);
       this.burnMeter = Math.min(1, this.burnMeter + dt * 0.45);

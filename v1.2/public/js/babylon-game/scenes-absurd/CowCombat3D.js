@@ -299,7 +299,9 @@ class CowCombat3D extends BaseMinigameScene {
         this.bucketFill = Math.min(1, this.bucketFill + 0.06);
         this._spawnMilkBurst(this.udders[udderIndex].mesh.getAbsolutePosition(), this.bucketFillMesh.position.clone());
         this.statusText.text = 'Perfect squeeze. Milk it again!';
+        if (this.sounds) this.sounds.beatHit();
       } else {
+        if (this.sounds) this.sounds.beatMiss();
         this._applyPenalty('Wrong udder. The cow glares at you.');
       }
     };
@@ -331,6 +333,7 @@ class CowCombat3D extends BaseMinigameScene {
     this.stunCount += 1;
     this.statusText.text = message;
     this.addScore(-2);
+    if (this.sounds) this.sounds.stunned();
   }
 
   _startAttack(type) {
@@ -340,6 +343,8 @@ class CowCombat3D extends BaseMinigameScene {
     this.attackDuration = type === 'kick' ? 1.2 : type === 'charge' ? 1.4 : 1.1;
     this.uddersInvalid = type === 'spin';
     this.attackLeg = type === 'kick' ? this.legs[2 + Math.floor(Math.random() * 2)] : null;
+
+    if (this.sounds) this.sounds.cowAttack();
 
     if (type === 'kick') {
       this.statusText.text = 'KICK! Keep your hands away.';
@@ -379,6 +384,7 @@ class CowCombat3D extends BaseMinigameScene {
     this.dodgeCount += 1;
     this.statusText.text = 'You dodged the horned projectile oven-cow.';
     this.dodgeButton.isVisible = false;
+    if (this.sounds) this.sounds.dodge();
   }
 
   _spawnMilkBurst(start, end) {

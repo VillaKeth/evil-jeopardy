@@ -211,6 +211,7 @@ class GravityFlip3D extends BaseMinigameScene {
     this.warningIssued = false;
     this.warningText.text = '';
     this.statusText.text = 'GRAVITY FLIP! Hold the cake together.';
+    if (this.sounds) this.sounds.gravityFlip();
 
     if (choice.y > 0.5) {
       this.targetRoomRotation = new BABYLON.Vector3(Math.PI, 0, 0);
@@ -290,6 +291,7 @@ class GravityFlip3D extends BaseMinigameScene {
         this.addScore(-10);
         this.statusText.text = `${item.kind} smashed the cake.`;
         this.cakeVelocity.addInPlace(item.velocity.scale(0.9));
+        if (this.sounds) this.sounds.obstacleHit();
       }
     });
 

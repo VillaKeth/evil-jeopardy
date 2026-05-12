@@ -336,6 +336,7 @@ class CoolScene3D extends BaseMinigameScene {
     this.cracks.push(crack);
     this.crackCount += 1;
     this.hud.showMessage('Too much fan! Crack formed.', 900);
+    if (this.sounds) this.sounds.miss();
   }
 
   _spawnDroplets() {

@@ -17,6 +17,9 @@ class BaseMinigameScene {
     this.materials = null;
     this._timerInterval = null;
     this._disposed = false;
+    this.sounds = window.gameSounds || null;
+    this._timerWarnPlayed = false;
+    this._timerCritPlayed = false;
   }
 
   async init() {
@@ -38,6 +41,11 @@ class BaseMinigameScene {
       this.hud.setChaos(this.options.chaosLevel, true);
     }
 
+    if (this.sounds) {
+      this.sounds.transition();
+      this.sounds.startKitchenAmbient();
+    }
+
     await this.create();
     this._startTimer();
     this._registerUpdateLoop();
@@ -50,8 +58,7 @@ class BaseMinigameScene {
   update(deltaTime) {}
   onTimeUp() { this.completePhase(); }
   onChaosEvent(event) {
-    // Override in subclasses to handle chaos events (e.g., power flicker, gravity shift)
-    // Default: show HUD message
+    if (this.sounds) this.sounds.chaosEvent();
     this.hud.showMessage(`⚡ ${event.name || 'Chaos!'}`, 1500);
   }
 
@@ -73,8 +80,22 @@ class BaseMinigameScene {
       this.timeRemaining = Math.max(0, this.timeLimit - elapsed);
       this.hud.updateTimer(this.timeRemaining);
 
+      // Timer warning sounds
+      if (this.sounds && !this._timerWarnPlayed && this.timeRemaining <= 10 && this.timeRemaining > 5) {
+        this._timerWarnPlayed = true;
+        this.sounds.timerWarning();
+      }
+      if (this.sounds && this.timeRemaining <= 5 && this.timeRemaining > 0) {
+        if (!this._timerCritPlayed || Math.floor(this.timeRemaining) !== this._lastCritSecond) {
+          this._timerCritPlayed = true;
+          this._lastCritSecond = Math.floor(this.timeRemaining);
+          this.sounds.timerCritical();
+        }
+      }
+
       if (this.timeRemaining <= 0) {
         clearInterval(this._timerInterval);
+        if (this.sounds) this.sounds.timeUp();
         this.onTimeUp();
       }
     }, 100);
@@ -91,6 +112,7 @@ class BaseMinigameScene {
   addScore(points) {
     this.score = Math.min(100, Math.max(0, this.score + points));
     this.hud.updateScore(this.score);
+    if (this.sounds && points > 0) this.sounds.scoreUp();
   }
 
   setScore(value) {
@@ -109,6 +131,7 @@ class BaseMinigameScene {
     if (this.isComplete) return;
     this.isComplete = true;
     clearInterval(this._timerInterval);
+    if (this.sounds) this.sounds.phaseComplete();
 
     this.socketBridge.emitPhaseComplete(
       this.getPhaseName().toLowerCase(),
@@ -121,6 +144,7 @@ class BaseMinigameScene {
     this._disposed = true;
     clearInterval(this._timerInterval);
     if (this._chaosUnsub) this._chaosUnsub();
+    if (this.sounds) this.sounds.stopAmbient();
     if (this.hud) this.hud.dispose();
     if (this.materials) this.materials.dispose();
     if (this.scene) this.scene.dispose();

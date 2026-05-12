@@ -328,6 +328,7 @@ class ObstacleCourse3D extends BaseMinigameScene {
     this.integrity = Math.max(0, this.integrity - amount);
     this.hazardsHit += 1;
     this.statusText.text = message;
+    if (this.sounds) this.sounds.obstacleHit();
 
     if (this.integrity <= 0) {
       this._breakCake();

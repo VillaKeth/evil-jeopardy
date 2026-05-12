@@ -181,6 +181,7 @@ class PrepScene3D extends BaseMinigameScene {
       if (this.isComplete) return;
       this.isPouring = true;
       this.pourParticles.emitRate = 40;
+      if (this.sounds) this.sounds.pour();
     };
 
     this.scene.onPointerUp = () => {
@@ -240,6 +241,13 @@ class PrepScene3D extends BaseMinigameScene {
 
     this.ingredientScores.push(ingredientScore);
     this.addScore(ingredientScore);
+
+    if (this.sounds) {
+      this.sounds.splat();
+      if (ingredientScore >= 15) this.sounds.perfect();
+      else if (ingredientScore >= 10) this.sounds.good();
+      else this.sounds.miss();
+    }
 
     this.hud.showMessage(
       ingredientScore >= 15 ? 'Perfect!' : ingredientScore >= 10 ? 'Good!' : 'Off target...',

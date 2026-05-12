@@ -125,6 +125,15 @@ class MixScene3D extends BaseMinigameScene {
       this.timeInZone += dt;
     }
 
+    // Play mixing sound periodically when player is moving
+    if (this.angularVelocity > 0.5 && !this._mixSoundCooldown) {
+      this._mixSoundCooldown = true;
+      if (this.sounds) {
+        this.hasBoost('electric-mixer') ? this.sounds.mixer() : this.sounds.whisk();
+      }
+      setTimeout(() => { this._mixSoundCooldown = false; }, 300);
+    }
+
     if (this.angularVelocity > round.targetSpeed + 1.0) {
       const splat = ParticlePresets.splatter(
         this.scene,

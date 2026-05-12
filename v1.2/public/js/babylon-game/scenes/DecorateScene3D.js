@@ -293,6 +293,7 @@ class DecorateScene3D extends BaseMinigameScene {
     this.itemsPlaced += 1;
     this.colorsUsed.add(this.selectedColorKey);
     this._updateScore();
+    if (this.sounds) this.sounds.frosting();
   }
 
   _placeTopping(pick, type) {
@@ -307,6 +308,7 @@ class DecorateScene3D extends BaseMinigameScene {
     this.itemsPlaced += 1;
     this.colorsUsed.add(this.selectedColorKey);
     this._updateScore();
+    if (this.sounds) this.sounds.placeItem();
   }
 
   _registerDecorationPoint(point, threshold) {

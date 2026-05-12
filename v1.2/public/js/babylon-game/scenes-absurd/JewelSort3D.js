@@ -250,6 +250,7 @@ class JewelSort3D extends BaseMinigameScene {
       this.correctSorts += 1;
       this.addScore(10);
       this.statusText.text = `Correct sort. ${vat.key} energy stabilizes.`;
+      if (this.sounds) this.sounds.jewelCollect();
       const sparkles = ParticlePresets.sparkles(this.scene, vat.outer.position.clone(), { rate: 30 });
       sparkles.start();
       setTimeout(() => {
@@ -261,6 +262,7 @@ class JewelSort3D extends BaseMinigameScene {
       this.wrongSorts += 1;
       this.addScore(-5);
       this.statusText.text = `Wrong vat. The cave rejects ${gem.key}.`;
+      if (this.sounds) this.sounds.jewelWrong();
     }
 
     vat.count += 1;
