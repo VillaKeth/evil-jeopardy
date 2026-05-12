@@ -1,458 +1,516 @@
-// Evil Jeopardy 1.2 — PresentScene3D (Cake Presentation Minigame)
+// Evil Jeopardy 1.2 — PresentScene3D (Horror Maze)
+// First-person horror maze: 14 rooms, QTE dodging, chase scene, demonic judges.
 
 class PresentScene3D extends BaseMinigameScene {
   constructor(engine, canvas, socketBridge, options) {
     super(engine, canvas, socketBridge, options);
-    this.timeLimit = 45;
+    this.timeLimit = 240; // 4 minutes
 
     this.camera = null;
-    this.presentationRoot = null;
-    this.activePlating = null;
-    this.activePlatingTopY = 0.2;
-    this.cake = null;
-    this.platingChoice = null;
-    this.selectedGarnishType = null;
-    this.garnishCount = 0;
-    this.lightingChoice = null;
-    this.isRevealing = false;
+    this.currentRoomIndex = -1;
+    this.currentRoomData = null;
+    this.roomBuilder = null;
+    this.scareSystem = null;
+    this.chaseController = null;
+    this.judgePresentation = null;
+    this.cakeHealth = null;
 
-    this.previewPlatings = [];
-    this.garnishSamples = [];
-    this.placedGarnishes = [];
-    this.revealCamera = null;
-    this.revealHandle = null;
-    this.confetti = null;
-    this.presentationSpot = null;
-    this.selectionText = null;
-    this.revealTimeout = null;
+    this.playerZ = 0;
+    this.playerSpeed = 3.5;
+    this.roomOffset = 0; // cumulative Z offset
+    this.headBobPhase = 0;
+    this.isMoving = false;
+    this.moveInput = { w: false, a: false, s: false, d: false };
+    this.bonusRoomsCleared = 0;
+    this.inSideRoom = false;
+    this.sideRoomDamageTaken = false;
+
+    this._droneInterval = null;
+    this._heartbeatInterval = null;
+    this._dripInterval = null;
+    this._previousRoomData = null;
+    this._footstepCooldown = false;
+    this._activeSideRoom = null;
+    this._visitedSideRooms = new Set();
+    this._droneHandle = null;
+    this._chaseMusicHandle = null;
   }
 
   getPhaseName() { return 'PRESENT'; }
 
   async create() {
-    this.camera = CameraRigs.orbit(this.scene, this.canvas, {
-      alpha: -Math.PI / 2,
-      beta: Math.PI / 3,
-      distance: 8,
-      target: new BABYLON.Vector3(0, 1.1, 0)
-    });
-    if (this.camera.inputs.attached.pointers) {
-      this.camera.inputs.attached.pointers.buttons = [1, 2];
-    }
-    this.camera.lowerRadiusLimit = 5;
-    this.camera.upperRadiusLimit = 10;
+    // Suppress default kitchen ambient
+    if (this.sounds) this.sounds.stopAmbient();
 
-    this._buildTable();
-    this._buildPresentationCake();
-    this._buildPlatingOptions();
-    this._buildGarnishTray();
-    this._buildLightingPanel();
-    this._setupPointerEvents();
-    this._selectPlating('plate');
-    this._applyLighting('warm');
-    this._updateSelectionText();
-    this._updateScore();
-    this.hud.showMessage('Pick a base, place garnishes, then confirm the reveal.', 2400);
+    // FPS Camera
+    this.camera = new BABYLON.UniversalCamera('fpsCam',
+      new BABYLON.Vector3(0, 1.7, 0), this.scene);
+    this.camera.minZ = 0.1;
+    this.camera.attachControl(this.canvas, true);
+    this.camera.speed = 0;
+    this.camera.angularSensibility = 3000;
+    // Lock vertical look range
+    this.camera.rotation.x = 0;
+    this.scene.activeCamera = this.camera;
+
+    // Fog
+    this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+    this.scene.fogDensity = 0.04;
+    this.scene.fogColor = new BABYLON.Color3(0.02, 0.02, 0.04);
+    this.scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.04, 1);
+
+    // Dim lighting
+    const ambient = new BABYLON.HemisphericLight('horrorAmbient',
+      new BABYLON.Vector3(0, 1, 0), this.scene);
+    ambient.intensity = 0.15;
+    ambient.diffuse = new BABYLON.Color3(0.4, 0.3, 0.35);
+
+    // Point light follows player
+    this.playerLight = new BABYLON.PointLight('playerLight',
+      new BABYLON.Vector3(0, 2, 0), this.scene);
+    this.playerLight.intensity = 0.6;
+    this.playerLight.range = 6;
+    this.playerLight.diffuse = new BABYLON.Color3(0.9, 0.7, 0.5);
+
+    // Initialize systems
+    this.roomBuilder = new RoomBuilder(this.scene, this.materials);
+    this.cakeHealth = new CakeHealthDisplay(this.scene, this.hud.texture);
+    this.scareSystem = new ScareSystem(this.scene, this.hud.texture, this.cakeHealth, this.sounds);
+
+    // Bind movement keys
+    this._bindMovement();
+
+    // Start ambient horror audio
+    this._startHorrorAmbient();
+
+    // Load first room
+    this._enterRoom(0);
+
+    this.hud.showMessage('🏚️ Carry the cake through... alive.', 3000);
   }
 
-  _buildTable() {
-    const table = BABYLON.MeshBuilder.CreateBox('presentationTable', {
-      width: 8.5,
-      height: 0.4,
-      depth: 5.8
-    }, this.scene);
-    table.position = new BABYLON.Vector3(0, -0.2, 0);
-    table.material = this.materials.marble();
-    table.isPickable = true;
-  }
-
-  _buildPresentationCake() {
-    this.presentationRoot = new BABYLON.TransformNode('presentationRoot', this.scene);
-
-    this.cake = BABYLON.MeshBuilder.CreateCylinder('presentationCake', {
-      diameter: 1.8,
-      height: 1,
-      tessellation: 40
-    }, this.scene);
-    this.cake.material = this.materials.cakeSponge();
-    this.cake.parent = this.presentationRoot;
-    this.cake.position = new BABYLON.Vector3(0, 0.75, 0);
-
-    const frostingTop = BABYLON.MeshBuilder.CreateCylinder('presentationFrostingTop', {
-      diameter: 1.86,
-      height: 0.12,
-      tessellation: 40
-    }, this.scene);
-    frostingTop.material = this.materials.frosting(new BABYLON.Color3(0.98, 0.96, 0.94));
-    frostingTop.parent = this.presentationRoot;
-    frostingTop.position = new BABYLON.Vector3(0, 1.3, 0);
-  }
-
-  _buildPlatingOptions() {
-    const options = ['stand', 'board', 'plate'];
-    options.forEach((type, index) => {
-      const preview = this._createPlatingMesh(`preview_${type}`, type, true);
-      preview.position = new BABYLON.Vector3(-3.1, 0, -1.5 + (index * 1.4));
-      preview.metadata = { platingType: type, sample: true };
-      this.previewPlatings.push(preview);
-    });
-  }
-
-  _buildGarnishTray() {
-    const tray = BABYLON.MeshBuilder.CreateBox('garnishTray', {
-      width: 1.2,
-      height: 0.12,
-      depth: 4.2
-    }, this.scene);
-    tray.position = new BABYLON.Vector3(3.15, 0.12, 0);
-    tray.material = this.materials.wood();
-
-    const types = ['mint', 'berries', 'shavings', 'flowers'];
-    types.forEach((type, index) => {
-      const garnish = this._createGarnishMesh(`sample_${type}`, type, true);
-      garnish.position = new BABYLON.Vector3(3.15, 0.32, -1.4 + (index * 0.95));
-      garnish.metadata = { garnishType: type, sample: true };
-      this.garnishSamples.push(garnish);
-    });
-  }
-
-  _buildLightingPanel() {
-    const panel = new BABYLON.GUI.StackPanel('presentPanel');
-    panel.width = '260px';
-    panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-    panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-    panel.left = '28px';
-    panel.top = '84px';
-    this.hud.texture.addControl(panel);
-
-    const title = new BABYLON.GUI.TextBlock('presentTitle', 'Presentation');
-    title.height = '34px';
-    title.color = '#ffffff';
-    title.fontSize = 24;
-    title.outlineWidth = 2;
-    title.outlineColor = '#000000';
-    panel.addControl(title);
-
-    this.selectionText = new BABYLON.GUI.TextBlock('presentSelection', 'Plating: none');
-    this.selectionText.height = '66px';
-    this.selectionText.color = '#ffffff';
-    this.selectionText.fontSize = 15;
-    this.selectionText.textWrapping = true;
-    panel.addControl(this.selectionText);
-
-    ['Warm', 'Cool', 'Dramatic'].forEach(label => {
-      const button = BABYLON.GUI.Button.CreateSimpleButton(`light_${label}`, label);
-      button.width = '180px';
-      button.height = '36px';
-      button.color = '#ffffff';
-      button.cornerRadius = 10;
-      button.thickness = 2;
-      button.background = label === 'Warm' ? '#b75d34' : label === 'Cool' ? '#3a6fb7' : '#51435e';
-      button.paddingTop = '6px';
-      button.onPointerClickObservable.add(() => {
-        this._applyLighting(label.toLowerCase());
-        this._updateSelectionText();
-        this._updateScore();
-      });
-      panel.addControl(button);
-    });
-
-    const confirm = BABYLON.GUI.Button.CreateSimpleButton('confirmPresentation', 'Confirm Reveal');
-    confirm.width = '180px';
-    confirm.height = '40px';
-    confirm.color = '#ffffff';
-    confirm.cornerRadius = 12;
-    confirm.thickness = 2;
-    confirm.background = '#2b9c54';
-    confirm.paddingTop = '10px';
-    confirm.onPointerClickObservable.add(() => this._startReveal());
-    panel.addControl(confirm);
-  }
-
-  _setupPointerEvents() {
-    this.scene.onPointerDown = (evt) => {
-      if (this.isComplete || this.isRevealing) return;
-      const pick = this.scene.pick(evt.offsetX, evt.offsetY);
-      if (!pick.hit || !pick.pickedMesh) return;
-
-      const metadata = pick.pickedMesh.metadata || {};
-      if (metadata.sample && metadata.platingType) {
-        this._selectPlating(metadata.platingType);
-        return;
-      }
-
-      if (metadata.sample && metadata.garnishType) {
-        this.selectedGarnishType = metadata.garnishType;
-        this._updateSelectionText();
-        this.hud.showMessage(`Selected ${this.selectedGarnishType}. Click the table to place it.`, 1000);
-        return;
-      }
-
-      if (this.selectedGarnishType) {
-        this._placeGarnish(pick.pickedPoint);
-      }
+  _bindMovement() {
+    this._moveDown = (e) => {
+      if (this._disposed) return;
+      const k = e.key.toLowerCase();
+      if (this.moveInput.hasOwnProperty(k)) this.moveInput[k] = true;
     };
+    this._moveUp = (e) => {
+      if (this._disposed) return;
+      const k = e.key.toLowerCase();
+      if (this.moveInput.hasOwnProperty(k)) this.moveInput[k] = false;
+    };
+    this._interactHandler = (e) => {
+      if (this._disposed) return;
+      if (e.key.toLowerCase() === 'e') this._tryInteract();
+    };
+    window.addEventListener('keydown', this._moveDown);
+    window.addEventListener('keyup', this._moveUp);
+    window.addEventListener('keydown', this._interactHandler);
   }
 
-  _createPlatingMesh(name, type, isPreview) {
-    const root = new BABYLON.TransformNode(name, this.scene);
-    const material = type === 'board' ? this.materials.wood() : this.materials.metal();
-
-    if (type === 'stand') {
-      const stem = BABYLON.MeshBuilder.CreateCylinder(`${name}_stem`, {
-        diameter: 0.36,
-        height: isPreview ? 0.85 : 0.95,
-        tessellation: 24
-      }, this.scene);
-      stem.position.y = (isPreview ? 0.42 : 0.48);
-      stem.material = material;
-      stem.parent = root;
-      stem.metadata = { platingType: type, sample: isPreview };
-
-      const top = BABYLON.MeshBuilder.CreateCylinder(`${name}_top`, {
-        diameter: 2.2,
-        height: 0.12,
-        tessellation: 40
-      }, this.scene);
-      top.position.y = isPreview ? 0.9 : 1.02;
-      top.material = material;
-      top.parent = root;
-      top.metadata = { platingType: type, sample: isPreview };
-
-      root.metadata = { platingType: type, sample: isPreview, topY: top.position.y + 0.06 };
-    } else if (type === 'board') {
-      const board = BABYLON.MeshBuilder.CreateBox(`${name}_board`, {
-        width: 2.3,
-        height: 0.14,
-        depth: 2.3
-      }, this.scene);
-      board.position.y = 0.16;
-      board.material = material;
-      board.parent = root;
-      board.metadata = { platingType: type, sample: isPreview };
-      root.metadata = { platingType: type, sample: isPreview, topY: 0.23 };
-    } else {
-      const plate = BABYLON.MeshBuilder.CreateCylinder(`${name}_plate`, {
-        diameter: 2.4,
-        height: 0.1,
-        tessellation: 40
-      }, this.scene);
-      plate.position.y = 0.14;
-      plate.material = material;
-      plate.parent = root;
-      plate.metadata = { platingType: type, sample: isPreview };
-      root.metadata = { platingType: type, sample: isPreview, topY: 0.19 };
+  _startHorrorAmbient() {
+    // Start loopable drone (returns handle with stop())
+    if (this.sounds && this.sounds.horrorDroneLoop) {
+      this._droneHandle = this.sounds.horrorDroneLoop();
     }
 
-    return root;
-  }
-
-  _createGarnishMesh(name, type, isSample) {
-    let mesh;
-    switch (type) {
-      case 'mint':
-        mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: isSample ? 0.24 : 0.16, segments: 12 }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.3, 0.8, 0.36));
-        break;
-      case 'berries':
-        mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: isSample ? 0.26 : 0.18, segments: 12 }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.82, 0.2, 0.25));
-        break;
-      case 'shavings':
-        mesh = BABYLON.MeshBuilder.CreateBox(name, {
-          width: isSample ? 0.38 : 0.22,
-          height: isSample ? 0.08 : 0.04,
-          depth: isSample ? 0.12 : 0.06
-        }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.34, 0.21, 0.14));
-        break;
-      default:
-        mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: isSample ? 0.25 : 0.18, segments: 12 }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.72, 0.48, 0.94));
-        break;
-    }
-
-    mesh.isPickable = !!isSample;
-    return mesh;
-  }
-
-  _selectPlating(type) {
-    this.platingChoice = type;
-
-    if (this.activePlating) {
-      this.activePlating.dispose();
-      this.activePlating = null;
-    }
-
-    this.activePlating = this._createPlatingMesh(`active_${type}`, type, false);
-    this.activePlating.position = new BABYLON.Vector3(0, 0, 0);
-    this.activePlatingTopY = this.activePlating.metadata.topY || 0.2;
-
-    this.cake.position.y = this.activePlatingTopY + 0.5;
-    this.presentationRoot.rotation.y = 0;
-    this._updateSelectionText();
-    this._updateScore();
-  }
-
-  _placeGarnish(point) {
-    const garnish = this._createGarnishMesh(`placed_${this.selectedGarnishType}_${this.garnishCount}`, this.selectedGarnishType, false);
-    const target = new BABYLON.Vector3(
-      BABYLON.Scalar.Clamp(point.x, -1.6, 1.6),
-      this.activePlatingTopY + 0.08,
-      BABYLON.Scalar.Clamp(point.z, -1.6, 1.6)
-    );
-    garnish.parent = this.presentationRoot;
-    garnish.setAbsolutePosition(target);
-    garnish.rotation.y = Math.random() * Math.PI;
-    this.placedGarnishes.push(garnish);
-    this.garnishCount += 1;
-    this._updateSelectionText();
-    this._updateScore();
-  }
-
-  _applyLighting(choice) {
-    this.lightingChoice = choice;
-
-    const key = this.scene.getLightByName('keyLight');
-    const fill = this.scene.getLightByName('fillLight');
-    const rim = this.scene.getLightByName('rimLight');
-
-    if (!this.presentationSpot) {
-      this.presentationSpot = new BABYLON.SpotLight(
-        'presentationSpot',
-        new BABYLON.Vector3(0, 5, 0),
-        new BABYLON.Vector3(0, -1, 0),
-        Math.PI / 3,
-        12,
-        this.scene
-      );
-      this.presentationSpot.intensity = 0;
-      this.presentationSpot.diffuse = new BABYLON.Color3(1, 1, 1);
-    }
-
-    if (choice === 'warm') {
-      if (key) {
-        key.intensity = 0.95;
-        key.diffuse = new BABYLON.Color3(1.0, 0.82, 0.62);
+    // Random drips
+    this._dripInterval = setInterval(() => {
+      if (!this._disposed && this.sounds && Math.random() > 0.5) {
+        this.sounds.ambientDrip();
       }
-      if (fill) {
-        fill.intensity = 0.35;
-        fill.diffuse = new BABYLON.Color3(0.96, 0.9, 0.82);
-      }
-      if (rim) rim.intensity = 0.22;
-      this.presentationSpot.intensity = 0;
-      this.scene.clearColor = new BABYLON.Color4(0.08, 0.08, 0.1, 1);
-    } else if (choice === 'cool') {
-      if (key) {
-        key.intensity = 0.95;
-        key.diffuse = new BABYLON.Color3(0.78, 0.88, 1.0);
-      }
-      if (fill) {
-        fill.intensity = 0.18;
-        fill.diffuse = new BABYLON.Color3(0.84, 0.92, 1.0);
-      }
-      if (rim) rim.intensity = 0.1;
-      this.presentationSpot.intensity = 0;
-      this.scene.clearColor = new BABYLON.Color4(0.05, 0.08, 0.12, 1);
-    } else {
-      if (key) {
-        key.intensity = 0.15;
-        key.diffuse = new BABYLON.Color3(0.8, 0.8, 0.8);
-      }
-      if (fill) fill.intensity = 0.04;
-      if (rim) rim.intensity = 0.04;
-      this.presentationSpot.intensity = 1.35;
-      this.presentationSpot.diffuse = new BABYLON.Color3(1.0, 0.96, 0.9);
-      this.scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.03, 1);
-    }
-  }
-
-  _updateSelectionText() {
-    if (!this.selectionText) return;
-    this.selectionText.text = [
-      `Plating: ${this.platingChoice || 'none'}`,
-      `Garnish: ${this.selectedGarnishType || 'none selected'} (${this.garnishCount} placed)`,
-      `Lighting: ${this.lightingChoice || 'none'}`
-    ].join('\n');
-  }
-
-  _updateScore() {
-    const platingScore = !this.platingChoice ? 0 : this.platingChoice === 'stand' ? 30 : 20;
-    const garnishScore = Math.min(4, this.garnishCount) * 10;
-    const lightingScore = this.lightingChoice ? 30 : 0;
-    this.setScore(platingScore + garnishScore + lightingScore);
-  }
-
-  _startReveal() {
-    if (this.isRevealing) return;
-    this.isRevealing = true;
-    this._updateScore();
-
-    const reveal = CameraRigs.dramaticReveal(this.scene, new BABYLON.Vector3(0, this.cake.position.y, 0), {
-      startDistance: 8
-    });
-    this.revealCamera = reveal.camera;
-    this.revealCamera.lowerRadiusLimit = 6;
-    this.revealCamera.upperRadiusLimit = 9;
-    this.scene.activeCamera = this.revealCamera;
-    reveal.play();
-
-    this.confetti = ParticlePresets.confetti(this.scene, new BABYLON.Vector3(0, 2.8, 0), { rate: 120 });
-    this.confetti.start();
-
-    this.revealTimeout = setTimeout(() => {
-      this._clearRevealEffects();
-      this.completePhase({
-        platingChoice: this.platingChoice,
-        garnishCount: this.garnishCount,
-        lightingChoice: this.lightingChoice
-      });
     }, 3000);
   }
 
-  update(dt) {
-    if (this.isComplete) return;
+  _enterRoom(index) {
+    // Dispose previous room (keep one behind for transition)
+    if (this._previousRoomData) {
+      this.roomBuilder.disposeRoom(this._previousRoomData);
+      this._previousRoomData = null;
+    }
 
-    this.presentationRoot.rotation.y += dt * 0.18;
-    this.previewPlatings.forEach(preview => {
-      if (!preview || preview.isDisposed()) return;
-      const selected = preview.metadata && preview.metadata.platingType === this.platingChoice;
-      const scale = selected ? 1.08 : 1;
-      preview.scaling = BABYLON.Vector3.Lerp(preview.scaling, new BABYLON.Vector3(scale, scale, scale), dt * 6);
-    });
-    this.garnishSamples.forEach(sample => {
-      if (!sample || sample.isDisposed()) return;
-      const selected = sample.metadata && sample.metadata.garnishType === this.selectedGarnishType;
-      const scale = selected ? 1.12 : 1;
-      sample.scaling = BABYLON.Vector3.Lerp(sample.scaling, new BABYLON.Vector3(scale, scale, scale), dt * 6);
+    if (this.currentRoomData) {
+      this._previousRoomData = this.currentRoomData;
+    }
+
+    this.currentRoomIndex = index;
+
+    if (index >= 14) {
+      // All rooms done — shouldn't happen; judge handles completion
+      return;
+    }
+
+    const roomData = this.roomBuilder.buildRoom(index);
+    if (!roomData) return;
+
+    // Position room at cumulative offset
+    roomData.root.position.z = this.roomOffset;
+    this.currentRoomData = roomData;
+
+    // Increase fog density as we progress
+    this.scene.fogDensity = 0.03 + (index * 0.003);
+
+    // Schedule scares based on room config
+    this._scheduleRoomScares(roomData, index);
+
+    // Handle special rooms
+    if (roomData.isChase) {
+      this._startChase(roomData);
+    } else if (roomData.isJudgeChamber) {
+      this._startJudgePresentation(roomData);
+    }
+  }
+
+  _scheduleRoomScares(roomData, roomIndex) {
+    if (!roomData.scares || roomData.scares.length === 0) return;
+
+    roomData.scares.forEach(scare => {
+      if (scare.trigger === 'enter') {
+        setTimeout(() => {
+          if (this._disposed || this.currentRoomIndex !== roomIndex) return;
+          this._triggerScare(scare, roomIndex);
+        }, scare.delay || 1000);
+      }
+      // Position-based scares are checked in update()
     });
   }
 
-  _clearRevealEffects() {
-    if (this.revealTimeout) {
-      clearTimeout(this.revealTimeout);
-      this.revealTimeout = null;
+  _triggerScare(scare, roomIndex) {
+    if (scare.type === 'jumpscare') {
+      this._showJumpscare();
+      return;
     }
-    if (this.confetti) {
-      this.confetti.stop();
-      this.confetti.dispose();
-      this.confetti = null;
+    if (scare.sound && this.sounds && this.sounds[scare.sound]) {
+      this.sounds[scare.sound]();
+    }
+    if (scare.type !== 'ambient') {
+      this.scareSystem.triggerQTE(scare.type, roomIndex, (success) => {
+        if (!success && this.inSideRoom) {
+          this.sideRoomDamageTaken = true;
+        }
+      });
+    }
+  }
+
+  _showJumpscare() {
+    if (this.sounds) this.sounds.jumpscareHit();
+
+    // Full-screen red flash
+    const flash = new BABYLON.GUI.Rectangle('jumpscare');
+    flash.width = '100%';
+    flash.height = '100%';
+    flash.background = 'rgba(180, 0, 0, 0.7)';
+    flash.thickness = 0;
+    flash.isHitTestVisible = false;
+    this.hud.texture.addControl(flash);
+
+    // Try to show a jumpscare PNG (if assets exist), otherwise fall back to emoji
+    const jumpscareImages = [
+      '/assets/jumpscares/face1.png',
+      '/assets/jumpscares/face2.png',
+      '/assets/jumpscares/face3.png'
+    ];
+    const imgSrc = jumpscareImages[Math.floor(Math.random() * jumpscareImages.length)];
+    const img = new BABYLON.GUI.Image('scareImg', imgSrc);
+    img.width = '512px';
+    img.height = '512px';
+    img.stretch = BABYLON.GUI.Image.STRETCH_UNIFORM;
+    img.isHitTestVisible = false;
+    this.hud.texture.addControl(img);
+    // If image fails to load, show emoji fallback
+    img.onImageLoadedObservable.addOnce(() => {});
+    img.domImage.onerror = () => {
+      this.hud.texture.removeControl(img);
+      img.dispose();
+      const text = new BABYLON.GUI.TextBlock('scareFallback', '👹');
+      text.fontSize = 200;
+      text.isHitTestVisible = false;
+      this.hud.texture.addControl(text);
+      setTimeout(() => {
+        if (this._disposed) return;
+        this.hud.texture.removeControl(text);
+        text.dispose();
+      }, 300);
+    };
+
+    setTimeout(() => {
+      if (this._disposed) return;
+      this.hud.texture.removeControl(flash);
+      this.hud.texture.removeControl(img);
+      flash.dispose();
+      img.dispose();
+    }, 300);
+  }
+
+  _startChase(roomData) {
+    // Disable normal movement during chase
+    this._chaseActive = true;
+    // Stop ambient drone, start chase music loop
+    if (this._droneHandle) { this._droneHandle.stop(); this._droneHandle = null; }
+    if (this.sounds && this.sounds.chaseMusicLoop) {
+      this._chaseMusicHandle = this.sounds.chaseMusicLoop();
+    }
+    this.chaseController = new ChaseController(
+      this.scene, this.camera, this.hud.texture, this.scareSystem, this.sounds
+    );
+    this.chaseController.start(() => {
+      this._chaseActive = false;
+      // Stop chase music, resume ambient
+      if (this._chaseMusicHandle) { this._chaseMusicHandle.stop(); this._chaseMusicHandle = null; }
+      if (this.sounds && this.sounds.horrorDroneLoop) {
+        this._droneHandle = this.sounds.horrorDroneLoop();
+      }
+      this.chaseController.dispose();
+      this.chaseController = null;
+      // Move to next room
+      this.roomOffset += roomData.roomLength + 2;
+      this._enterRoom(this.currentRoomIndex + 1);
+    });
+  }
+
+  _startJudgePresentation(roomData) {
+    this._judgeActive = true;
+    this.judgePresentation = new JudgePresentation(
+      this.scene, this.hud.texture, this.cakeHealth, this.sounds
+    );
+    this.judgePresentation.setBonusRooms(this.bonusRoomsCleared);
+    this.judgePresentation.start(roomData, (finalScore, details) => {
+      this._judgeActive = false;
+      this.setScore(finalScore);
+      this.completePhase(details);
+    });
+  }
+
+  _tryInteract() {
+    // Check if near a side room door (within 2m of side-room trigger point)
+    if (this.currentRoomData && this.currentRoomData.hasSideRoom && !this.inSideRoom) {
+      const localZ = this.camera.position.z - this.roomOffset;
+      const midZ = this.currentRoomData.roomLength * 0.5;
+      if (Math.abs(localZ - midZ) > 2.5) {
+        this.hud.showMessage('🚪 Get closer to the side door (E)', 1000);
+        return;
+      }
+      // Already visited this side room?
+      if (this._visitedSideRooms && this._visitedSideRooms.has(this.currentRoomIndex)) {
+        this.hud.showMessage('Already explored this room', 1000);
+        return;
+      }
+
+      this.inSideRoom = true;
+      this.sideRoomDamageTaken = false;
+      if (this.sounds) this.sounds.doorSlam();
+
+      // Spawn actual side room geometry to the right of the main corridor
+      this._activeSideRoom = this.roomBuilder.buildSideRoom(this.currentRoomData, this.currentRoomIndex);
+      if (this._activeSideRoom) {
+        this._activeSideRoom.root.position = new BABYLON.Vector3(
+          4, 0, this.roomOffset + midZ
+        );
+        // Schedule side room scare
+        if (this._activeSideRoom.scares) {
+          this._activeSideRoom.scares.forEach(scare => {
+            setTimeout(() => {
+              if (!this._disposed && this.inSideRoom) {
+                this._triggerScare(scare, this.currentRoomIndex);
+              }
+            }, scare.delay || 1500);
+          });
+        }
+      }
+
+      this.hud.showMessage('🚪 Entered side room... press E to exit', 2000);
+    } else if (this.inSideRoom) {
+      // Exit side room
+      this.inSideRoom = false;
+      if (this.sounds) this.sounds.doorSlam();
+
+      // Track visit
+      if (!this._visitedSideRooms) this._visitedSideRooms = new Set();
+      this._visitedSideRooms.add(this.currentRoomIndex);
+
+      // Dispose side room geometry
+      if (this._activeSideRoom) {
+        this.roomBuilder.disposeRoom(this._activeSideRoom);
+        this._activeSideRoom = null;
+      }
+
+      if (!this.sideRoomDamageTaken) {
+        this.bonusRoomsCleared++;
+        this.hud.showMessage('✨ +5 Bonus! Side room cleared!', 1500);
+      } else {
+        this.hud.showMessage('Side room cleared (took damage — no bonus)', 1500);
+      }
+    }
+  }
+
+  update(dt) {
+    if (this.isComplete || this._judgeActive) return;
+
+    // Chase has its own update
+    if (this._chaseActive && this.chaseController) {
+      this.chaseController.update(dt);
+      return;
+    }
+
+    // Player movement
+    let moveZ = 0, moveX = 0;
+    if (this.moveInput.w) moveZ = 1;
+    if (this.moveInput.s) moveZ = -0.3;
+    if (this.moveInput.a) moveX = -1;
+    if (this.moveInput.d) moveX = 1;
+
+    this.isMoving = (moveZ !== 0 || moveX !== 0);
+
+    if (this.isMoving) {
+      const forward = this.camera.getForwardRay().direction;
+      forward.y = 0;
+      forward.normalize();
+      const right = BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), forward).normalize();
+
+      this.camera.position.addInPlace(forward.scale(moveZ * this.playerSpeed * dt));
+      this.camera.position.addInPlace(right.scale(moveX * this.playerSpeed * dt));
+
+      // Clamp X to corridor width
+      this.camera.position.x = BABYLON.Scalar.Clamp(this.camera.position.x, -2, 2);
+
+      // Head bob
+      this.headBobPhase += dt * 8;
+      this.camera.position.y = 1.7 + Math.sin(this.headBobPhase) * 0.04;
+
+      // Footstep sounds
+      if (!this._footstepCooldown && this.sounds) {
+        this._footstepCooldown = true;
+        this.sounds.footstep();
+        setTimeout(() => { this._footstepCooldown = false; }, 400);
+      }
+    } else {
+      this.camera.position.y = 1.7;
+    }
+
+    // Player light follows camera
+    if (this.playerLight) {
+      this.playerLight.position.copyFrom(this.camera.position);
+    }
+
+    // Check position-based scares
+    if (this.currentRoomData && this.currentRoomData.scares) {
+      const localZ = this.camera.position.z - this.roomOffset;
+      this.currentRoomData.scares.forEach(scare => {
+        if (scare.trigger === 'position' && !scare._triggered) {
+          if (localZ >= scare.z) {
+            scare._triggered = true;
+            this._triggerScare(scare, this.currentRoomIndex);
+          }
+        } else if (scare.trigger === 'middle' && !scare._triggered) {
+          if (localZ >= this.currentRoomData.roomLength * 0.5) {
+            scare._triggered = true;
+            setTimeout(() => {
+              if (!this._disposed) this._triggerScare(scare, this.currentRoomIndex);
+            }, scare.delay || 0);
+          }
+        }
+      });
+    }
+
+    // Check room transition
+    if (this.currentRoomData) {
+      const localZ = this.camera.position.z - this.roomOffset;
+      if (localZ >= this.currentRoomData.roomLength - 1) {
+        this.roomOffset += this.currentRoomData.roomLength + 2;
+        this._enterRoom(this.currentRoomIndex + 1);
+      }
+    }
+
+    // Eye tracking (subtle)
+    if (this.currentRoomData && this.currentRoomData.eyes) {
+      this.currentRoomData.eyes.forEach(eyePair => {
+        if (eyePair && !eyePair.isDisposed()) {
+          eyePair.lookAt(this.camera.position, 0, 0, 0);
+        }
+      });
+    }
+
+    // Heartbeat ramps up in later rooms
+    if (this.currentRoomIndex >= 9 && !this._heartbeatInterval) {
+      this._heartbeatInterval = setInterval(() => {
+        if (!this._disposed && this.sounds) {
+          const rate = 1 + (this.currentRoomIndex - 9) * 0.3;
+          this.sounds.heartbeat(rate);
+        }
+      }, 800);
     }
   }
 
   onTimeUp() {
-    this._clearRevealEffects();
-    this._updateScore();
-    this.completePhase({
-      platingChoice: this.platingChoice,
-      garnishCount: this.garnishCount,
-      lightingChoice: this.lightingChoice,
-      timedOut: true
-    });
+    // Spec: lights-out + abbreviated chase (~10s) before judges
+    if (this.sounds) this.sounds.entityRoar();
+    this.scareSystem.applyDirectDamage(20);
+
+    // Phase 1: Lights out (2s blackout)
+    this.scene.fogDensity = 0.2; // near-total darkness
+    if (this.playerLight) this.playerLight.intensity = 0.05;
+    this.hud.showMessage('⏰ TIME UP! THE LIGHTS GO OUT!', 2000);
+
+    setTimeout(() => {
+      if (this._disposed) return;
+
+      // Phase 2: Abbreviated chase (~10s) — auto-sprint toward judges
+      this.hud.showMessage('🏃 SOMETHING IS COMING! RUN!', 1500);
+      this._chaseActive = true;
+      this._timeoutChaseElapsed = 0;
+      const timeoutChaseDuration = 10; // seconds
+
+      // Start chase music
+      if (this.sounds) this.sounds.chaseMusic();
+
+      // Auto-sprint toward judge room
+      const chaseUpdate = () => {
+        if (this._disposed || !this._chaseActive) return;
+        this._timeoutChaseElapsed += 0.016;
+        this.camera.position.z += 6 * 0.016; // auto-run speed
+
+        // Camera shake
+        this.camera.position.y = 1.7 + (Math.random() - 0.5) * 0.04;
+        this.camera.position.x += (Math.random() - 0.5) * 0.02;
+
+        // 2-3 QTE prompts during the abbreviated chase
+        if (this._timeoutChaseElapsed > 3 && !this._tcQTE1) {
+          this._tcQTE1 = true;
+          this.scareSystem.triggerQTE('heavy', 11, () => {});
+        }
+        if (this._timeoutChaseElapsed > 6 && !this._tcQTE2) {
+          this._tcQTE2 = true;
+          this.scareSystem.triggerQTE('heavy', 11, () => {});
+        }
+
+        if (this._timeoutChaseElapsed >= timeoutChaseDuration) {
+          this._chaseActive = false;
+          // Transition to judges
+          this.roomOffset = 0;
+          this._enterRoom(13); // Judge chamber
+          return;
+        }
+        requestAnimationFrame(chaseUpdate);
+      };
+      requestAnimationFrame(chaseUpdate);
+    }, 2500);
   }
 
   dispose() {
-    this._clearRevealEffects();
+    this._disposed = true;
+    if (this._droneHandle) { this._droneHandle.stop(); this._droneHandle = null; }
+    if (this._chaseMusicHandle) { this._chaseMusicHandle.stop(); this._chaseMusicHandle = null; }
+    clearInterval(this._droneInterval);
+    clearInterval(this._heartbeatInterval);
+    clearInterval(this._dripInterval);
+    if (this._moveDown) window.removeEventListener('keydown', this._moveDown);
+    if (this._moveUp) window.removeEventListener('keyup', this._moveUp);
+    if (this._interactHandler) window.removeEventListener('keydown', this._interactHandler);
+    if (this.scareSystem) this.scareSystem.dispose();
+    if (this.chaseController) this.chaseController.dispose();
+    if (this.judgePresentation) this.judgePresentation.dispose();
+    if (this.cakeHealth) this.cakeHealth.dispose();
     super.dispose();
   }
 }
