@@ -26,18 +26,29 @@ PresentScene3D (complete rewrite)
 ├── ChaseController (Room 12 sprint sequence)
 ├── JudgePresentation (final room reveal + scoring)
 ├── CakeHealthDisplay (bottom-right HUD, visual damage)
-└── HorrorSoundManager (extends SoundManager with horror sounds)
+└── SoundManager (add horror methods directly to existing class)
 ```
 
 ### Player Controls
 
 | Input | Action |
 |-------|--------|
-| W/A/S/D | Walk (FPS movement) |
+| W/A/S/D | Walk (FPS movement) — during normal rooms |
 | Mouse | Look (FPS camera rotation) |
-| Shift | Sprint (chase scene only) |
 | E | Interact (open doors, examine) |
-| QTE keys | Dodge scares (prompted key, 1-2s window) |
+| QTE keys (Q/E/F/R/Z/X) | Dodge scares (prompted key, 1-2s window) |
+
+**Chase scene controls (Room 12 only):**
+- Auto-sprint is active (player moves forward automatically)
+- A/D = steer left/right to avoid obstacles
+- QTE prompts use Q/E/F/R/Z/X (NOT A/D, since those are steering)
+
+### Lifecycle & Timing
+
+- **Time limit:** 240 seconds (4 minutes). Timer starts when player enters Room 1.
+- **Timeout behavior:** If timer expires mid-maze, lights go out, entity teleports behind player, instant chase to judges (abbreviated — 10s sprint, then judge room). Cake takes -20 flat damage for timeout.
+- **Audio management:** On `create()`, suppress BaseMinigameScene's default ambient. Start `horrorDrone()` loop instead. Each room transition cross-fades room-specific audio layers. On `dispose()`, stop all horror audio loops.
+- **Phase completion:** Call `this.setScore(finalScore)` then `this.completePhase({ integrity, bonusRooms, verdict })` when judge verdict finishes.
 
 ### Camera
 
@@ -96,10 +107,12 @@ Scare Event Starts
 
 | Rooms | Window | Keys Used |
 |-------|--------|-----------|
-| 1-4 | 2.0s | W, A, S, D |
-| 5-8 | 1.5s | W, A, S, D, E |
-| 9-11 | 1.2s | W, A, S, D, E, F |
-| 12 (Chase) | 1.0s | Any of above |
+| 1-4 | 2.0s | Q, E, F |
+| 5-8 | 1.5s | Q, E, F, R |
+| 9-11 | 1.2s | Q, E, F, R, Z, X |
+| 12 (Chase) | 1.0s | Q, E, F, R, Z, X |
+
+> Note: QTE keys are deliberately separate from movement keys (WASD) to avoid conflicts.
 
 ### Visual Prompt
 
@@ -148,12 +161,37 @@ Scare Event Starts
 
 ### Chase Mechanics
 
-- **Steering:** Player uses A/D to weave between obstacles
-- **QTE obstacles:** Duck (S), dodge left (A), dodge right (D), jump (W)
-- **Fail penalty:** Player stumbles, entity gains ground
-- **3 total fails = caught:** Big jumpscare, entity grabs player, -15 damage, then releases (player still continues — this is comedy horror)
-- **Camera:** Slightly zoomed, shaking, narrow FOV for claustrophobia
+- **Movement:** Auto-sprint forward. Player steers with A/D only.
+- **QTE obstacles:** Prompted via Q/E/F/R/Z/X keys (not movement keys)
+- **Fail penalty:** Player stumbles (0.5s slow), entity visibly gains ground
+- **Camera:** Slightly zoomed in, shaking, narrow FOV for claustrophobia
 - **Sound:** Intense chase music, heavy footsteps behind, entity growling closer
+
+### Chase State Machine
+
+```
+CHASE_START → show entity reveal (2s cinematic) → CHASE_RUNNING
+
+CHASE_RUNNING:
+  - Auto-sprint active, player steers A/D
+  - QTE prompt every 3-4s (7 total)
+  - On QTE success: obstacle dodged, entity stays at distance
+  - On QTE fail: failCount++, stumble animation, entity closer
+  - If failCount >= 3: → CHASE_CAUGHT
+  - After 7th QTE resolved: → CHASE_ESCAPE
+
+CHASE_CAUGHT:
+  - Jumpscare plays (full-screen image + entityRoar sound)
+  - Cake takes -15 damage
+  - 1.5s freeze, then → CHASE_ESCAPE (only one catch per run)
+
+CHASE_ESCAPE:
+  - Player bursts through door, door slams behind
+  - Entity roars in frustration (fading sound)
+  - Brief 2s calm, then transition to Room 13
+```
+
+The catch can only happen ONCE. After being caught, remaining QTEs still play but further fails only cause stumbles (no additional catch).
 
 ---
 
@@ -201,23 +239,26 @@ Scare Event Starts
 ### Formula
 
 ```
-Final Present Score = floor(Cake Integrity % × Max Points / 100) + Side Room Bonus
+Final Present Score = min(100, floor(Cake Integrity % × 85 / 100) + Side Room Bonus)
 
 Where:
 - Cake Integrity: starts at 100%, reduced by scare damage
-- Max Points: 100 (same as old present scene max)
-- Side Room Bonus: +5 per side room explored without taking damage (max +15)
+- Base max: 85 points (from integrity alone)
+- Side Room Bonus: +5 per side room explored without taking damage IN THAT ROOM (max +15)
+- Hard cap: 100 (score pipeline clamps 0-100)
 ```
+
+**Side room bonus rule:** The +5 bonus is awarded if the player enters a side room AND exits it without taking any damage while inside that specific room. Damage taken in the main corridor before or after does not affect the bonus.
 
 ### Examples
 
 | Scenario | Integrity | Bonus | Final Score |
 |----------|-----------|-------|-------------|
-| Perfect run, no hits, all sides | 100% | +15 | 115 |
-| Good run, 2 medium hits | 86% | +5 | 91 |
-| Average, several hits | 65% | 0 | 65 |
-| Rough, many hits + caught | 35% | 0 | 35 |
-| Disaster | 10% | 0 | 10 |
+| Perfect run, no hits, all 3 sides | 100% | +15 | 100 (capped) |
+| Good run, 2 medium hits, 1 side | 86% | +5 | 78 |
+| Average, several hits, no sides | 65% | 0 | 55 |
+| Rough, many hits + caught | 35% | 0 | 30 |
+| Disaster | 10% | 0 | 9 |
 
 ---
 
@@ -249,7 +290,7 @@ Where:
 
 ## Sound Design (Procedural via SoundManager)
 
-All sounds are procedurally generated using the Web Audio API, consistent with the rest of the game.
+All sounds are procedurally generated using the Web Audio API. New methods are added directly to the existing `SoundManager` class in `sound-manager.js` (no subclass).
 
 ### New Sounds to Add
 
@@ -294,9 +335,10 @@ v1.2/public/assets/jumpscares/                         (2-3 PNG files)
 ### Integration Points
 
 - `SceneManager` already handles phase transitions — PresentScene3D's `create()` is called when PRESENT phase starts
-- Existing `this.gameState` contains cake quality data from previous phases
-- Score is reported via existing `this._reportScore(score)` method
+- Prior phase data available via `this.phaseData` (passed from SceneManager on transition) — contains `cakeScore`, `ingredients`, etc.
+- Score is reported via `this.setScore(score)` (0-100 clamped) then `this.completePhase(details)` to end the phase
 - HUD system (`this.hud`) available for overlays and text
+- Default ambient audio from BaseMinigameScene must be suppressed in `create()` (set `this._suppressAmbient = true` before `super.create()` or stop it after)
 
 ### Babylon.js Specifics
 
