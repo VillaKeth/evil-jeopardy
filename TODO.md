@@ -36,9 +36,20 @@
 - [ ] Mobile-optimized host view for tablet hosting
 - [ ] Tournament mode (multi-game brackets)
 - [ ] Theme customization (colors, fonts, board style)
-- [ ] Playtest the Babylon Bake/Cool/Decorate/Present scenes through the full v1.2 baking phase flow
-- [ ] Add the missing Babylon ResultScene3D and absurd scene scripts referenced by v1.2/public/player.html
-- [ ] Integrate HandController3D into the Babylon baking scenes and object interactions
-- [ ] Playtest PrepScene3D surgeon-hand grab/tilt/drop flow in-browser after the HandController3D rewrite
-- [ ] Playtest PrepScene3D kitchen polish in-browser and tune prop placement/lighting if the hand path clips scene decor
-- [ ] Playtest the horror maze atmospheric room overhaul in Babylon and tune lighting/performance if needed
+- [x] Playtest the Babylon Bake/Cool/Decorate/Present scenes through the full v1.2 baking phase flow
+- [x] Add the missing Babylon ResultScene3D and absurd scene scripts referenced by v1.2/public/player.html
+- [x] Integrate HandController3D into the Babylon baking scenes and object interactions
+- [x] Playtest PrepScene3D surgeon-hand grab/tilt/drop flow in-browser after the HandController3D rewrite
+- [x] Playtest PrepScene3D kitchen polish in-browser and tune prop placement/lighting if the hand path clips scene decor
+- [x] Playtest the horror maze atmospheric room overhaul in Babylon and tune lighting/performance if needed
+- [x] Visual polish overhaul — oven redesign, 7 new materials, GlowLayer, topping redesign, teamId fix
+- [x] CowCombat3D clarity — SQUEEZE prompt, udder numbers, attack warnings, stampede mechanic
+- [x] Enhanced sounds — milk squirt, hoof stomp, angry moo, stampede rumble
+- [x] Browser-tested all 6 baking phases: PREP → MIX → BAKE → COOL → DECORATE → PRESENT ✅
+- [ ] Daily Double support (wager before answering)
+- [ ] Custom board editor (host creates categories/values in advance)
+- [ ] Sound effects library (buzzers, correct/wrong, dramatic reveals)
+- [ ] Player statistics dashboard (win rate, avg score, streaks)
+- [ ] Mobile-optimized host view for tablet hosting
+- [ ] Tournament mode (multi-game brackets)
+- [ ] Theme customization (colors, fonts, board style)
