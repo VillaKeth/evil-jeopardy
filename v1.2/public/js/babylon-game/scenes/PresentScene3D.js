@@ -44,13 +44,15 @@ class PresentScene3D extends BaseMinigameScene {
     // Suppress default kitchen ambient
     if (this.sounds) this.sounds.stopAmbient();
 
-    // FPS Camera — fixed forward, no mouse look (corridor walker style)
+    // FPS Camera with mouse look
     this.camera = new BABYLON.UniversalCamera('fpsCam',
       new BABYLON.Vector3(0, 1.7, 0), this.scene);
     this.camera.minZ = 0.1;
-    // NO attachControl — no mouse input at all
-    this.camera.speed = 0;
-    this.camera.rotation = new BABYLON.Vector3(0, 0, 0); // Look straight forward
+    this.camera.attachControl(this.canvas, true);
+    this.camera.angularSensibility = 8000;  // Higher = less sensitive (default 2000)
+    this.camera.inertia = 0;                // No drift after mouse stops
+    this.camera.speed = 0;                  // WASD handled manually
+    this.camera.inputs.removeByType('FreeCameraKeyboardMoveInput'); // We handle keys ourselves
     this.scene.activeCamera = this.camera;
 
     // Fog — subtle, not overwhelming
@@ -383,7 +385,7 @@ class PresentScene3D extends BaseMinigameScene {
       return;
     }
 
-    // Player movement
+    // Player movement — uses camera look direction
     let moveZ = 0, moveX = 0;
     if (this.moveInput.w) moveZ = 1;
     if (this.moveInput.s) moveZ = -0.3;
@@ -393,12 +395,23 @@ class PresentScene3D extends BaseMinigameScene {
     this.isMoving = (moveZ !== 0 || moveX !== 0);
 
     if (this.isMoving) {
-      // Fixed-forward movement (no mouse look, so forward = +Z always)
-      this.camera.position.z += moveZ * this.playerSpeed * dt;
-      this.camera.position.x += moveX * this.playerSpeed * dt;
+      // Get camera forward/right vectors projected onto XZ plane
+      const forward = this.camera.getDirection(BABYLON.Vector3.Forward());
+      forward.y = 0;
+      forward.normalize();
+      const right = this.camera.getDirection(BABYLON.Vector3.Right());
+      right.y = 0;
+      right.normalize();
+
+      const move = forward.scale(moveZ).add(right.scale(moveX));
+      this.camera.position.x += move.x * this.playerSpeed * dt;
+      this.camera.position.z += move.z * this.playerSpeed * dt;
 
       // Clamp X to corridor width
       this.camera.position.x = BABYLON.Scalar.Clamp(this.camera.position.x, -1.5, 1.5);
+
+      // Clamp vertical look angle (±45 degrees)
+      this.camera.rotation.x = BABYLON.Scalar.Clamp(this.camera.rotation.x, -0.785, 0.785);
 
       // Head bob
       this.headBobPhase += dt * 8;
