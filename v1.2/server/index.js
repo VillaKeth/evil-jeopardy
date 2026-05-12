@@ -404,6 +404,12 @@ function createApp(options = {}) {
       return;
     }
 
+    // Only emit if the baking timer is actually running (not stale from a previous session)
+    const remaining = getTimeRemaining(db.db);
+    if (remaining <= 0 && !db.getState('baking_paused_remaining')) {
+      return;
+    }
+
     target.emit('baking:started', buildBakingTimerPayload());
     target.emit('baking:minigame-selections', {
       teamId: session.teamId,
@@ -651,7 +657,7 @@ function createApp(options = {}) {
         socket.emit('state', {
           phase,
           teams: transformedTeams,
-          baking: phase === 'BAKING'
+          baking: phase === 'BAKING' && (getTimeRemaining(db.db) > 0 || db.getState('baking_paused_remaining'))
             ? {
                 ...buildBakingTimerPayload(),
                 ...getBakingSessionState()
