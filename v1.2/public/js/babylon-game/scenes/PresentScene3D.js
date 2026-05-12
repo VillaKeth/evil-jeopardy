@@ -164,6 +164,24 @@ class PresentScene3D extends BaseMinigameScene {
     frostMat.emissiveColor = new BABYLON.Color3(0.15, 0.12, 0.1);
     frosting.material = frostMat;
     frosting.parent = cakeRoot;
+    this._frosting = frosting;
+    this._frostMat = frostMat;
+
+    // Frosting drips on sides (get messy when damaged)
+    this._frostDrips = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const drip = BABYLON.MeshBuilder.CreateBox(`drip${i}`, {
+        width: 0.02, height: 0.005, depth: 0.015
+      }, this.scene);
+      drip.position.x = Math.cos(angle) * 0.12;
+      drip.position.z = Math.sin(angle) * 0.12;
+      drip.position.y = 0.22;
+      drip.material = frostMat;
+      drip.parent = cakeRoot;
+      drip.isVisible = false;
+      this._frostDrips.push(drip);
+    }
 
     // Plate
     const plate = BABYLON.MeshBuilder.CreateCylinder('plate', {
@@ -178,6 +196,7 @@ class PresentScene3D extends BaseMinigameScene {
 
     this._heldCake = cakeRoot;
     this._lastCakeIntegrity = 100;
+    this._cakeWobble = 0;
   }
 
   _updateCakeDamageVisual() {
@@ -214,6 +233,27 @@ class PresentScene3D extends BaseMinigameScene {
       layer.mesh.position.z = dmgFactor * 0.02 * (i === 2 ? 1 : -1);
     });
 
+    // Frosting gets messy — drips appear and slide down
+    if (this._frostDrips) {
+      const dripsToShow = Math.floor(dmgFactor * 6);
+      this._frostDrips.forEach((drip, i) => {
+        if (i < dripsToShow) {
+          drip.isVisible = true;
+          drip.scaling.y = 1 + dmgFactor * 8;
+          drip.position.y = 0.22 - dmgFactor * 0.1;
+        }
+      });
+    }
+
+    // Frosting turns grey/dirty
+    if (this._frostMat) {
+      this._frostMat.diffuseColor = new BABYLON.Color3(
+        BABYLON.Scalar.Lerp(1, 0.5, dmgFactor),
+        BABYLON.Scalar.Lerp(0.97, 0.4, dmgFactor),
+        BABYLON.Scalar.Lerp(0.95, 0.35, dmgFactor)
+      );
+    }
+
     // Top layer disappears below 40%
     if (integrity < 40 && this._cakeLayers[2]) {
       this._cakeLayers[2].mesh.isVisible = false;
@@ -222,11 +262,36 @@ class PresentScene3D extends BaseMinigameScene {
     if (integrity < 20 && this._cakeLayers[1]) {
       this._cakeLayers[1].mesh.isVisible = false;
     }
+    // Frosting gone below 30%
+    if (integrity < 30 && this._frosting) {
+      this._frosting.isVisible = false;
+      this._frostDrips.forEach(d => d.isVisible = false);
+    }
 
-    // Spawn crumb particles on damage
+    // Spawn effects on damage
     if (justTookDamage && this._heldCake) {
       this._spawnCrumbs();
+      this._spawnDamageSmoke();
+      this._cakeWobble = 0.4;
     }
+  }
+
+  _spawnDamageSmoke() {
+    if (!this._heldCake) return;
+    const smoke = new BABYLON.ParticleSystem('cakeSmoke', 15, this.scene);
+    smoke.emitter = this._heldCake.position.clone();
+    smoke.minSize = 0.03;
+    smoke.maxSize = 0.08;
+    smoke.minLifeTime = 0.3;
+    smoke.maxLifeTime = 0.8;
+    smoke.emitRate = 30;
+    smoke.direction1 = new BABYLON.Vector3(-0.3, 0.5, -0.3);
+    smoke.direction2 = new BABYLON.Vector3(0.3, 1.2, 0.3);
+    smoke.color1 = new BABYLON.Color4(0.6, 0.5, 0.4, 0.6);
+    smoke.color2 = new BABYLON.Color4(0.4, 0.3, 0.3, 0.2);
+    smoke.createPointEmitter(new BABYLON.Vector3(-0.1, 0, -0.1), new BABYLON.Vector3(0.1, 0.2, 0.1));
+    smoke.start();
+    setTimeout(() => { smoke.stop(); setTimeout(() => smoke.dispose(), 1000); }, 300);
   }
 
   _spawnCrumbs() {
@@ -595,6 +660,14 @@ class PresentScene3D extends BaseMinigameScene {
         .add(forward.scale(0.4))
         .add(right.scale(0.1))
         .add(new BABYLON.Vector3(0, -0.4, 0));
+
+      // Wobble on damage impact
+      if (this._cakeWobble > 0.01) {
+        pos.x += Math.sin(performance.now() * 0.03) * this._cakeWobble * 0.1;
+        pos.y += Math.cos(performance.now() * 0.04) * this._cakeWobble * 0.05;
+        this._cakeWobble *= 0.92; // Dampen
+      }
+
       this._heldCake.position = pos;
       this._heldCake.rotation.y = this.camera.rotation.y;
       this._updateCakeDamageVisual();
