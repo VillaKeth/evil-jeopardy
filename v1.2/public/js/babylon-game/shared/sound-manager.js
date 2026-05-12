@@ -238,6 +238,46 @@ class SoundManager {
     this._noise(0.3, 0.08);
   }
 
+  hoofStomp() {
+    this._ensureContext();
+    this._tone(60, 0.12, 'sine', 0.12);
+    this._noise(0.08, 0.08);
+  }
+
+  milkSquirt() {
+    this._ensureContext();
+    this._noise(0.08, 0.08);
+    this._tone(400 + Math.random() * 200, 0.06, 'sine', 0.06);
+  }
+
+  angryMoo() {
+    this._ensureContext();
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(60, ctx.currentTime + 0.2);
+    osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.4);
+    osc.frequency.linearRampToValueAtTime(70, ctx.currentTime + 0.7);
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.8);
+  }
+
+  stampede() {
+    this._ensureContext();
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => {
+        this._tone(40 + Math.random() * 30, 0.15, 'sawtooth', 0.08);
+        this._noise(0.1, 0.06);
+      }, i * 150);
+    }
+  }
+
   // Stunned
   stunned() {
     for (let i = 0; i < 3; i++) {
