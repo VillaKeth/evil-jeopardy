@@ -51,16 +51,13 @@ test('screen reveal UI listens for cake reveal broadcasts', () => {
   assert.match(screenScript, /Your cake is ready/);
 });
 
-test('player reveal flow wires ResultScene into Phaser and fallback handling', () => {
+test('player reveal flow handles results and cake reveal events', () => {
   const playerHtml = read('public/player.html');
   const playerScript = read('public/js/player.js');
-  const gameConfig = read('public/js/phaser-game/config.js');
-  const resultScene = read('public/js/phaser-game/ResultScene.js');
 
-  assert.match(playerHtml, /ResultScene\.js/);
   assert.match(playerScript, /results:cake-reveal/);
-  assert.match(playerScript, /ResultScene/);
-  assert.match(gameConfig, /ResultScene:\s*window\.ResultScene/);
-  assert.match(resultScene, /window\.ResultScene\s*=\s*ResultScene/);
-  assert.match(resultScene, /Your cake is ready/);
+  assert.match(playerScript, /results:reveal/);
+  assert.match(playerScript, /renderPlayerResultsView/);
+  assert.match(playerScript, /showCakeReveal/);
+  assert.match(playerHtml, /id="results-section"/);
 });

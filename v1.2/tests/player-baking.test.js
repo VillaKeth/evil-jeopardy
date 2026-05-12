@@ -3,18 +3,24 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-test('player baking bootstrap uses Phaser SceneManager getScene API for overlay checks', () => {
+test('player baking bootstrap uses BabylonGameEngine for minigame scenes', () => {
   const playerScript = fs.readFileSync(path.join(__dirname, '../public/js/player.js'), 'utf8');
 
-  assert.doesNotMatch(
+  assert.match(
     playerScript,
-    /game\.scene\.get\(/,
-    'player baking bootstrap should not call game.scene.get because Phaser SceneManager exposes getScene()'
+    /BabylonGameEngine/,
+    'player baking bootstrap should use BabylonGameEngine class'
   );
 
   assert.match(
     playerScript,
-    /game\.scene\.getScene\(/,
-    'player baking bootstrap should check overlay scenes with game.scene.getScene()'
+    /startBakingSession/,
+    'player baking bootstrap should define startBakingSession function'
+  );
+
+  assert.match(
+    playerScript,
+    /destroyBakingSession/,
+    'player baking bootstrap should define destroyBakingSession function'
   );
 });
