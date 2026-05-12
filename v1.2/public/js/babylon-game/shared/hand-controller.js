@@ -384,6 +384,10 @@ class HandController3D {
     return !!this.heldMesh;
   }
 
+  drop(playSound) {
+    this._dropObject(playSound);
+  }
+
   dispose() {
     if (this._inputBound) {
       window.removeEventListener('keydown', this._onKeyDown);

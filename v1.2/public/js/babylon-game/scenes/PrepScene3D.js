@@ -183,7 +183,7 @@ class PrepScene3D extends BaseMinigameScene {
   _loadIngredient(index) {
     this._scored = false;
     if (this.handController && this.handController.isHolding()) {
-      this.handController._dropObject(false);
+      this.handController.drop(false);
     }
     if (this.currentContainer) {
       this.currentContainer.dispose();
@@ -341,10 +341,13 @@ class PrepScene3D extends BaseMinigameScene {
     const splat = ParticlePresets.splatter(
       this.scene,
       this.bowl.position.clone(),
-      this.fillMesh.material.albedoColor
+      this.fillMesh.material.albedoColor || this.fillMesh.material.diffuseColor
     );
     splat.start();
-    setTimeout(() => { splat.stop(); splat.dispose(); }, 800);
+    setTimeout(() => {
+      if (this._disposed) return;
+      splat.stop(); splat.dispose();
+    }, 800);
 
     this.currentIngredientIndex++;
     if (this.currentIngredientIndex < this.requiredIngredients.length) {
