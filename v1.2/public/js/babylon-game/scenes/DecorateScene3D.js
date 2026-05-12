@@ -418,6 +418,27 @@ class DecorateScene3D extends BaseMinigameScene {
   onTimeUp() {
     this._finalizeDecorating(true);
   }
+
+  dispose() {
+    this.scene.onPointerDown = null;
+    this.scene.onPointerMove = null;
+    this.scene.onPointerUp = null;
+
+    this.sampleMeshes.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
+    this.sampleMeshes = [];
+    this.decorationPoints = [];
+
+    if (this.toolStatusText) this.toolStatusText.dispose();
+
+    this.cakeRoot = null;
+    this.turntable = null;
+    this.cake = null;
+    this.fondantLayer = null;
+    this.toolStatusText = null;
+    this.camera = null;
+
+    super.dispose();
+  }
 }
 
 window.DecorateScene3D = DecorateScene3D;

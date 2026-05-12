@@ -388,6 +388,36 @@ class CoolScene3D extends BaseMinigameScene {
   onTimeUp() {
     this._finalizeCooling(true);
   }
+
+  dispose() {
+    this.scene.onPointerMove = null;
+    this.scene.onPointerDown = null;
+    this.scene.onPointerUp = null;
+
+    if (this.steamParticles) { this.steamParticles.stop(); this.steamParticles.dispose(); }
+
+    this.cracks.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
+    this.cracks = [];
+    this.droplets.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
+    this.droplets = [];
+
+    if (this.gaugeFill) this.gaugeFill.dispose();
+    if (this.gaugeText) this.gaugeText.dispose();
+    if (this.intensityText) this.intensityText.dispose();
+
+    this.rack = null;
+    this.cake = null;
+    this.cakeMaterial = null;
+    this.cakeBaseColor = null;
+    this.fan = null;
+    this.fanGuide = null;
+    this.steamParticles = null;
+    this.gaugeFill = null;
+    this.gaugeText = null;
+    this.intensityText = null;
+
+    super.dispose();
+  }
 }
 
 window.CoolScene3D = CoolScene3D;
