@@ -166,15 +166,13 @@ class HandController3D {
     this.fingerTargets[side] = [0, 0, 0, 0, 0];
     this.fingerStates[side] = [0, 0, 0, 0, 0];
 
-    if (!immediate || !this.hands[side]) {
-      return;
+    if (immediate && this.hands[side]) {
+      this.hands[side].fingers.forEach((finger) => {
+        finger.curlAngle = 0;
+        finger.proximalPivot.rotation.x = 0;
+        finger.distalPivot.rotation.x = 0;
+      });
     }
-
-    this.hands[side].fingers.forEach((finger) => {
-      finger.curlAngle = 0;
-      finger.proximalPivot.rotation.x = 0;
-      finger.distalPivot.rotation.x = 0;
-    });
   }
 
   _switchHand() {
@@ -248,6 +246,7 @@ class HandController3D {
     }
 
     this._onKeyDown = (event) => {
+      if (!this.hands) return;
       const key = (event.key || '').toLowerCase();
 
       if (event.code === 'Space' || key === ' ' || key === 'spacebar') {
@@ -268,6 +267,7 @@ class HandController3D {
     };
 
     this._onKeyUp = (event) => {
+      if (!this.hands) return;
       const key = (event.key || '').toLowerCase();
       const fingerIndex = this._keyMap[key];
       if (fingerIndex === undefined) {
@@ -284,6 +284,7 @@ class HandController3D {
   }
 
   update(dt) {
+    if (!this.hands) return;
     const amount = BABYLON.Scalar.Clamp((dt || 0) * 10, 0, 1);
 
     ['left', 'right'].forEach((side) => {
