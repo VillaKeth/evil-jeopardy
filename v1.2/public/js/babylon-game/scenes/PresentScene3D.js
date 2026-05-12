@@ -863,6 +863,13 @@ class PresentScene3D extends BaseMinigameScene {
     if (this.playerLight) this.playerLight.intensity = 0.05;
     this.hud.showMessage('⏰ TIME UP! THE LIGHTS GO OUT!', 2000);
 
+    // Safety: if completePhase hasn't been called within 20s, force it
+    this._timeUpFallback = setTimeout(() => {
+      if (!this._disposed && !this.isComplete) {
+        this.completePhase({ timedOut: true, fallback: true });
+      }
+    }, 20000);
+
     setTimeout(() => {
       if (this._disposed) return;
 
@@ -910,6 +917,7 @@ class PresentScene3D extends BaseMinigameScene {
 
   dispose() {
     this._disposed = true;
+    if (this._timeUpFallback) clearTimeout(this._timeUpFallback);
     if (this._droneHandle) { this._droneHandle.stop(); this._droneHandle = null; }
     if (this._chaseMusicHandle) { this._chaseMusicHandle.stop(); this._chaseMusicHandle = null; }
     clearInterval(this._droneInterval);

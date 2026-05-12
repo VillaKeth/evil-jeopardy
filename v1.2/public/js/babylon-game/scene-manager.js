@@ -223,6 +223,11 @@ class SceneManager {
     this.socketBridge = socketBridge;
     this.currentScene = null;
     this._registry = {};
+    this._locked = false;
+  }
+
+  lockTransitions() {
+    this._locked = true;
   }
 
   register(sceneKey, SceneClass) {
@@ -230,6 +235,7 @@ class SceneManager {
   }
 
   async startScene(sceneKey, options = {}) {
+    if (this._locked) return null;
     // Stop any existing render loop before transitioning
     this.engine.stopRenderLoop();
 
@@ -258,6 +264,7 @@ class SceneManager {
   }
 
   async transitionToScene(sceneKey, options = {}) {
+    if (this._locked) return null;
     this.engine.stopRenderLoop();
     if (this.currentScene) {
       this.currentScene.dispose();
@@ -287,6 +294,11 @@ class SceneManager {
     for (let i = 3; i >= 1; i--) {
       countText.text = String(i);
       await new Promise(r => setTimeout(r, 1000));
+      if (this._locked) {
+        gui.dispose();
+        countdownScene.dispose();
+        return null;
+      }
     }
 
     this.engine.stopRenderLoop();

@@ -53,10 +53,14 @@ class BabylonGameEngine {
 
   _setupPhaseAdvancement() {
     this.socketBridge.onPhaseCompleted((data) => {
+      if (this._bakingComplete) return;
       this._currentPhaseIndex++;
       const minigames = this.options.minigames || [];
       const next = minigames[this._currentPhaseIndex];
-      if (!next) return; // All phases done
+      if (!next) {
+        this._showBakingComplete(data);
+        return;
+      }
 
       const sceneKey = SCENE_KEY_MAP[next.sceneKey] || next.sceneKey;
       this.sceneManager.transitionToScene(sceneKey, {
@@ -65,6 +69,54 @@ class BabylonGameEngine {
         phaseName: next.phaseName || next.phase?.toUpperCase()
       });
     });
+  }
+
+  _showBakingComplete(data) {
+    this._bakingComplete = true;
+
+    // Lock scene manager to prevent any pending async transitions
+    // from overriding the completion screen
+    if (this.sceneManager) {
+      this.sceneManager.lockTransitions();
+      if (this.sceneManager.currentScene) {
+        this.sceneManager.currentScene.dispose();
+        this.sceneManager.currentScene = null;
+      }
+    }
+
+    this.engine.stopRenderLoop();
+
+    // Create a simple completion scene
+    const scene = new BABYLON.Scene(this.engine);
+    scene.clearColor = new BABYLON.Color4(0.05, 0.08, 0.12, 1);
+
+    const camera = new BABYLON.FreeCamera('completeCam', new BABYLON.Vector3(0, 0, -5), scene);
+    camera.setTarget(BABYLON.Vector3.Zero());
+
+    // GUI overlay
+    const adt = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('completeUI', true, scene);
+
+    const title = new BABYLON.GUI.TextBlock('completeTitle', '🎂 Baking Complete!');
+    title.color = '#ffd700';
+    title.fontSize = 48;
+    title.fontWeight = 'bold';
+    title.outlineWidth = 3;
+    title.outlineColor = '#000000';
+    title.top = '-60px';
+    adt.addControl(title);
+
+    const totalScore = data.scoreboard?.[0]?.totalScore || 0;
+    const sub = new BABYLON.GUI.TextBlock('completeSub',
+      `Total Score: ${totalScore}\nWaiting for the host to reveal results...`);
+    sub.color = '#ffffff';
+    sub.fontSize = 22;
+    sub.top = '20px';
+    sub.textWrapping = true;
+    sub.lineSpacing = '8px';
+    adt.addControl(sub);
+
+    this.engine.runRenderLoop(() => scene.render());
+    this._completionScene = scene;
   }
 
   _registerScenes() {
@@ -99,6 +151,11 @@ class BabylonGameEngine {
 
   destroy() {
     window.removeEventListener('resize', this._onResize);
+
+    if (this._completionScene) {
+      this._completionScene.dispose();
+      this._completionScene = null;
+    }
 
     if (this.sceneManager) {
       this.sceneManager.dispose();
