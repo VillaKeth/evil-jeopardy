@@ -34,6 +34,8 @@ class PresentScene3D extends BaseMinigameScene {
     this._visitedSideRooms = new Set();
     this._droneHandle = null;
     this._chaseMusicHandle = null;
+    this._whisperInterval = null;
+    this._dustParticles = null;
   }
 
   getPhaseName() { return 'PRESENT'; }
@@ -87,6 +89,26 @@ class PresentScene3D extends BaseMinigameScene {
     this._enterRoom(0);
 
     this.hud.showMessage('🏚️ Carry the cake through... alive.', 3000);
+
+    // Start dust particles
+    this._addDustParticles();
+  }
+
+  _addDustParticles() {
+    const dust = new BABYLON.ParticleSystem('dust', 50, this.scene);
+    dust.emitter = this.camera;
+    dust.minSize = 0.01;
+    dust.maxSize = 0.03;
+    dust.minLifeTime = 2;
+    dust.maxLifeTime = 5;
+    dust.emitRate = 10;
+    dust.direction1 = new BABYLON.Vector3(-1, -0.5, -1);
+    dust.direction2 = new BABYLON.Vector3(1, 0.5, 1);
+    dust.color1 = new BABYLON.Color4(0.5, 0.5, 0.5, 0.3);
+    dust.color2 = new BABYLON.Color4(0.3, 0.3, 0.3, 0.1);
+    dust.createPointEmitter(new BABYLON.Vector3(-2, -1, -2), new BABYLON.Vector3(2, 1, 2));
+    dust.start();
+    this._dustParticles = dust;
   }
 
   _bindMovement() {
@@ -159,6 +181,15 @@ class PresentScene3D extends BaseMinigameScene {
       this._startChase(roomData);
     } else if (roomData.isJudgeChamber) {
       this._startJudgePresentation(roomData);
+    }
+
+    // Start whispers in later rooms
+    if (index >= 9 && !this._whisperInterval && this.sounds) {
+      this._whisperInterval = setInterval(() => {
+        if (!this._disposed && this.sounds && Math.random() > 0.6) {
+          this.sounds.whisper();
+        }
+      }, 4000);
     }
   }
 
@@ -440,6 +471,14 @@ class PresentScene3D extends BaseMinigameScene {
         }
       }, 800);
     }
+
+    // Light flickering in rooms 1, 4, 7, 10
+    if ([0, 3, 6, 9].includes(this.currentRoomIndex)) {
+      if (Math.random() > 0.97) {
+        this.playerLight.intensity = 0.1 + Math.random() * 0.5;
+        setTimeout(() => { if (this.playerLight) this.playerLight.intensity = 0.6; }, 100);
+      }
+    }
   }
 
   onTimeUp() {
@@ -504,6 +543,8 @@ class PresentScene3D extends BaseMinigameScene {
     clearInterval(this._droneInterval);
     clearInterval(this._heartbeatInterval);
     clearInterval(this._dripInterval);
+    clearInterval(this._whisperInterval);
+    if (this._dustParticles) { this._dustParticles.dispose(); this._dustParticles = null; }
     if (this._moveDown) window.removeEventListener('keydown', this._moveDown);
     if (this._moveUp) window.removeEventListener('keyup', this._moveUp);
     if (this._interactHandler) window.removeEventListener('keydown', this._interactHandler);
