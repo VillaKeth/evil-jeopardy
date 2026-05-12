@@ -420,31 +420,22 @@ class DecorateScene3D extends BaseMinigameScene {
   }
 
   dispose() {
-    // Clean up event handlers
     this.scene.onPointerDown = null;
     this.scene.onPointerMove = null;
     this.scene.onPointerUp = null;
 
-    // Clean up dynamic mesh arrays
-    this.sampleMeshes.forEach(m => {
-      if (m && !m.isDisposed()) {
-        m.dispose();
-      }
-    });
+    this.sampleMeshes.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
     this.sampleMeshes = [];
-
-    // Clear decoration points
     this.decorationPoints = [];
 
-    // Clean up GUI controls
     if (this.toolStatusText) this.toolStatusText.dispose();
 
-    // Null out references
     this.cakeRoot = null;
     this.turntable = null;
     this.cake = null;
     this.fondantLayer = null;
     this.toolStatusText = null;
+    this.camera = null;
 
     super.dispose();
   }

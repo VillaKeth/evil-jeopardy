@@ -390,30 +390,21 @@ class CoolScene3D extends BaseMinigameScene {
   }
 
   dispose() {
-    // Clean up event handlers
-    this.scene.onPointerDown = null;
     this.scene.onPointerMove = null;
+    this.scene.onPointerDown = null;
     this.scene.onPointerUp = null;
 
-    // Clean up particle systems
-    if (this.steamParticles) {
-      this.steamParticles.stop();
-      this.steamParticles.dispose();
-    }
+    if (this.steamParticles) { this.steamParticles.stop(); this.steamParticles.dispose(); }
 
-    // Clean up dynamic mesh arrays
-    this.cracks.forEach(m => m.dispose());
+    this.cracks.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
     this.cracks = [];
-
-    this.droplets.forEach(m => m.dispose());
+    this.droplets.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
     this.droplets = [];
 
-    // Clean up GUI controls
     if (this.gaugeFill) this.gaugeFill.dispose();
     if (this.gaugeText) this.gaugeText.dispose();
     if (this.intensityText) this.intensityText.dispose();
 
-    // Null out mesh references
     this.rack = null;
     this.cake = null;
     this.cakeMaterial = null;
