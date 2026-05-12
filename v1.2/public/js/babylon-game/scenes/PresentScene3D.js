@@ -50,29 +50,39 @@ class PresentScene3D extends BaseMinigameScene {
     this.camera.minZ = 0.1;
     this.camera.attachControl(this.canvas, true);
     this.camera.speed = 0;
-    this.camera.angularSensibility = 3000;
-    // Lock vertical look range
+    this.camera.angularSensibility = 6000; // High = less sensitive mouse
+    this.camera.inertia = 0; // No slippery drift
+    // Lock vertical look to prevent disorientation
     this.camera.rotation.x = 0;
     this.scene.activeCamera = this.camera;
 
-    // Fog
-    this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.04;
-    this.scene.fogColor = new BABYLON.Color3(0.02, 0.02, 0.04);
-    this.scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.04, 1);
+    // Clamp vertical look angle (±30 degrees)
+    this.scene.registerBeforeRender(() => {
+      if (this.camera) {
+        const maxPitch = Math.PI / 6; // 30 degrees
+        this.camera.rotation.x = BABYLON.Scalar.Clamp(this.camera.rotation.x, -maxPitch, maxPitch);
+      }
+    });
 
-    // Dim lighting
+    // Fog — subtle, not overwhelming
+    this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+    this.scene.fogDensity = 0.025; // Lighter start fog — can still see room structure
+    this.scene.fogColor = new BABYLON.Color3(0.05, 0.03, 0.07);
+    this.scene.clearColor = new BABYLON.Color4(0.05, 0.03, 0.07, 1);
+
+    // Ambient lighting — bright enough to see geometry
     const ambient = new BABYLON.HemisphericLight('horrorAmbient',
       new BABYLON.Vector3(0, 1, 0), this.scene);
-    ambient.intensity = 0.15;
-    ambient.diffuse = new BABYLON.Color3(0.4, 0.3, 0.35);
+    ambient.intensity = 0.35;
+    ambient.diffuse = new BABYLON.Color3(0.5, 0.4, 0.45);
+    ambient.groundColor = new BABYLON.Color3(0.15, 0.1, 0.12); // Floor tint for up/down sense
 
-    // Point light follows player
+    // Point light follows player — brighter with more range
     this.playerLight = new BABYLON.PointLight('playerLight',
       new BABYLON.Vector3(0, 2, 0), this.scene);
-    this.playerLight.intensity = 0.6;
-    this.playerLight.range = 6;
-    this.playerLight.diffuse = new BABYLON.Color3(0.9, 0.7, 0.5);
+    this.playerLight.intensity = 1.2;
+    this.playerLight.range = 10;
+    this.playerLight.diffuse = new BABYLON.Color3(0.95, 0.8, 0.6);
 
     // Initialize systems
     this.roomBuilder = new RoomBuilder(this.scene, this.materials);
@@ -170,8 +180,8 @@ class PresentScene3D extends BaseMinigameScene {
     roomData.root.position.z = this.roomOffset;
     this.currentRoomData = roomData;
 
-    // Increase fog density as we progress
-    this.scene.fogDensity = 0.03 + (index * 0.003);
+    // Increase fog density subtly as we progress (stays playable)
+    this.scene.fogDensity = 0.025 + (index * 0.002);
 
     // Schedule scares based on room config
     this._scheduleRoomScares(roomData, index);
