@@ -40,4 +40,5 @@
 - [ ] Add the missing Babylon ResultScene3D and absurd scene scripts referenced by v1.2/public/player.html
 - [ ] Integrate HandController3D into the Babylon baking scenes and object interactions
 - [ ] Playtest PrepScene3D surgeon-hand grab/tilt/drop flow in-browser after the HandController3D rewrite
+- [ ] Playtest PrepScene3D kitchen polish in-browser and tune prop placement/lighting if the hand path clips scene decor
 - [ ] Playtest the horror maze atmospheric room overhaul in Babylon and tune lighting/performance if needed
