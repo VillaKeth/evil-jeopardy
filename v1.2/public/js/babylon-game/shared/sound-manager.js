@@ -417,6 +417,267 @@ class SoundManager {
     this._ambientSources.push({ osc: noiseSource, gain: noiseGain });
   }
 
+  // ─── HORROR SOUNDS ───
+
+  // Loopable horror drone — returns a handle { stop() } for continuous playback
+  horrorDroneLoop() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 38;
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.15;
+    lfoGain.gain.value = 5;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    g.gain.value = 0.06;
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start();
+    lfo.start();
+    return { stop: () => { try { osc.stop(); lfo.stop(); osc.disconnect(); lfo.disconnect(); g.disconnect(); lfoGain.disconnect(); } catch(e) {} } };
+  }
+
+  horrorDrone() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(38, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(42, ctx.currentTime + 2);
+    osc.frequency.linearRampToValueAtTime(35, ctx.currentTime + 4);
+    g.gain.setValueAtTime(0.06, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 2);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 4.5);
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 4.5);
+  }
+
+  heartbeat(rate = 1.0) {
+    const ctx = this.ctx;
+    const interval = 0.6 / rate;
+    for (let i = 0; i < 2; i++) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = i === 0 ? 55 : 45;
+      const t = ctx.currentTime + i * (interval * 0.3);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.12, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(g);
+      g.connect(this.out);
+      osc.start(t);
+      osc.stop(t + 0.25);
+    }
+  }
+
+  footstep() {
+    this._noise(0.06, 0.04);
+    this._tone(80 + Math.random() * 30, 0.08, 'sine', 0.06);
+  }
+
+  whisper() {
+    const ctx = this.ctx;
+    const bufferSize = ctx.sampleRate * 0.4;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.3;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 400 + Math.random() * 400;
+    bandpass.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.05, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    source.connect(bandpass);
+    bandpass.connect(g);
+    g.connect(this.out);
+    source.start(ctx.currentTime);
+    source.stop(ctx.currentTime + 0.4);
+  }
+
+  ambientDrip() {
+    this._tone(900 + Math.random() * 300, 0.06, 'sine', 0.04);
+  }
+
+  scareString() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(2200, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.14, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+  }
+
+  jumpscareHit() {
+    const ctx = this.ctx;
+    [200, 283, 400, 566].forEach(freq => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.1, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(g);
+      g.connect(this.out);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    });
+  }
+
+  knifeWhoosh() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15);
+    g.gain.setValueAtTime(0.08, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+  }
+
+  metalCreak() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.3);
+    osc.frequency.linearRampToValueAtTime(90, ctx.currentTime + 0.6);
+    g.gain.setValueAtTime(0.04, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.7);
+  }
+
+  steamHiss() {
+    this._noise(0.3, 0.07);
+  }
+
+  doorSlam() {
+    this._tone(50, 0.3, 'sine', 0.14);
+    this._noise(0.15, 0.1);
+  }
+
+  cakeCrumble() {
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => {
+        this._noise(0.04, 0.03);
+        this._tone(200 + Math.random() * 300, 0.03, 'sine', 0.02);
+      }, i * 30);
+    }
+  }
+
+  entityRoar() {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const dist = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i * 2) / 256 - 1;
+      curve[i] = Math.tanh(x * 3);
+    }
+    dist.curve = curve;
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(70, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.3);
+    osc.frequency.linearRampToValueAtTime(60, ctx.currentTime + 0.8);
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+    osc.connect(dist);
+    dist.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.9);
+  }
+
+  chaseMusicLoop() {
+    const ctx = this.ctx;
+    let running = true;
+    const playBar = () => {
+      if (!running) return;
+      for (let i = 0; i < 8; i++) {
+        const t = ctx.currentTime + i * 0.2;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(80, t);
+        osc.frequency.exponentialRampToValueAtTime(30, t + 0.08);
+        g.gain.setValueAtTime(0.1, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.connect(g);
+        g.connect(this.out);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      }
+      const bass = ctx.createOscillator();
+      const bg = ctx.createGain();
+      bass.type = 'sawtooth';
+      bass.frequency.value = 55;
+      bg.gain.setValueAtTime(0.05, ctx.currentTime);
+      bg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.6);
+      bass.connect(bg);
+      bg.connect(this.out);
+      bass.start(ctx.currentTime);
+      bass.stop(ctx.currentTime + 1.6);
+      if (running) setTimeout(playBar, 1600);
+    };
+    playBar();
+    return { stop: () => { running = false; try { bass.disconnect(); } catch(e) {} } };
+  }
+
+  chaseMusic() {
+    const ctx = this.ctx;
+    for (let i = 0; i < 8; i++) {
+      const t = ctx.currentTime + i * 0.2;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(80, t);
+      osc.frequency.exponentialRampToValueAtTime(30, t + 0.08);
+      g.gain.setValueAtTime(0.1, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.connect(g);
+      g.connect(this.out);
+      osc.start(t);
+      osc.stop(t + 0.12);
+    }
+  }
+
+  gavelSmash() {
+    this._tone(40, 0.4, 'sine', 0.15);
+    this._noise(0.12, 0.12);
+    this._tone(60, 0.2, 'square', 0.06);
+  }
+
+  iceCreak() {
+    this._noise(0.05, 0.03);
+    this._tone(2000 + Math.random() * 1000, 0.08, 'sine', 0.04);
+  }
+
   stopAmbient() {
     this._ambientSources.forEach(s => {
       try { s.osc.stop(); } catch (_) {}
