@@ -543,6 +543,158 @@ class RoomBuilder {
       hasSideRoom: false, eyes
     };
   }
+
+  // ─── ROOM 12: The Chase ───
+  _room12_chase() {
+    const shell = this._createRoomShell('chase', 4, 3.5, 30,
+      new BABYLON.Color3(0.2, 0.18, 0.22));
+    const { root } = shell;
+
+    const obstacles = [];
+    for (let z = 0; z < 25; z += 3.5) {
+      const type = Math.random() > 0.5 ? 'shelf' : 'pipe';
+      const side = Math.random() > 0.5 ? 1 : -1;
+
+      if (type === 'shelf') {
+        const shelf = BABYLON.MeshBuilder.CreateBox(`chaseObs_${z}`, {
+          width: 1.8, height: 1.5, depth: 0.4
+        }, this.scene);
+        shelf.position = new BABYLON.Vector3(side * 0.8, 0.75, z);
+        shelf.material = this.materials.wood();
+        shelf.parent = root;
+        obstacles.push({ mesh: shelf, z, dodgeDir: side > 0 ? 'left' : 'right' });
+      } else {
+        const pipe = BABYLON.MeshBuilder.CreateCylinder(`chasePipe_${z}`, {
+          diameter: 0.15, height: 4, tessellation: 8
+        }, this.scene);
+        pipe.rotation.z = Math.PI / 2;
+        pipe.position = new BABYLON.Vector3(0, 1.5, z);
+        pipe.material = this.materials.metal();
+        pipe.parent = root;
+        obstacles.push({ mesh: pipe, z, dodgeDir: 'duck' });
+      }
+    }
+
+    const eyes = this._addJudgeEyes(root, 6, { x: 3.5, z: 28 });
+    return {
+      root, roomLength: 30, isChase: true,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [],
+      obstacles,
+      hasSideRoom: false, eyes
+    };
+  }
+
+  // ─── ROOM 13: Judge's Corridor ───
+  _room13_judgeCorridor() {
+    const shell = this._createRoomShell('judgeCorridor', 4, 4, 10,
+      new BABYLON.Color3(0.3, 0.1, 0.2));
+    const { root } = shell;
+
+    const wallGlow = new BABYLON.StandardMaterial('judgeWallGlow', this.scene);
+    wallGlow.emissiveColor = new BABYLON.Color3(0.3, 0.05, 0.1);
+    wallGlow.diffuseColor = new BABYLON.Color3(0.15, 0.05, 0.1);
+
+    for (let z = -4; z <= 4; z += 1.5) {
+      for (let side = -1; side <= 1; side += 2) {
+        const panel = BABYLON.MeshBuilder.CreateBox(`judgePanel_${z}_${side}`, {
+          width: 0.05, height: 1.5, depth: 1
+        }, this.scene);
+        panel.position = new BABYLON.Vector3(side * 1.9, 2, z);
+        panel.material = wallGlow;
+        panel.parent = root;
+      }
+    }
+
+    const eyes = this._addJudgeEyes(root, 9, { x: 3.5, z: 9 });
+    return {
+      root, roomLength: 10,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [],
+      hasSideRoom: false, eyes
+    };
+  }
+
+  // ─── ROOM 14: Judge's Chamber ───
+  _room14_judgeChamber() {
+    const shell = this._createRoomShell('judgeChamber', 8, 5, 10,
+      new BABYLON.Color3(0.25, 0.08, 0.12));
+    const { root } = shell;
+
+    const thronePositions = [
+      new BABYLON.Vector3(-2.5, 0, 3),
+      new BABYLON.Vector3(0, 0, 4),
+      new BABYLON.Vector3(2.5, 0, 3)
+    ];
+    thronePositions.forEach((pos, i) => {
+      const throne = BABYLON.MeshBuilder.CreateBox(`throne_${i}`, {
+        width: 1.5, height: 3, depth: 1
+      }, this.scene);
+      throne.position = pos.add(new BABYLON.Vector3(0, 1.5, 0));
+      const throneMat = new BABYLON.StandardMaterial(`throneMat_${i}`, this.scene);
+      throneMat.diffuseColor = new BABYLON.Color3(0.15, 0.05, 0.08);
+      throneMat.emissiveColor = new BABYLON.Color3(0.1, 0.02, 0.05);
+      throne.material = throneMat;
+      throne.parent = root;
+    });
+
+    const pedestal = BABYLON.MeshBuilder.CreateCylinder('pedestal', {
+      diameter: 1, height: 1.2, tessellation: 20
+    }, this.scene);
+    pedestal.position = new BABYLON.Vector3(0, 0.6, 0);
+    pedestal.material = this.materials.metal();
+    pedestal.parent = root;
+
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const candle = BABYLON.MeshBuilder.CreateCylinder(`candle_${i}`, {
+        diameter: 0.06, height: 0.4, tessellation: 8
+      }, this.scene);
+      candle.position = new BABYLON.Vector3(
+        Math.cos(angle) * 3.5, 0.2, Math.sin(angle) * 3.5 + 2
+      );
+      candle.material = this.materials.food(new BABYLON.Color3(0.9, 0.85, 0.7));
+      candle.parent = root;
+    }
+
+    const eyes = this._addJudgeEyes(root, 10, { x: 7, z: 9 });
+    return {
+      root, roomLength: 10, isJudgeChamber: true,
+      entryPosition: shell.entryPosition, exitPosition: shell.exitPosition,
+      scares: [],
+      thronePositions,
+      pedestal,
+      hasSideRoom: false, eyes
+    };
+  }
+
+  buildSideRoom(parentRoom, index) {
+    const root = new BABYLON.TransformNode(`sideRoom_${index}`, this.scene);
+
+    const shell = this._createRoomShell(`side_${index}`, 3, 3, 4,
+      new BABYLON.Color3(0.2, 0.2, 0.25));
+    shell.root.parent = root;
+
+    const item = BABYLON.MeshBuilder.CreateBox(`sideItem_${index}`, {
+      width: 0.5, height: 0.8, depth: 0.5
+    }, this.scene);
+    item.position = new BABYLON.Vector3(0, 0.4, 1);
+    item.material = this.materials.food(new BABYLON.Color3(0.5, 0.2, 0.3));
+    item.parent = root;
+
+    const eyes = this._addJudgeEyes(root, 3, { x: 2.5, z: 3.5 });
+    return {
+      root, roomLength: 4,
+      scares: [{ type: 'light', trigger: 'enter', delay: 1500, sound: 'whisper' }],
+      eyes
+    };
+  }
+
+  disposeRoom(roomData) {
+    if (roomData && roomData.root) {
+      roomData.root.dispose(false, true);
+    }
+  }
 }
 
 window.RoomBuilder = RoomBuilder;
