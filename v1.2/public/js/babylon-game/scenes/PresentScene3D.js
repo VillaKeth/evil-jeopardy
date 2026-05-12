@@ -69,25 +69,32 @@ class PresentScene3D extends BaseMinigameScene {
     };
     document.addEventListener('mousemove', this._onMouseMove);
 
-    // Fog — subtle, not overwhelming
+    // Fog — reddish-purple horror atmosphere, not gray
     this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-    this.scene.fogDensity = 0.025; // Lighter start fog — can still see room structure
-    this.scene.fogColor = new BABYLON.Color3(0.05, 0.03, 0.07);
-    this.scene.clearColor = new BABYLON.Color4(0.05, 0.03, 0.07, 1);
+    this.scene.fogDensity = 0.02;
+    this.scene.fogColor = new BABYLON.Color3(0.08, 0.02, 0.06);
+    this.scene.clearColor = new BABYLON.Color4(0.08, 0.02, 0.06, 1);
 
-    // Ambient lighting — bright enough to see geometry
+    // Ambient lighting — warmer, more colorful
     const ambient = new BABYLON.HemisphericLight('horrorAmbient',
       new BABYLON.Vector3(0, 1, 0), this.scene);
-    ambient.intensity = 0.35;
-    ambient.diffuse = new BABYLON.Color3(0.5, 0.4, 0.45);
-    ambient.groundColor = new BABYLON.Color3(0.15, 0.1, 0.12); // Floor tint for up/down sense
+    ambient.intensity = 0.4;
+    ambient.diffuse = new BABYLON.Color3(0.6, 0.35, 0.4);    // Reddish warm
+    ambient.groundColor = new BABYLON.Color3(0.1, 0.08, 0.15); // Purple floor tint
 
-    // Point light follows player — brighter with more range
+    // Point light follows player — warm candlelight feel
     this.playerLight = new BABYLON.PointLight('playerLight',
       new BABYLON.Vector3(0, 2, 0), this.scene);
-    this.playerLight.intensity = 1.2;
-    this.playerLight.range = 10;
-    this.playerLight.diffuse = new BABYLON.Color3(0.95, 0.8, 0.6);
+    this.playerLight.intensity = 1.5;
+    this.playerLight.range = 12;
+    this.playerLight.diffuse = new BABYLON.Color3(1.0, 0.75, 0.45); // Warm golden
+
+    // Secondary red backlight for horror atmosphere
+    this._backLight = new BABYLON.PointLight('backLight',
+      new BABYLON.Vector3(0, 1, -3), this.scene);
+    this._backLight.intensity = 0.4;
+    this._backLight.range = 6;
+    this._backLight.diffuse = new BABYLON.Color3(0.8, 0.1, 0.15); // Deep red
 
     // Initialize systems
     this.roomBuilder = new RoomBuilder(this.scene, this.materials);
@@ -113,18 +120,20 @@ class PresentScene3D extends BaseMinigameScene {
   }
 
   _addDustParticles() {
-    const dust = new BABYLON.ParticleSystem('dust', 50, this.scene);
+    const dust = new BABYLON.ParticleSystem('dust', 80, this.scene);
     dust.emitter = this.camera;
     dust.minSize = 0.01;
-    dust.maxSize = 0.03;
-    dust.minLifeTime = 2;
-    dust.maxLifeTime = 5;
-    dust.emitRate = 10;
-    dust.direction1 = new BABYLON.Vector3(-1, -0.5, -1);
-    dust.direction2 = new BABYLON.Vector3(1, 0.5, 1);
-    dust.color1 = new BABYLON.Color4(0.5, 0.5, 0.5, 0.3);
-    dust.color2 = new BABYLON.Color4(0.3, 0.3, 0.3, 0.1);
-    dust.createPointEmitter(new BABYLON.Vector3(-2, -1, -2), new BABYLON.Vector3(2, 1, 2));
+    dust.maxSize = 0.04;
+    dust.minLifeTime = 3;
+    dust.maxLifeTime = 6;
+    dust.emitRate = 15;
+    dust.direction1 = new BABYLON.Vector3(-1.5, -0.3, -1.5);
+    dust.direction2 = new BABYLON.Vector3(1.5, 0.8, 1.5);
+    dust.color1 = new BABYLON.Color4(0.7, 0.6, 0.5, 0.4);
+    dust.color2 = new BABYLON.Color4(0.4, 0.35, 0.3, 0.15);
+    dust.colorDead = new BABYLON.Color4(0.2, 0.15, 0.1, 0);
+    dust.createPointEmitter(new BABYLON.Vector3(-3, -1, -3), new BABYLON.Vector3(3, 2, 3));
+    dust.gravity = new BABYLON.Vector3(0, -0.05, 0);
     dust.start();
     this._dustParticles = dust;
   }
@@ -394,8 +403,29 @@ class PresentScene3D extends BaseMinigameScene {
     roomData.root.position.z = this.roomOffset;
     this.currentRoomData = roomData;
 
+    // Unique fog/atmosphere color per room theme
+    const roomColors = [
+      new BABYLON.Color3(0.08, 0.04, 0.03),  // 0: pantry - warm dark
+      new BABYLON.Color3(0.03, 0.05, 0.1),   // 1: freezer - icy blue
+      new BABYLON.Color3(0.1, 0.04, 0.02),   // 2: boiling - orange haze
+      new BABYLON.Color3(0.06, 0.02, 0.02),  // 3: knife - blood red
+      new BABYLON.Color3(0.08, 0.02, 0.03),  // 4: meat - deep crimson
+      new BABYLON.Color3(0.02, 0.05, 0.06),  // 5: sink - murky teal
+      new BABYLON.Color3(0.05, 0.05, 0.04),  // 6: dish - grimy yellow
+      new BABYLON.Color3(0.1, 0.04, 0.0),    // 7: oven - fire orange
+      new BABYLON.Color3(0.06, 0.05, 0.02),  // 8: spice - earthy
+      new BABYLON.Color3(0.02, 0.02, 0.06),  // 9: walk-in - cold purple
+      new BABYLON.Color3(0.04, 0.04, 0.05),  // 10: dumbwaiter - industrial
+      new BABYLON.Color3(0.08, 0.01, 0.01),  // 11: chase - panic red
+      new BABYLON.Color3(0.05, 0.02, 0.06),  // 12: judge corridor - purple
+      new BABYLON.Color3(0.06, 0.03, 0.08),  // 13: judge chamber - regal purple
+    ];
+    const fogColor = roomColors[index] || new BABYLON.Color3(0.05, 0.03, 0.05);
+    this.scene.fogColor = fogColor;
+    this.scene.clearColor = new BABYLON.Color4(fogColor.r, fogColor.g, fogColor.b, 1);
+
     // Increase fog density subtly as we progress (stays playable)
-    this.scene.fogDensity = 0.025 + (index * 0.002);
+    this.scene.fogDensity = 0.02 + (index * 0.002);
 
     // Schedule scares based on room config
     this._scheduleRoomScares(roomData, index);
@@ -651,6 +681,11 @@ class PresentScene3D extends BaseMinigameScene {
     if (this.playerLight) {
       this.playerLight.position.copyFrom(this.camera.position);
     }
+    // Red backlight follows behind player
+    if (this._backLight) {
+      const behind = this.camera.getDirection(BABYLON.Vector3.Forward()).scale(-2);
+      this._backLight.position = this.camera.position.add(behind);
+    }
 
     // Held cake follows camera — prominent, right in front
     if (this._heldCake) {
@@ -794,6 +829,7 @@ class PresentScene3D extends BaseMinigameScene {
     clearInterval(this._dripInterval);
     clearInterval(this._whisperInterval);
     if (this._dustParticles) { this._dustParticles.dispose(); this._dustParticles = null; }
+    if (this._backLight) { this._backLight.dispose(); this._backLight = null; }
     if (this._heldCake) { this._heldCake.dispose(); this._heldCake = null; }
     if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
     if (this._moveDown) window.removeEventListener('keydown', this._moveDown);
