@@ -13,8 +13,10 @@ class ScareSystem {
     this._qteTimer = null;
     this._onKeyHandler = null;
     this._cooldown = false;
+    this._fadeIntervals = [];
+    this._qteTimeout = null;
 
-    // QTE keys (never movement keys)
+    // QTE keys(never movement keys)
     this.keyPools = {
       easy: ['Q', 'E', 'F'],
       medium: ['Q', 'E', 'F', 'R'],
@@ -117,7 +119,7 @@ class ScareSystem {
     }, 30);
 
     // Timeout = fail
-    setTimeout(() => {
+    this._qteTimeout = setTimeout(() => {
       if (this.activeQTE && this.activeQTE.key === key) {
         this._resolveQTE(false);
       }
@@ -129,6 +131,7 @@ class ScareSystem {
     const { tier, onResult } = this.activeQTE;
 
     clearInterval(this._qteTimer);
+    clearTimeout(this._qteTimeout);
     this.qteContainer.isVisible = false;
     this.qteTimerBar.isVisible = false;
     this.qteContainer.color = '#ffcc00';
@@ -172,11 +175,13 @@ class ScareSystem {
       alpha -= 0.04;
       if (alpha <= 0) {
         clearInterval(fade);
+        this._fadeIntervals = this._fadeIntervals.filter(id => id !== fade);
         this.damageFlash.isVisible = false;
       } else {
         this.damageFlash.background = `rgba(255, 0, 0, ${alpha})`;
       }
     }, 30);
+    this._fadeIntervals.push(fade);
   }
 
   /**
@@ -204,6 +209,8 @@ class ScareSystem {
   dispose() {
     this._disposed = true;
     clearInterval(this._qteTimer);
+    clearTimeout(this._qteTimeout);
+    this._fadeIntervals.forEach(id => clearInterval(id));
     if (this._onKeyHandler) {
       window.removeEventListener('keydown', this._onKeyHandler);
     }
