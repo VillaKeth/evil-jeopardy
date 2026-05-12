@@ -350,7 +350,36 @@ class GravityFlip3D extends BaseMinigameScene {
   }
 
   dispose() {
+    // Clean up event handlers
     this.scene.onPointerDown = null;
+
+    // Clean up furniture array
+    this.furniture.forEach(item => {
+      if (item.mesh && !item.mesh.isDisposed()) {
+        item.mesh.dispose();
+      }
+    });
+    this.furniture = [];
+
+    // Clean up mesh references
+    if (this.cakeMesh && !this.cakeMesh.isDisposed()) {
+      this.cakeMesh.dispose();
+    }
+
+    // Clean up GUI controls
+    if (this.statusText) this.statusText.dispose();
+    if (this.anchorText) this.anchorText.dispose();
+    if (this.anchorBar) this.anchorBar.dispose();
+    if (this.warningText) this.warningText.dispose();
+
+    // Null out references
+    this.roomRoot = null;
+    this.cakeMesh = null;
+    this.statusText = null;
+    this.anchorText = null;
+    this.anchorBar = null;
+    this.warningText = null;
+
     super.dispose();
   }
 }
