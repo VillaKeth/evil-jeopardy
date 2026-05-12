@@ -91,6 +91,8 @@ class BabylonGameEngine {
   }
 
   async startScene(phaserSceneKey, options = {}) {
+    // Merge scene options into engine options so phase advancement has minigames/boosts
+    Object.assign(this.options, options);
     const babylonKey = SCENE_KEY_MAP[phaserSceneKey] || phaserSceneKey;
     return this.sceneManager.startScene(babylonKey, options);
   }
