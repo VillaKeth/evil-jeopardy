@@ -38,3 +38,4 @@
 - [ ] Theme customization (colors, fonts, board style)
 - [ ] Playtest the Babylon Bake/Cool/Decorate/Present scenes through the full v1.2 baking phase flow
 - [ ] Add the missing Babylon ResultScene3D and absurd scene scripts referenced by v1.2/public/player.html
+- [ ] Integrate HandController3D into the Babylon baking scenes and object interactions
