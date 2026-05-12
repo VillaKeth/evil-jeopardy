@@ -334,6 +334,34 @@ class SoundManager {
     setTimeout(() => this._noise(0.2, 0.06), 300);
   }
 
+  earthquakeRumble() {
+    this._ensureContext();
+    this._tone(30, 0.8, 'sawtooth', 0.10);
+    this._noise(0.6, 0.08);
+  }
+
+  beeBuzz() {
+    this._ensureContext();
+    this._tone(220, 0.4, 'sawtooth', 0.04);
+    this._tone(330, 0.3, 'sawtooth', 0.03);
+  }
+
+  shrinkSound() {
+    this._ensureContext();
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.5);
+    g.gain.setValueAtTime(0.08, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.connect(g);
+    g.connect(this.out);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+  }
+
   // ─── UI SOUNDS ───
 
   click() {

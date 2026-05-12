@@ -60,6 +60,57 @@ class BaseMinigameScene {
   onChaosEvent(event) {
     if (this.sounds) this.sounds.chaosEvent();
     this.hud.showMessage(`⚡ ${event.name || 'Chaos!'}`, 1500);
+
+    switch (event.key) {
+      case 'butter-hands':
+        if (this.handController) {
+          this.handController.gripModifier = 0.5;
+          setTimeout(() => { if (this.handController) this.handController.gripModifier = 1.0; }, 8000);
+        }
+        break;
+      case 'earthquake':
+        this._earthquakeShake = 5.0;
+        if (this.sounds && this.sounds.earthquakeRumble) this.sounds.earthquakeRumble();
+        break;
+      case 'inverted':
+        this._invertedControls = true;
+        setTimeout(() => { this._invertedControls = false; }, 8000);
+        break;
+      case 'swarm':
+        this._spawnBeeParticles(6000);
+        if (this.sounds && this.sounds.beeBuzz) this.sounds.beeBuzz();
+        break;
+      case 'shrink':
+        if (this._cakeMesh) {
+          this._cakeMesh.scaling.scaleInPlace(0.5);
+          setTimeout(() => { if (this._cakeMesh) this._cakeMesh.scaling.scaleInPlace(2.0); }, 10000);
+        }
+        if (this.sounds && this.sounds.shrinkSound) this.sounds.shrinkSound();
+        break;
+    }
+  }
+
+  _spawnBeeParticles(duration) {
+    const emitter = new BABYLON.TransformNode('beeEmitter', this.scene);
+    emitter.position = new BABYLON.Vector3(0, 2, 0);
+    const particles = new BABYLON.ParticleSystem('bees', 60, this.scene);
+    particles.emitter = emitter;
+    particles.minSize = 0.04;
+    particles.maxSize = 0.08;
+    particles.minLifeTime = 0.3;
+    particles.maxLifeTime = 0.8;
+    particles.emitRate = 40;
+    particles.direction1 = new BABYLON.Vector3(-2, 0.5, -2);
+    particles.direction2 = new BABYLON.Vector3(2, 1, 2);
+    particles.color1 = new BABYLON.Color4(1, 0.85, 0.1, 1);
+    particles.color2 = new BABYLON.Color4(0.2, 0.2, 0.05, 1);
+    particles.createPointEmitter(new BABYLON.Vector3(-1.5, -0.5, -1.5), new BABYLON.Vector3(1.5, 0.5, 1.5));
+    particles.start();
+    setTimeout(() => {
+      if (this._disposed) return;
+      particles.stop();
+      setTimeout(() => { particles.dispose(); emitter.dispose(); }, 1000);
+    }, duration);
   }
 
   _subscribeToChaosEvents() {
@@ -105,8 +156,22 @@ class BaseMinigameScene {
     this.scene.registerBeforeRender(() => {
       if (this._disposed) return;
       const dt = this.babylonEngine.getDeltaTime() / 1000;
+      this._updateBaseEffects(dt);
       this.update(dt);
     });
+  }
+
+  _updateBaseEffects(dt) {
+    if (this._earthquakeShake && this._earthquakeShake > 0) {
+      this._earthquakeShake -= dt;
+      const cam = this.scene.activeCamera;
+      if (cam) {
+        const intensity = Math.min(1, this._earthquakeShake) * 0.06;
+        cam.position.x += (Math.random() - 0.5) * intensity;
+        cam.position.y += (Math.random() - 0.5) * intensity * 0.5;
+      }
+      if (this._earthquakeShake <= 0) this._earthquakeShake = 0;
+    }
   }
 
   addScore(points) {

@@ -13,6 +13,11 @@
     { "key": "gravity", "name": "Gravity Betrayal!", "description": "Everything is sliding off the cake.", "scorePenalty": 0.15, "phase": ["decorate", "present"] },
     { "key": "trip", "name": "TRIP!", "description": "You tripped carrying the cake!", "scorePenalty": 0.40, "phase": ["present"] },
     { "key": "power-out", "name": "Power Outage!", "description": "The lights went out for 10 seconds.", "scorePenalty": 0.10, "phase": ["bake", "mix"] },
-    { "key": "catastrophe", "name": "CATASTROPHIC FAILURE", "description": "Everything went wrong at once.", "scorePenalty": 0.80, "phase": ["any"] }
+    { "key": "catastrophe", "name": "CATASTROPHIC FAILURE", "description": "Everything went wrong at once.", "scorePenalty": 0.80, "phase": ["any"] },
+    { "key": "butter-hands", "name": "Butter Fingers!", "description": "Everything is slippery! Grip strength halved.", "scorePenalty": 0.15, "phase": ["prep", "mix"] },
+    { "key": "earthquake", "name": "Kitchen Earthquake!", "description": "The whole counter is shaking!", "scorePenalty": 0.20, "phase": ["any"] },
+    { "key": "swarm", "name": "Bee Swarm!", "description": "Bees invaded the kitchen!", "scorePenalty": 0.15, "phase": ["decorate", "cool"] },
+    { "key": "inverted", "name": "Inverted Controls!", "description": "Left is right, up is down!", "scorePenalty": 0.25, "phase": ["prep", "mix", "bake"] },
+    { "key": "shrink", "name": "Honey I Shrunk The Cake!", "description": "The cake shrunk to half size!", "scorePenalty": 0.30, "phase": ["decorate", "present"] }
   ]
 }
