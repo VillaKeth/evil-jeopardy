@@ -55,17 +55,18 @@ class PresentScene3D extends BaseMinigameScene {
     this.camera.cameraRotation = new BABYLON.Vector2(0, 0);
     this.scene.activeCamera = this.camera;
 
-    // Raw mouse look via pointer lock — zero drift, instant response
+    // Raw mouse look via pointer lock — with trackpad smoothing
     this._mouseSensitivity = 0.002;
     this._yaw = 0;
     this._pitch = 0;
+    this._targetYaw = 0;
+    this._targetPitch = 0;
+    this._smoothFactor = 0.5; // 0 = instant, 1 = very smooth (trackpad friendly)
     this._onMouseMove = (e) => {
       if (document.pointerLockElement !== this.canvas) return;
-      this._yaw += e.movementX * this._mouseSensitivity;
-      this._pitch += e.movementY * this._mouseSensitivity;
-      this._pitch = BABYLON.Scalar.Clamp(this._pitch, -0.785, 0.785);
-      this.camera.rotation.x = this._pitch;
-      this.camera.rotation.y = this._yaw;
+      this._targetYaw += e.movementX * this._mouseSensitivity;
+      this._targetPitch += e.movementY * this._mouseSensitivity;
+      this._targetPitch = BABYLON.Scalar.Clamp(this._targetPitch, -0.785, 0.785);
     };
     document.addEventListener('mousemove', this._onMouseMove);
 
@@ -206,6 +207,7 @@ class PresentScene3D extends BaseMinigameScene {
     this._heldCake = cakeRoot;
     this._lastCakeIntegrity = 100;
     this._cakeWobble = 0;
+    this._screenShake = 0;
   }
 
   _updateCakeDamageVisual() {
@@ -282,7 +284,44 @@ class PresentScene3D extends BaseMinigameScene {
       this._spawnCrumbs();
       this._spawnDamageSmoke();
       this._cakeWobble = 0.4;
+      this._screenShake = 1.0;
+      this._showDamageVignette();
     }
+  }
+
+  _showDamageVignette() {
+    // Brief red vignette flash on damage
+    const vignette = new BABYLON.GUI.Rectangle('dmgVignette');
+    vignette.width = '100%';
+    vignette.height = '100%';
+    vignette.thickness = 0;
+    vignette.isHitTestVisible = false;
+    // Red border glow effect
+    vignette.background = 'transparent';
+    const inner = new BABYLON.GUI.Rectangle('dmgInner');
+    inner.width = '100%';
+    inner.height = '100%';
+    inner.thickness = 30;
+    inner.color = 'rgba(200, 0, 0, 0.6)';
+    inner.background = 'rgba(100, 0, 0, 0.15)';
+    inner.isHitTestVisible = false;
+    inner.cornerRadius = 0;
+    vignette.addControl(inner);
+    this.hud.texture.addControl(vignette);
+
+    // Fade out
+    let alpha = 0.6;
+    const fadeInterval = setInterval(() => {
+      alpha -= 0.05;
+      if (alpha <= 0 || this._disposed) {
+        clearInterval(fadeInterval);
+        this.hud.texture.removeControl(vignette);
+        vignette.dispose();
+        return;
+      }
+      inner.color = `rgba(200, 0, 0, ${alpha})`;
+      inner.background = `rgba(100, 0, 0, ${alpha * 0.25})`;
+    }, 30);
   }
 
   _spawnDamageSmoke() {
@@ -480,17 +519,28 @@ class PresentScene3D extends BaseMinigameScene {
 
   _showJumpscare() {
     if (this.sounds) this.sounds.jumpscareHit();
+    this._screenShake = 2.0; // Heavy shake
 
-    // Full-screen red flash
+    // Full-screen dark flash
     const flash = new BABYLON.GUI.Rectangle('jumpscare');
     flash.width = '100%';
     flash.height = '100%';
-    flash.background = 'rgba(180, 0, 0, 0.7)';
+    flash.background = 'rgba(0, 0, 0, 0.85)';
     flash.thickness = 0;
     flash.isHitTestVisible = false;
     this.hud.texture.addControl(flash);
 
-    // Try to show a jumpscare PNG (if assets exist), otherwise fall back to emoji
+    // Red pulsing border
+    const border = new BABYLON.GUI.Rectangle('scareBorder');
+    border.width = '100%';
+    border.height = '100%';
+    border.thickness = 8;
+    border.color = 'rgba(255, 0, 0, 0.8)';
+    border.background = 'transparent';
+    border.isHitTestVisible = false;
+    this.hud.texture.addControl(border);
+
+    // Load jumpscare face
     const jumpscareImages = [
       '/assets/jumpscares/face1.png',
       '/assets/jumpscares/face2.png',
@@ -498,34 +548,57 @@ class PresentScene3D extends BaseMinigameScene {
     ];
     const imgSrc = jumpscareImages[Math.floor(Math.random() * jumpscareImages.length)];
     const img = new BABYLON.GUI.Image('scareImg', imgSrc);
-    img.width = '512px';
-    img.height = '512px';
+    img.width = '60%';
+    img.height = '80%';
     img.stretch = BABYLON.GUI.Image.STRETCH_UNIFORM;
     img.isHitTestVisible = false;
     this.hud.texture.addControl(img);
-    // If image fails to load, show emoji fallback
-    img.onImageLoadedObservable.addOnce(() => {});
+
+    // Animate face zooming in
+    let scale = 0.3;
+    let elapsed = 0;
+    const animInterval = setInterval(() => {
+      elapsed += 16;
+      scale = Math.min(1.2, scale + 0.08);
+      img.scaleX = scale;
+      img.scaleY = scale;
+      // Shake the image position
+      img.left = `${(Math.random() - 0.5) * 40}px`;
+      img.top = `${(Math.random() - 0.5) * 30}px`;
+      // Pulse border
+      const pulse = Math.sin(elapsed * 0.02) * 0.3 + 0.7;
+      border.color = `rgba(255, 0, 0, ${pulse})`;
+
+      if (elapsed > 600 || this._disposed) {
+        clearInterval(animInterval);
+      }
+    }, 16);
+
+    // Fallback if image fails
     img.domImage.onerror = () => {
       this.hud.texture.removeControl(img);
       img.dispose();
       const text = new BABYLON.GUI.TextBlock('scareFallback', '👹');
-      text.fontSize = 200;
+      text.fontSize = 250;
       text.isHitTestVisible = false;
       this.hud.texture.addControl(text);
       setTimeout(() => {
         if (this._disposed) return;
         this.hud.texture.removeControl(text);
         text.dispose();
-      }, 300);
+      }, 500);
     };
 
+    // Cleanup after 700ms
     setTimeout(() => {
       if (this._disposed) return;
       this.hud.texture.removeControl(flash);
+      this.hud.texture.removeControl(border);
       this.hud.texture.removeControl(img);
       flash.dispose();
+      border.dispose();
       img.dispose();
-    }, 300);
+    }, 700);
   }
 
   _startChase(roomData) {
@@ -631,6 +704,21 @@ class PresentScene3D extends BaseMinigameScene {
 
   update(dt) {
     if (this.isComplete || this._judgeActive) return;
+
+    // Smooth camera rotation (lerp toward target — helps trackpad)
+    const lerpSpeed = 1 - this._smoothFactor;
+    this._yaw = BABYLON.Scalar.Lerp(this._yaw, this._targetYaw, lerpSpeed);
+    this._pitch = BABYLON.Scalar.Lerp(this._pitch, this._targetPitch, lerpSpeed);
+
+    // Screen shake overlay
+    let shakeX = 0, shakeY = 0;
+    if (this._screenShake > 0.01) {
+      shakeX = (Math.random() - 0.5) * this._screenShake * 0.05;
+      shakeY = (Math.random() - 0.5) * this._screenShake * 0.05;
+      this._screenShake *= 0.9;
+    }
+    this.camera.rotation.x = this._pitch + shakeY;
+    this.camera.rotation.y = this._yaw + shakeX;
 
     // Chase has its own update
     if (this._chaseActive && this.chaseController) {
