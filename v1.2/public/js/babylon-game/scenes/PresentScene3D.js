@@ -44,25 +44,14 @@ class PresentScene3D extends BaseMinigameScene {
     // Suppress default kitchen ambient
     if (this.sounds) this.sounds.stopAmbient();
 
-    // FPS Camera
+    // FPS Camera — fixed forward, no mouse look (corridor walker style)
     this.camera = new BABYLON.UniversalCamera('fpsCam',
       new BABYLON.Vector3(0, 1.7, 0), this.scene);
     this.camera.minZ = 0.1;
-    this.camera.attachControl(this.canvas, true);
+    // NO attachControl — no mouse input at all
     this.camera.speed = 0;
-    this.camera.angularSensibility = 6000; // High = less sensitive mouse
-    this.camera.inertia = 0; // No slippery drift
-    // Lock vertical look to prevent disorientation
-    this.camera.rotation.x = 0;
+    this.camera.rotation = new BABYLON.Vector3(0, 0, 0); // Look straight forward
     this.scene.activeCamera = this.camera;
-
-    // Clamp vertical look angle (±30 degrees)
-    this.scene.registerBeforeRender(() => {
-      if (this.camera) {
-        const maxPitch = Math.PI / 6; // 30 degrees
-        this.camera.rotation.x = BABYLON.Scalar.Clamp(this.camera.rotation.x, -maxPitch, maxPitch);
-      }
-    });
 
     // Fog — subtle, not overwhelming
     this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
@@ -404,16 +393,12 @@ class PresentScene3D extends BaseMinigameScene {
     this.isMoving = (moveZ !== 0 || moveX !== 0);
 
     if (this.isMoving) {
-      const forward = this.camera.getForwardRay().direction;
-      forward.y = 0;
-      forward.normalize();
-      const right = BABYLON.Vector3.Cross(BABYLON.Vector3.Up(), forward).normalize();
-
-      this.camera.position.addInPlace(forward.scale(moveZ * this.playerSpeed * dt));
-      this.camera.position.addInPlace(right.scale(moveX * this.playerSpeed * dt));
+      // Fixed-forward movement (no mouse look, so forward = +Z always)
+      this.camera.position.z += moveZ * this.playerSpeed * dt;
+      this.camera.position.x += moveX * this.playerSpeed * dt;
 
       // Clamp X to corridor width
-      this.camera.position.x = BABYLON.Scalar.Clamp(this.camera.position.x, -2, 2);
+      this.camera.position.x = BABYLON.Scalar.Clamp(this.camera.position.x, -1.5, 1.5);
 
       // Head bob
       this.headBobPhase += dt * 8;

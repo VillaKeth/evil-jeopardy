@@ -31,30 +31,32 @@ class ScareSystem {
   }
 
   _buildQTEOverlay() {
-    // Central key prompt
+    // Off-center key prompt — smaller, harder to spot
     this.qteContainer = new BABYLON.GUI.Rectangle('qteContainer');
-    this.qteContainer.width = '120px';
-    this.qteContainer.height = '120px';
-    this.qteContainer.cornerRadius = 60;
-    this.qteContainer.background = 'rgba(0, 0, 0, 0.8)';
-    this.qteContainer.thickness = 4;
-    this.qteContainer.color = '#ffcc00';
+    this.qteContainer.width = '70px';
+    this.qteContainer.height = '70px';
+    this.qteContainer.cornerRadius = 35;
+    this.qteContainer.background = 'rgba(0, 0, 0, 0.7)';
+    this.qteContainer.thickness = 3;
+    this.qteContainer.color = '#ff4444';
     this.qteContainer.isVisible = false;
+    this.qteContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    this.qteContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
     this.hudTexture.addControl(this.qteContainer);
 
     this.qteKeyText = new BABYLON.GUI.TextBlock('qteKey', '');
     this.qteKeyText.color = '#ffffff';
-    this.qteKeyText.fontSize = 52;
+    this.qteKeyText.fontSize = 36;
     this.qteKeyText.fontWeight = 'bold';
     this.qteContainer.addControl(this.qteKeyText);
 
-    // Timer ring (simplified as a shrinking bar below the circle)
+    // Timer ring (shrinking bar below prompt)
     this.qteTimerBar = new BABYLON.GUI.Rectangle('qteTimerBar');
-    this.qteTimerBar.width = '120px';
-    this.qteTimerBar.height = '8px';
-    this.qteTimerBar.top = '70px';
-    this.qteTimerBar.background = '#ffcc00';
-    this.qteTimerBar.cornerRadius = 4;
+    this.qteTimerBar.width = '70px';
+    this.qteTimerBar.height = '6px';
+    this.qteTimerBar.top = '50px';
+    this.qteTimerBar.background = '#ff4444';
+    this.qteTimerBar.cornerRadius = 3;
     this.qteTimerBar.thickness = 0;
     this.qteTimerBar.isVisible = false;
     this.hudTexture.addControl(this.qteTimerBar);
@@ -90,23 +92,31 @@ class ScareSystem {
   triggerQTE(tier, roomIndex, onResult) {
     if (this._disposed || this.activeQTE || this._cooldown) return;
 
-    // Determine difficulty
+    // Determine difficulty — tighter windows, harder to react
     let pool, window;
-    if (roomIndex <= 3) { pool = this.keyPools.easy; window = 2000; }
-    else if (roomIndex <= 7) { pool = this.keyPools.medium; window = 1500; }
-    else { pool = this.keyPools.hard; window = 1200; }
+    if (roomIndex <= 3) { pool = this.keyPools.easy; window = 1200; }
+    else if (roomIndex <= 7) { pool = this.keyPools.medium; window = 900; }
+    else { pool = this.keyPools.hard; window = 700; }
 
     const key = pool[Math.floor(Math.random() * pool.length)];
     this.activeQTE = { key, tier, onResult, startTime: performance.now(), window };
+
+    // Randomize position so it's not always centered — forces awareness
+    const offsetX = (Math.random() - 0.5) * 300; // ±150px horizontal
+    const offsetY = (Math.random() - 0.5) * 200; // ±100px vertical
+    this.qteContainer.left = `${offsetX}px`;
+    this.qteContainer.top = `${offsetY}px`;
+    this.qteTimerBar.left = `${offsetX}px`;
+    this.qteTimerBar.top = `${offsetY + 50}px`;
 
     // Show prompt
     this.qteKeyText.text = key;
     this.qteContainer.isVisible = true;
     this.qteTimerBar.isVisible = true;
-    this.qteTimerBar.width = '120px';
+    this.qteTimerBar.width = '70px';
 
     // Animate timer bar shrinking
-    const startWidth = 120;
+    const startWidth = 70;
     const startTime = performance.now();
     this._qteTimer = setInterval(() => {
       if (this._disposed) { clearInterval(this._qteTimer); return; }
