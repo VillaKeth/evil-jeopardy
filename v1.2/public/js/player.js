@@ -910,10 +910,11 @@ async function startBakingSession() {
     return;
   }
 
-  const activeTeamId = bakingSession.teamId || myTeam?.id || null;
-  if (activeTeamId && (!myTeam || (myTeam.id && activeTeamId !== myTeam.id))) {
+  if (!myTeam || !myTeam.id) {
     return;
   }
+
+  const activeTeamId = myTeam.id;
 
   const inventory = getMyShopInventory();
 
