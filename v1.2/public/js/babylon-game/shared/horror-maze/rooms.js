@@ -72,9 +72,9 @@ class RoomBuilder {
     wallR.material = wallMat;
     wallR.parent = root;
 
-    // Back wall with doorway opening (1.5m wide, 2.5m tall gap in center)
-    const doorW = 1.5;
-    const doorH = Math.min(2.5, height - 0.3);
+    // Back wall with wide doorway arch (2.5m wide, nearly full height)
+    const doorW = 2.5;
+    const doorH = Math.min(2.8, height - 0.2);
     // Left portion of back wall
     const bwLeft = BABYLON.MeshBuilder.CreateBox(`${name}_bwL`, {
       width: (width - doorW) / 2, height, depth: 0.2
@@ -89,7 +89,7 @@ class RoomBuilder {
     bwRight.position = new BABYLON.Vector3((width + doorW) / 4, height / 2, depth / 2);
     bwRight.material = wallMat;
     bwRight.parent = root;
-    // Lintel above doorway
+    // Thin arch above doorway
     const lintel = BABYLON.MeshBuilder.CreateBox(`${name}_lintel`, {
       width: doorW, height: height - doorH, depth: 0.2
     }, this.scene);

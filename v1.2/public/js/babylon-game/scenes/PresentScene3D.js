@@ -99,6 +99,9 @@ class PresentScene3D extends BaseMinigameScene {
 
     this.hud.showMessage('🏚️ Carry the cake through... alive.', 3000);
 
+    // Held cake — visible when looking down
+    this._buildHeldCake();
+
     // Start dust particles
     this._addDustParticles();
   }
@@ -118,6 +121,53 @@ class PresentScene3D extends BaseMinigameScene {
     dust.createPointEmitter(new BABYLON.Vector3(-2, -1, -2), new BABYLON.Vector3(2, 1, 2));
     dust.start();
     this._dustParticles = dust;
+  }
+
+  _buildHeldCake() {
+    // 3-layer cake held in front of camera, visible when looking down
+    const cakeRoot = new BABYLON.TransformNode('heldCake', this.scene);
+
+    const layers = [
+      { r: 0.18, h: 0.08, y: 0, color: new BABYLON.Color3(0.85, 0.75, 0.55) },
+      { r: 0.15, h: 0.07, y: 0.08, color: new BABYLON.Color3(0.9, 0.8, 0.6) },
+      { r: 0.11, h: 0.06, y: 0.15, color: new BABYLON.Color3(0.95, 0.85, 0.65) }
+    ];
+
+    layers.forEach((l, i) => {
+      const layer = BABYLON.MeshBuilder.CreateCylinder(`cakeLayer${i}`, {
+        diameter: l.r * 2, height: l.h, tessellation: 16
+      }, this.scene);
+      layer.position.y = l.y + l.h / 2;
+      const mat = new BABYLON.StandardMaterial(`cakeMat${i}`, this.scene);
+      mat.diffuseColor = l.color;
+      mat.specularPower = 64;
+      layer.material = mat;
+      layer.parent = cakeRoot;
+    });
+
+    // Frosting drip on top
+    const frosting = BABYLON.MeshBuilder.CreateCylinder('frosting', {
+      diameter: 0.24, height: 0.015, tessellation: 16
+    }, this.scene);
+    frosting.position.y = 0.215;
+    const frostMat = new BABYLON.StandardMaterial('frostMat', this.scene);
+    frostMat.diffuseColor = new BABYLON.Color3(1, 0.95, 0.9);
+    frostMat.emissiveColor = new BABYLON.Color3(0.1, 0.08, 0.06);
+    frosting.material = frostMat;
+    frosting.parent = cakeRoot;
+
+    // Plate under the cake
+    const plate = BABYLON.MeshBuilder.CreateCylinder('plate', {
+      diameter: 0.45, height: 0.015, tessellation: 20
+    }, this.scene);
+    plate.position.y = -0.01;
+    const plateMat = new BABYLON.StandardMaterial('plateMat', this.scene);
+    plateMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.92);
+    plateMat.specularPower = 128;
+    plate.material = plateMat;
+    plate.parent = cakeRoot;
+
+    this._heldCake = cakeRoot;
   }
 
   _bindMovement() {
@@ -437,6 +487,14 @@ class PresentScene3D extends BaseMinigameScene {
       this.playerLight.position.copyFrom(this.camera.position);
     }
 
+    // Held cake follows camera — positioned below and in front
+    if (this._heldCake) {
+      const forward = this.camera.getDirection(BABYLON.Vector3.Forward());
+      const down = new BABYLON.Vector3(0, -0.55, 0);
+      this._heldCake.position = this.camera.position.add(forward.scale(0.5)).add(down);
+      this._heldCake.rotation.y = this.camera.rotation.y;
+    }
+
     // Check position-based scares
     if (this.currentRoomData && this.currentRoomData.scares) {
       const localZ = this.camera.position.z - this.roomOffset;
@@ -461,7 +519,7 @@ class PresentScene3D extends BaseMinigameScene {
     if (this.currentRoomData) {
       const localZ = this.camera.position.z - this.roomOffset;
       if (localZ >= this.currentRoomData.roomLength - 1) {
-        this.roomOffset += this.currentRoomData.roomLength + 2;
+        this.roomOffset += this.currentRoomData.roomLength;
         this._enterRoom(this.currentRoomIndex + 1);
       }
     }
@@ -558,6 +616,7 @@ class PresentScene3D extends BaseMinigameScene {
     clearInterval(this._dripInterval);
     clearInterval(this._whisperInterval);
     if (this._dustParticles) { this._dustParticles.dispose(); this._dustParticles = null; }
+    if (this._heldCake) { this._heldCake.dispose(); this._heldCake = null; }
     if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
     if (this._moveDown) window.removeEventListener('keydown', this._moveDown);
     if (this._moveUp) window.removeEventListener('keyup', this._moveUp);
