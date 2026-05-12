@@ -438,7 +438,7 @@ class SoundManager {
     g.connect(this.out);
     osc.start();
     lfo.start();
-    return { stop: () => { try { osc.stop(); lfo.stop(); } catch(e) {} } };
+    return { stop: () => { try { osc.stop(); lfo.stop(); osc.disconnect(); lfo.disconnect(); g.disconnect(); lfoGain.disconnect(); } catch(e) {} } };
   }
 
   horrorDrone() {
@@ -646,7 +646,7 @@ class SoundManager {
       if (running) setTimeout(playBar, 1600);
     };
     playBar();
-    return { stop: () => { running = false; } };
+    return { stop: () => { running = false; try { bass.disconnect(); } catch(e) {} } };
   }
 
   chaseMusic() {

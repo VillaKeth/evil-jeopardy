@@ -1,0 +1,1 @@
+what are the absolute cheapest parts you can find for me, i don't really want to spend so much, arduinos seem to be so expensive, what about teensy, esp32s, or anything else that is a cheap chinese knockoff? i want this part as cheap as possible please

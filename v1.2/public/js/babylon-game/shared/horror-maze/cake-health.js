@@ -85,7 +85,8 @@ class CakeHealthDisplay {
   }
 
   takeDamage(amount) {
-    this.integrity = Math.max(0, this.integrity - amount);
+    if (this._disposed) return this.integrity;
+    this.integrity = Math.max(0, this.integrity - Math.max(0, amount));
     this._updateVisuals();
     return this.integrity;
   }
@@ -127,6 +128,7 @@ class CakeHealthDisplay {
   }
 
   dispose() {
+    this._disposed = true;
     this.hudTexture.removeControl(this.container);
     this.container.dispose();
   }
