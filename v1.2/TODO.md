@@ -19,3 +19,7 @@
 - [ ] CowCombat3D cow stampede mechanic (Task 7 from plan).
 - [ ] Enhanced cow sounds (Task 8 from plan).
 - [ ] New chaos events with runtime effects (Task 10 from plan).
+- [x] Add dispose() to CoolScene3D (particles, cracks, droplets, GUI, pointer handlers).
+- [x] Add dispose() to DecorateScene3D (sample meshes, decoration points, tool status GUI).
+- [x] Improve GravityFlip3D dispose (furniture meshes, cake mesh, all GUI controls).
+- [x] Overhaul MixScene3D — kitchen counter, whisk animation, batter transitions, zone feedback, round progress, flour particles, dispose.
