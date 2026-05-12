@@ -154,6 +154,11 @@ socket.on('team-joined', (team) => {
   renderTriviaScoreboard();
   updateBuzzControls();
   renderShopDisplay();
+
+  // If we just joined during baking, refresh the phase UI and start game
+  if (currentPhase === 'BAKING' && myTeam && myTeam.id) {
+    updatePhaseUI(currentPhase);
+  }
 });
 
 // Handle team claim response (player claiming a host-created team)
@@ -168,6 +173,11 @@ socket.on('team-claimed', (team) => {
   renderTriviaScoreboard();
   updateBuzzControls();
   renderShopDisplay();
+
+  // If we just claimed during baking, refresh the phase UI and start game
+  if (currentPhase === 'BAKING' && myTeam && myTeam.id) {
+    updatePhaseUI(currentPhase);
+  }
 });
 
 socket.on('teams-updated', (updatedTeams) => {
@@ -427,6 +437,15 @@ function updatePhaseUI(phase) {
   phaseIndicator.className = `phase-indicator phase-${phase}`;
   setActivePhaseSection(`${phase.toLowerCase()}-section`);
 
+  // If player hasn't joined a team, keep lobby visible so they can join
+  if (!myTeam || !myTeam.id) {
+    const lobbySection = document.getElementById('lobby-section');
+    if (lobbySection) {
+      lobbySection.classList.add('phase-enter', 'active');
+      lobbySection.style.display = 'block';
+    }
+  }
+
   const preserveCakeReveal = phase === 'RESULTS' && cakeRevealActive;
   if (phase === 'BAKING') {
     cakeRevealActive = false;
@@ -459,6 +478,14 @@ function showTeamDisplay() {
   joinForm.classList.add('hidden');
   teamDisplay.classList.remove('hidden');
   teamNameDisplay.textContent = myTeam ? myTeam.name : '';
+
+  // Hide the lobby override if it was forced visible for team join
+  const lobbySection = document.getElementById('lobby-section');
+  if (lobbySection && currentPhase !== 'LOBBY') {
+    lobbySection.classList.remove('active', 'phase-enter');
+    lobbySection.style.display = '';
+  }
+
   updatePlayerIdentity();
   renderShopDisplay();
 }
