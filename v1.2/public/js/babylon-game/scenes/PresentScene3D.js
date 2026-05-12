@@ -44,16 +44,24 @@ class PresentScene3D extends BaseMinigameScene {
     // Suppress default kitchen ambient
     if (this.sounds) this.sounds.stopAmbient();
 
-    // FPS Camera with mouse look
+    // FPS Camera — raw pointer lock mouse look (no Babylon mouse input)
     this.camera = new BABYLON.UniversalCamera('fpsCam',
       new BABYLON.Vector3(0, 1.7, 0), this.scene);
     this.camera.minZ = 0.1;
-    this.camera.attachControl(this.canvas, true);
-    this.camera.angularSensibility = 8000;  // Higher = less sensitive (default 2000)
-    this.camera.inertia = 0;                // No drift after mouse stops
-    this.camera.speed = 0;                  // WASD handled manually
-    this.camera.inputs.removeByType('FreeCameraKeyboardMoveInput'); // We handle keys ourselves
+    this.camera.speed = 0;
+    // Remove ALL default inputs — we handle everything manually
+    this.camera.inputs.clear();
     this.scene.activeCamera = this.camera;
+
+    // Raw mouse look via pointer lock — zero drift, instant response
+    this._mouseSensitivity = 0.002;
+    this._onMouseMove = (e) => {
+      if (document.pointerLockElement !== this.canvas) return;
+      this.camera.rotation.y += e.movementX * this._mouseSensitivity;
+      this.camera.rotation.x += e.movementY * this._mouseSensitivity;
+      this.camera.rotation.x = BABYLON.Scalar.Clamp(this.camera.rotation.x, -0.785, 0.785);
+    };
+    document.addEventListener('mousemove', this._onMouseMove);
 
     // Fog — subtle, not overwhelming
     this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
@@ -410,9 +418,6 @@ class PresentScene3D extends BaseMinigameScene {
       // Clamp X to corridor width
       this.camera.position.x = BABYLON.Scalar.Clamp(this.camera.position.x, -1.5, 1.5);
 
-      // Clamp vertical look angle (±45 degrees)
-      this.camera.rotation.x = BABYLON.Scalar.Clamp(this.camera.rotation.x, -0.785, 0.785);
-
       // Head bob
       this.headBobPhase += dt * 8;
       this.camera.position.y = 1.7 + Math.sin(this.headBobPhase) * 0.04;
@@ -553,6 +558,7 @@ class PresentScene3D extends BaseMinigameScene {
     clearInterval(this._dripInterval);
     clearInterval(this._whisperInterval);
     if (this._dustParticles) { this._dustParticles.dispose(); this._dustParticles = null; }
+    if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove);
     if (this._moveDown) window.removeEventListener('keydown', this._moveDown);
     if (this._moveUp) window.removeEventListener('keyup', this._moveUp);
     if (this._interactHandler) window.removeEventListener('keydown', this._interactHandler);
