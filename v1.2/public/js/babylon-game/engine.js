@@ -54,6 +54,8 @@ class BabylonGameEngine {
   _setupPhaseAdvancement() {
     this.socketBridge.onPhaseCompleted((data) => {
       if (this._bakingComplete) return;
+      // Only advance for our team's phase completions
+      if (data.teamId && this.options.teamId && data.teamId !== this.options.teamId) return;
       this._currentPhaseIndex++;
       const minigames = this.options.minigames || [];
       const next = minigames[this._currentPhaseIndex];

@@ -37,6 +37,13 @@ class BaseMinigameScene {
     this.hud = new HUD(this.scene);
     this.hud.setPhase(this.getPhaseName());
 
+    // Enable glow layer for emissive materials (heating coils, etc.)
+    this._glowLayer = new BABYLON.GlowLayer('glow', this.scene, {
+      mainTextureFixedSize: 512,
+      blurKernelSize: 32
+    });
+    this._glowLayer.intensity = 0.6;
+
     if (this.options.chaosLevel) {
       this.hud.setChaos(this.options.chaosLevel, true);
     }

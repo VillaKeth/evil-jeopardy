@@ -52,12 +52,17 @@ class CoolScene3D extends BaseMinigameScene {
 
   _buildCounter() {
     const counter = BABYLON.MeshBuilder.CreateBox('coolCounter', {
-      width: 7,
-      height: 0.3,
-      depth: 7
+      width: 7, height: 0.3, depth: 7
     }, this.scene);
     counter.position.y = -0.18;
-    counter.material = this.materials.wood();
+    counter.material = this.materials.marble();
+
+    // Back wall
+    const wall = BABYLON.MeshBuilder.CreateBox('coolWall', {
+      width: 7, height: 3, depth: 0.15
+    }, this.scene);
+    wall.position = new BABYLON.Vector3(0, 1.2, 3.5);
+    wall.material = this.materials.tile(new BABYLON.Color3(0.82, 0.85, 0.88));
   }
 
   _buildCoolingRack() {
@@ -321,19 +326,32 @@ class CoolScene3D extends BaseMinigameScene {
   }
 
   _spawnCrack() {
-    const crack = BABYLON.MeshBuilder.CreateBox(`cakeCrack${this.crackCount}`, {
-      width: 0.68,
-      height: 0.03,
-      depth: 0.06
-    }, this.scene);
-    crack.position = new BABYLON.Vector3(
-      (Math.random() - 0.5) * 0.45,
-      0.93,
+    // Create a jagged crack line instead of a plain box
+    const crackRoot = new BABYLON.TransformNode(`crackRoot${this.crackCount}`, this.scene);
+    crackRoot.position = new BABYLON.Vector3(
+      (Math.random() - 0.5) * 0.45, 0.93,
       (Math.random() - 0.5) * 0.45
     );
-    crack.rotation.y = Math.random() * Math.PI;
-    crack.material = this.materials.food(new BABYLON.Color3(0.38, 0.19, 0.15));
-    this.cracks.push(crack);
+    crackRoot.rotation.y = Math.random() * Math.PI;
+
+    const crackMat = this.materials.food(new BABYLON.Color3(0.28, 0.14, 0.08));
+    const segments = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < segments; i++) {
+      const seg = BABYLON.MeshBuilder.CreateBox(`crack_${this.crackCount}_${i}`, {
+        width: 0.12 + Math.random() * 0.1,
+        height: 0.02,
+        depth: 0.025 + Math.random() * 0.015
+      }, this.scene);
+      seg.position = new BABYLON.Vector3(
+        i * 0.1 - 0.15, 0,
+        (Math.random() - 0.5) * 0.06
+      );
+      seg.rotation.y = (Math.random() - 0.5) * 0.4;
+      seg.material = crackMat;
+      seg.parent = crackRoot;
+    }
+
+    this.cracks.push(crackRoot);
     this.crackCount += 1;
     this.hud.showMessage('Too much fan! Crack formed.', 900);
     if (this.sounds) this.sounds.miss();
@@ -341,17 +359,20 @@ class CoolScene3D extends BaseMinigameScene {
 
   _spawnDroplets() {
     this.condensationCount += 1;
+    const glassMat = this.materials.glass();
     for (let i = 0; i < 6; i++) {
+      // Teardrop-shaped droplets instead of plain spheres
       const droplet = BABYLON.MeshBuilder.CreateSphere(`droplet${this.condensationCount}_${i}`, {
-        diameter: 0.08,
-        segments: 8
+        diameter: 0.06 + Math.random() * 0.04,
+        segments: 12
       }, this.scene);
+      droplet.scaling.y = 1.3 + Math.random() * 0.4;
       droplet.position = new BABYLON.Vector3(
         (Math.random() - 0.5) * 1.1,
         0.92 + Math.random() * 0.08,
         (Math.random() - 0.5) * 1.1
       );
-      droplet.material = this.materials.glass();
+      droplet.material = glassMat;
       this.droplets.push(droplet);
     }
     this.hud.showMessage('Condensation forming — keep the air moving.', 1100);
@@ -396,7 +417,9 @@ class CoolScene3D extends BaseMinigameScene {
 
     if (this.steamParticles) { this.steamParticles.stop(); this.steamParticles.dispose(); }
 
-    this.cracks.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
+    this.cracks.forEach(m => {
+      if (m && !m.isDisposed()) m.dispose(false, true);
+    });
     this.cracks = [];
     this.droplets.forEach(m => { if (m && !m.isDisposed()) m.dispose(); });
     this.droplets = [];

@@ -321,31 +321,79 @@ class DecorateScene3D extends BaseMinigameScene {
   _createToppingMesh(name, type, isSample) {
     let mesh;
     switch (type) {
-      case 'strawberry':
-        mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: isSample ? 0.24 : 0.18, segments: 12 }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.95, 0.2, 0.25));
-        break;
-      case 'blueberry':
-        mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: isSample ? 0.22 : 0.14, segments: 12 }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.22, 0.36, 0.88));
-        break;
-      case 'sprinkles':
+      case 'strawberry': {
+        // Cone-shaped strawberry with slight scale for realism
         mesh = BABYLON.MeshBuilder.CreateCylinder(name, {
-          diameter: isSample ? 0.08 : 0.05,
-          height: isSample ? 0.32 : 0.18,
-          tessellation: 8
+          diameterTop: 0, diameterBottom: isSample ? 0.22 : 0.16,
+          height: isSample ? 0.28 : 0.2, tessellation: 8
         }, this.scene);
-        mesh.rotation.z = Math.PI / 3;
-        mesh.material = this.materials.frosting(this.availableColors[this.selectedColorKey]);
-        break;
-      default:
-        mesh = BABYLON.MeshBuilder.CreateBox(name, {
-          width: isSample ? 0.26 : 0.14,
-          height: isSample ? 0.16 : 0.08,
-          depth: isSample ? 0.18 : 0.1
+        mesh.rotation.x = Math.PI;
+        mesh.material = this.materials.food(new BABYLON.Color3(0.95, 0.18, 0.2));
+        // Tiny green stem
+        const stem = BABYLON.MeshBuilder.CreateCylinder(`${name}_stem`, {
+          diameter: 0.03, height: 0.06, tessellation: 6
         }, this.scene);
-        mesh.material = this.materials.food(new BABYLON.Color3(0.37, 0.22, 0.15));
+        stem.position.y = (isSample ? 0.15 : 0.11);
+        stem.material = this.materials.food(new BABYLON.Color3(0.2, 0.65, 0.15));
+        stem.parent = mesh;
         break;
+      }
+      case 'blueberry':
+        mesh = BABYLON.MeshBuilder.CreateSphere(name, {
+          diameter: isSample ? 0.22 : 0.14, segments: 16
+        }, this.scene);
+        mesh.scaling.y = 0.85; // slightly squished
+        mesh.material = this.materials.food(new BABYLON.Color3(0.18, 0.15, 0.55));
+        break;
+      case 'sprinkles': {
+        // Cluster of tiny cylinders for sprinkle effect
+        const root = new BABYLON.TransformNode(name, this.scene);
+        const count = isSample ? 5 : 3;
+        for (let i = 0; i < count; i++) {
+          const s = BABYLON.MeshBuilder.CreateCylinder(`${name}_s${i}`, {
+            diameter: isSample ? 0.04 : 0.025,
+            height: isSample ? 0.18 : 0.1,
+            tessellation: 6
+          }, this.scene);
+          s.rotation.z = Math.PI / 3 + (Math.random() - 0.5) * 0.5;
+          s.rotation.y = Math.random() * Math.PI;
+          s.position = new BABYLON.Vector3(
+            (Math.random() - 0.5) * 0.1,
+            0,
+            (Math.random() - 0.5) * 0.1
+          );
+          const colors = [
+            new BABYLON.Color3(1, 0.3, 0.4),
+            new BABYLON.Color3(0.3, 0.9, 0.4),
+            new BABYLON.Color3(0.4, 0.5, 1),
+            new BABYLON.Color3(1, 0.85, 0.2)
+          ];
+          s.material = this.materials.frosting(colors[i % colors.length]);
+          s.parent = root;
+        }
+        mesh = root;
+        mesh.isPickable = false;
+        // Make the root pickable via a transparent hitbox
+        if (isSample) {
+          const hitbox = BABYLON.MeshBuilder.CreateBox(`${name}_hit`, {
+            width: 0.3, height: 0.2, depth: 0.3
+          }, this.scene);
+          hitbox.visibility = 0;
+          hitbox.isPickable = true;
+          hitbox.parent = root;
+        }
+        return mesh;
+      }
+      default: {
+        // Chocolate chip — rounded wedge
+        mesh = BABYLON.MeshBuilder.CreateSphere(name, {
+          diameter: isSample ? 0.22 : 0.13,
+          segments: 10
+        }, this.scene);
+        mesh.scaling = new BABYLON.Vector3(1, 0.6, 1.2);
+        mesh.material = this.materials.food(new BABYLON.Color3(0.25, 0.13, 0.06));
+        break;
+      }
     }
 
     mesh.isPickable = !!isSample;

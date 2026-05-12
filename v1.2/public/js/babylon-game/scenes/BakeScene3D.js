@@ -21,9 +21,13 @@ class BakeScene3D extends BaseMinigameScene {
 
     this.oven = null;
     this.cake = null;
+    this.cakeTin = null;
     this.cakeMaterial = null;
     this.cakeBaseColor = null;
     this.heatLight = null;
+    this.glassGlow = null;
+    this.ovenGlass = null;
+    this.heatingCoils = null;
     this.fireParticles = null;
     this.steamParticles = null;
     this.fireEmitter = null;
@@ -58,85 +62,187 @@ class BakeScene3D extends BaseMinigameScene {
   }
 
   _buildCounter() {
+    // Granite-style counter with front edge detail
     const counter = BABYLON.MeshBuilder.CreateBox('bakeCounter', {
-      width: 7,
-      height: 0.35,
-      depth: 3.2
+      width: 7, height: 0.35, depth: 3.2
     }, this.scene);
     counter.position = new BABYLON.Vector3(0, -0.2, 0.2);
-    counter.material = this.materials.wood();
+    counter.material = this.materials.marble();
+
+    // Dark wood cabinets below
+    const cabinet = BABYLON.MeshBuilder.CreateBox('cabinet', {
+      width: 7, height: 1.0, depth: 3.0
+    }, this.scene);
+    cabinet.position = new BABYLON.Vector3(0, -0.88, 0.3);
+    cabinet.material = this.materials.darkWood();
+
+    // Cabinet door lines
+    for (let i = -2; i <= 2; i++) {
+      const doorLine = BABYLON.MeshBuilder.CreateBox(`cabLine${i}`, {
+        width: 0.02, height: 0.85, depth: 0.01
+      }, this.scene);
+      doorLine.position = new BABYLON.Vector3(i * 1.4, -0.88, -1.22);
+      doorLine.material = this.materials.darkMetal();
+    }
+
+    // Backsplash tile wall
+    const backsplash = BABYLON.MeshBuilder.CreateBox('backsplash', {
+      width: 7, height: 2.2, depth: 0.1
+    }, this.scene);
+    backsplash.position = new BABYLON.Vector3(0, 1.1, 1.85);
+    backsplash.material = this.materials.tile(new BABYLON.Color3(0.88, 0.86, 0.82));
   }
 
   _buildOven() {
-    this.oven = BABYLON.MeshBuilder.CreateBox('ovenBody', {
-      width: 1.5,
-      height: 1.2,
-      depth: 1
-    }, this.scene);
-    this.oven.position = new BABYLON.Vector3(0, 0.6, 0.45);
-    this.oven.material = this.materials.metal();
+    this.oven = new BABYLON.TransformNode('ovenRoot', this.scene);
+    this.oven.position = new BABYLON.Vector3(0, 0, 0.45);
+    const ss = this.materials.stainlessSteel();
 
-    const door = BABYLON.MeshBuilder.CreateBox('ovenDoor', {
-      width: 1.3,
-      height: 0.95,
-      depth: 0.06
+    // Outer body
+    const body = BABYLON.MeshBuilder.CreateBox('ovenBody', {
+      width: 1.6, height: 1.3, depth: 1.0
     }, this.scene);
-    door.position = new BABYLON.Vector3(0, 0.62, -0.04);
-    door.material = this.materials.metal();
+    body.position = new BABYLON.Vector3(0, 0.63, 0);
+    body.material = ss;
+    body.parent = this.oven;
 
-    const windowFrame = BABYLON.MeshBuilder.CreateBox('windowFrame', {
-      width: 0.82,
-      height: 0.52,
-      depth: 0.04
+    // Interior cavity (dark recessed look)
+    const interior = BABYLON.MeshBuilder.CreateBox('ovenInterior', {
+      width: 1.3, height: 1.0, depth: 0.85
     }, this.scene);
-    windowFrame.position = new BABYLON.Vector3(0, 0.64, -0.01);
-    windowFrame.material = this.materials.metal();
+    interior.position = new BABYLON.Vector3(0, 0.55, 0.02);
+    interior.material = this.materials.ovenInterior();
+    interior.parent = this.oven;
 
-    const windowGlass = BABYLON.MeshBuilder.CreateBox('windowGlass', {
-      width: 0.68,
-      height: 0.38,
-      depth: 0.02
+    // Door frame (slightly protruding)
+    const doorFrame = BABYLON.MeshBuilder.CreateBox('doorFrame', {
+      width: 1.45, height: 1.1, depth: 0.08
     }, this.scene);
-    windowGlass.position = new BABYLON.Vector3(0, 0.64, -0.05);
-    windowGlass.material = this.materials.glass();
+    doorFrame.position = new BABYLON.Vector3(0, 0.58, -0.5);
+    doorFrame.material = this.materials.darkMetal();
+    doorFrame.parent = this.oven;
 
+    // Window frame (chrome)
+    const wFrame = BABYLON.MeshBuilder.CreateBox('windowFrame', {
+      width: 0.9, height: 0.6, depth: 0.04
+    }, this.scene);
+    wFrame.position = new BABYLON.Vector3(0, 0.62, -0.52);
+    wFrame.material = ss;
+    wFrame.parent = this.oven;
+
+    // Window glass (tinted orange when hot)
+    this.ovenGlass = BABYLON.MeshBuilder.CreateBox('ovenGlass', {
+      width: 0.78, height: 0.48, depth: 0.02
+    }, this.scene);
+    this.ovenGlass.position = new BABYLON.Vector3(0, 0.62, -0.55);
+    this.ovenGlass.material = this.materials.ovenGlass(0);
+    this.ovenGlass.parent = this.oven;
+
+    // Door handle (chrome bar)
+    const handle = BABYLON.MeshBuilder.CreateCylinder('ovenHandle', {
+      diameter: 0.04, height: 0.7, tessellation: 12
+    }, this.scene);
+    handle.rotation.z = Math.PI / 2;
+    handle.position = new BABYLON.Vector3(0, 0.32, -0.58);
+    handle.material = ss;
+    handle.parent = this.oven;
+
+    // Handle mounting brackets
+    for (const x of [-0.3, 0.3]) {
+      const bracket = BABYLON.MeshBuilder.CreateBox(`hBracket${x}`, {
+        width: 0.04, height: 0.04, depth: 0.06
+      }, this.scene);
+      bracket.position = new BABYLON.Vector3(x, 0.32, -0.56);
+      bracket.material = ss;
+      bracket.parent = this.oven;
+    }
+
+    // Control panel at top
+    const controlPanel = BABYLON.MeshBuilder.CreateBox('controlPanel', {
+      width: 1.45, height: 0.16, depth: 0.12
+    }, this.scene);
+    controlPanel.position = new BABYLON.Vector3(0, 1.24, -0.46);
+    controlPanel.material = this.materials.darkMetal();
+    controlPanel.parent = this.oven;
+
+    // Knobs (4 decorative cylinders)
+    for (let i = 0; i < 4; i++) {
+      const knob = BABYLON.MeshBuilder.CreateCylinder(`knob${i}`, {
+        diameter: 0.07, height: 0.03, tessellation: 16
+      }, this.scene);
+      knob.position = new BABYLON.Vector3(-0.42 + i * 0.28, 1.24, -0.53);
+      knob.rotation.x = Math.PI / 2;
+      knob.material = ss;
+      knob.parent = this.oven;
+    }
+
+    // Oven tray (inside, with grill lines)
     const tray = BABYLON.MeshBuilder.CreateBox('ovenTray', {
-      width: 0.9,
-      height: 0.03,
-      depth: 0.65
+      width: 1.1, height: 0.03, depth: 0.75
     }, this.scene);
-    tray.position = new BABYLON.Vector3(0, 0.24, 0.38);
+    tray.position = new BABYLON.Vector3(0, 0.24, 0);
     tray.material = this.materials.metal();
+    tray.parent = this.oven;
 
-    const knobPanel = BABYLON.MeshBuilder.CreateBox('knobPanel', {
-      width: 1.2,
-      height: 0.12,
-      depth: 0.1
-    }, this.scene);
-    knobPanel.position = new BABYLON.Vector3(0, 1.17, -0.02);
-    knobPanel.material = this.materials.metal();
+    // Grill rack lines on tray
+    for (let i = 0; i < 6; i++) {
+      const rack = BABYLON.MeshBuilder.CreateCylinder(`grillRod${i}`, {
+        diameter: 0.015, height: 0.75, tessellation: 6
+      }, this.scene);
+      rack.rotation.x = Math.PI / 2;
+      rack.position = new BABYLON.Vector3(-0.4 + i * 0.16, 0.27, 0);
+      rack.material = this.materials.darkMetal();
+      rack.parent = this.oven;
+    }
 
-    this.fireEmitter = new BABYLON.TransformNode('fireEmitter', this.scene);
-    this.fireEmitter.position = new BABYLON.Vector3(0, 0.5, 0.38);
+    // Heating coils (top and bottom — glowing elements!)
+    this.heatingCoils = [];
+    for (const yPos of [0.12, 1.05]) {
+      const coil = BABYLON.MeshBuilder.CreateTorus(`coil_${yPos}`, {
+        diameter: 0.7, thickness: 0.03, tessellation: 32
+      }, this.scene);
+      coil.position = new BABYLON.Vector3(0, yPos, 0.02);
+      coil.material = this.materials.heatingCoil(0);
+      coil.parent = this.oven;
+      this.heatingCoils.push(coil);
+    }
 
-    this.heatLight = new BABYLON.PointLight('ovenHeatLight', new BABYLON.Vector3(0, 0.62, 0.42), this.scene);
+    // Interior glow light (inside oven)
+    this.heatLight = new BABYLON.PointLight('ovenHeatLight',
+      new BABYLON.Vector3(0, 0.62, 0.47), this.scene);
     this.heatLight.diffuse = new BABYLON.Color3(1, 0.55, 0.2);
     this.heatLight.intensity = 0.7;
-    this.heatLight.range = 4;
+    this.heatLight.range = 3.5;
+
+    // Secondary ambient glow from behind glass
+    this.glassGlow = new BABYLON.PointLight('glassGlow',
+      new BABYLON.Vector3(0, 0.62, -0.1), this.scene);
+    this.glassGlow.diffuse = new BABYLON.Color3(1, 0.4, 0.1);
+    this.glassGlow.intensity = 0;
+    this.glassGlow.range = 2;
+
+    this.fireEmitter = new BABYLON.TransformNode('fireEmitter', this.scene);
+    this.fireEmitter.position = new BABYLON.Vector3(0, 0.5, 0.45);
   }
 
   _buildCake() {
+    // Multi-layer cake with higher tessellation for smoother look
     this.cake = BABYLON.MeshBuilder.CreateCylinder('cake', {
-      diameter: 0.62,
-      height: 0.28,
-      tessellation: 24
+      diameter: 0.62, height: 0.28, tessellation: 32
     }, this.scene);
-    this.cake.position = new BABYLON.Vector3(0, 0.28, 0.38);
+    this.cake.position = new BABYLON.Vector3(0, 0.28, 0.45);
     this.cake.scaling.y = this.cakeRise;
 
     this.cakeMaterial = this.materials.cakeSponge().clone('bakeCakeMaterial');
     this.cakeBaseColor = this.cakeMaterial.albedoColor.clone();
     this.cake.material = this.cakeMaterial;
+
+    // Cake tin (dark metal ring around cake)
+    this.cakeTin = BABYLON.MeshBuilder.CreateTorus('cakeTin', {
+      diameter: 0.68, thickness: 0.04, tessellation: 32
+    }, this.scene);
+    this.cakeTin.position = new BABYLON.Vector3(0, 0.27, 0.45);
+    this.cakeTin.material = this.materials.darkMetal();
 
     this.steamParticles = ParticlePresets.steam(this.scene, this.cake, { rate: 10 });
     this.steamParticles.direction1 = new BABYLON.Vector3(-0.05, 0.6, -0.05);
@@ -357,16 +463,49 @@ class BakeScene3D extends BaseMinigameScene {
     const heatLevel = BABYLON.Scalar.Clamp((this.currentTemp - 130) / 120, 0, 1);
     this.heatLight.intensity = 0.55 + (heatLevel * 1.1);
 
+    // Glass tint: warm glow from inside
+    if (this.ovenGlass) {
+      const glassMat = this.ovenGlass.material;
+      glassMat.emissiveColor = new BABYLON.Color3(
+        heatLevel * 0.5, heatLevel * 0.18, 0
+      );
+      glassMat.alpha = 0.2 + heatLevel * 0.15;
+    }
+
+    // Glass glow light behind door
+    if (this.glassGlow) {
+      this.glassGlow.intensity = heatLevel * 0.6;
+    }
+
+    // Heating coils glow based on temperature
+    if (this.heatingCoils) {
+      this.heatingCoils.forEach(coil => {
+        const mat = coil.material;
+        if (mat && mat.emissiveColor) {
+          mat.emissiveColor.r = Math.min(1, 0.1 + heatLevel * 0.9);
+          mat.emissiveColor.g = Math.min(1, 0.02 + heatLevel * 0.25);
+          mat.emissiveColor.b = 0.01;
+        }
+      });
+    }
+
     const steamRate = tooCold ? 0 : 6 + (heatLevel * 14);
     this.steamParticles.emitRate = steamRate;
     this.fireParticles.emitRate = tooHot ? 20 + (this.burnMeter * 45) : 0;
 
+    // Gradual browning: golden → deep brown → charred
+    const browning = BABYLON.Scalar.Clamp(this.timeInZone / this.timeLimit, 0, 1);
     const burnTint = this.burnMeter * 0.5;
+    const goldenR = BABYLON.Scalar.Lerp(this.cakeBaseColor.r, 0.72, browning * 0.5);
+    const goldenG = BABYLON.Scalar.Lerp(this.cakeBaseColor.g, 0.52, browning * 0.6);
+    const goldenB = BABYLON.Scalar.Lerp(this.cakeBaseColor.b, 0.22, browning * 0.7);
     this.cakeMaterial.albedoColor = new BABYLON.Color3(
-      Math.max(0.28, this.cakeBaseColor.r - burnTint * 0.7),
-      Math.max(0.20, this.cakeBaseColor.g - burnTint * 0.55),
-      Math.max(0.12, this.cakeBaseColor.b - burnTint * 0.45)
+      Math.max(0.22, goldenR - burnTint * 0.7),
+      Math.max(0.14, goldenG - burnTint * 0.55),
+      Math.max(0.08, goldenB - burnTint * 0.45)
     );
+    // Increase roughness as cake bakes (matte crust)
+    this.cakeMaterial.roughness = 0.85 + browning * 0.1 + this.burnMeter * 0.05;
   }
 
   _spawnOverflowSplatter() {

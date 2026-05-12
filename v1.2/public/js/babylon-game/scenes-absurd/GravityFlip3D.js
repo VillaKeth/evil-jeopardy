@@ -53,11 +53,26 @@ class GravityFlip3D extends BaseMinigameScene {
   _buildRoom() {
     this.roomRoot = new BABYLON.TransformNode('gravityRoom', this.scene);
 
-    const wallMat = this.materials.food(new BABYLON.Color3(0.2, 0.22, 0.28));
+    // Dark industrial walls with slight color variation
+    const wallMat = this.materials.tile(new BABYLON.Color3(0.18, 0.20, 0.25));
+    const floorMat = this.materials.darkWood();
+
     const floor = BABYLON.MeshBuilder.CreateBox('gfFloor', { width: 8, height: 0.2, depth: 8 }, this.scene);
     floor.position = new BABYLON.Vector3(0, 0, 0);
-    floor.material = wallMat;
+    floor.material = floorMat;
     floor.parent = this.roomRoot;
+
+    // Checkerboard floor accent tiles
+    for (let x = -3; x <= 3; x += 2) {
+      for (let z = -3; z <= 3; z += 2) {
+        const tile = BABYLON.MeshBuilder.CreateBox(`flTile_${x}_${z}`, {
+          width: 1.8, height: 0.01, depth: 1.8
+        }, this.scene);
+        tile.position = new BABYLON.Vector3(x, 0.11, z);
+        tile.material = this.materials.tile(new BABYLON.Color3(0.25, 0.22, 0.18));
+        tile.parent = this.roomRoot;
+      }
+    }
 
     const ceiling = BABYLON.MeshBuilder.CreateBox('gfCeiling', { width: 8, height: 0.2, depth: 8 }, this.scene);
     ceiling.position = new BABYLON.Vector3(0, 3.3, 0);
