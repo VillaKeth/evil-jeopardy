@@ -19,6 +19,7 @@
 - [ ] CowCombat3D cow stampede mechanic (Task 7 from plan).
 - [ ] Enhanced cow sounds (Task 8 from plan).
 - [ ] New chaos events with runtime effects (Task 10 from plan).
+- [ ] Browser-test the CowCombat3D declutter pass in the MIX phase after the latest HUD/scene cleanup.
 - [x] Add dispose() to CoolScene3D (particles, cracks, droplets, GUI, pointer handlers).
 - [x] Add dispose() to DecorateScene3D (sample meshes, decoration points, tool status GUI).
 - [x] Improve GravityFlip3D dispose (furniture meshes, cake mesh, all GUI controls).

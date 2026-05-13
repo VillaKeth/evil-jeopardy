@@ -42,43 +42,37 @@ class CowCombat3D extends BaseMinigameScene {
     this.stampedeTimeouts = [];
 
     this.milkBursts = [];
-    this.statusText = null;
-    this.beatText = null;
+    this.instructionText = null;
     this.dodgeButton = null;
     this.dodgeButtonText = null;
-    this.attackWarningText = null;
-    this.udderLabels = [];
-    this.promptArrowRoot = null;
-    this.promptArrowAnchor = null;
-    this.promptArrowLabel = null;
-    this.promptArrowBob = 0;
+    this._instructionStateKey = '';
+    this._instructionFadeAt = null;
+    this._instructionMinAlpha = 1;
+    this._instructionOverride = null;
     this._nextMooAt = 8 + (Math.random() * 4);
   }
 
   getPhaseName() { return 'MIX'; }
 
   async create() {
-    this.scene.clearColor = new BABYLON.Color4(0.04, 0.08, 0.04, 1);
+    this.scene.clearColor = new BABYLON.Color4(0.035, 0.06, 0.035, 1);
     this.scene.fogMode = BABYLON.Scene.FOGMODE_EXP;
-    this.scene.fogDensity = 0.03;
-    this.scene.fogColor = new BABYLON.Color3(0.08, 0.16, 0.09);
+    this.scene.fogDensity = 0.015;
+    this.scene.fogColor = new BABYLON.Color3(0.07, 0.12, 0.07);
 
     CameraRigs.isometric(this.scene, this.canvas, {
       distance: 18,
-      orthoSize: 7,
-      target: new BABYLON.Vector3(0, 1.1, 0.3)
+      orthoSize: 5.5,
+      target: new BABYLON.Vector3(0, 1.5, 0)
     });
 
     this._buildFarm();
     this._buildCow();
     this._buildBucket();
     this._buildHud();
-    this._buildPromptArrow();
-    this._buildUdderLabels();
     this._setupInput();
     this._advanceBeat(true);
-    this.hud.showMessage('Milk the glowing udder. Beware the angry cow.', 2200);
-    this.hud.showMessage('Click the GLOWING udder when prompted!\nAvoid attacks — DODGE charges!\nFill the bucket with milk!', 3000);
+    this._syncInstructionState();
   }
 
   _buildFarm() {
@@ -86,63 +80,18 @@ class CowCombat3D extends BaseMinigameScene {
       width: 12,
       height: 10
     }, this.scene);
-    ground.material = this.materials.food(new BABYLON.Color3(0.22, 0.34, 0.18));
+    ground.material = this.materials.food(new BABYLON.Color3(0.16, 0.24, 0.14));
 
-    const mud = BABYLON.MeshBuilder.CreateGround('cowMud', {
-      width: 5.2,
-      height: 3.8
-    }, this.scene);
-    mud.position = new BABYLON.Vector3(0.6, 0.01, 0.4);
-    mud.material = this.materials.food(new BABYLON.Color3(0.28, 0.2, 0.12));
-
-    const fenceMat = this.materials.wood();
-    for (let x = -5.5; x <= 5.5; x += 1.1) {
-      this._makeFencePost(x, -4.3, fenceMat);
-      this._makeFencePost(x, 4.3, fenceMat);
-    }
-    for (let z = -3.4; z <= 3.4; z += 1.1) {
-      this._makeFencePost(-5.5, z, fenceMat);
-      this._makeFencePost(5.5, z, fenceMat);
-    }
-
-    ['-4.3', '-3.7', '3.7', '4.3'].forEach((zValue) => {
-      const rail = BABYLON.MeshBuilder.CreateBox(`cowRail_${zValue}`, {
-        width: 11.2,
-        height: 0.08,
-        depth: 0.12
-      }, this.scene);
-      rail.position = new BABYLON.Vector3(0, 0.72 + (Number(zValue) > 0 ? 0.24 : 0), Number(zValue));
-      rail.material = fenceMat;
-    });
-
-    ['-5.5', '-4.9', '4.9', '5.5'].forEach((xValue) => {
-      const rail = BABYLON.MeshBuilder.CreateBox(`cowSideRail_${xValue}`, {
-        width: 0.12,
-        height: 0.08,
-        depth: 7.8
-      }, this.scene);
-      rail.position = new BABYLON.Vector3(Number(xValue), 0.72 + (Math.abs(Number(xValue)) < 5 ? 0 : 0.24), 0);
-      rail.material = fenceMat;
-    });
-
-    this.farmGlow = new BABYLON.PointLight('cowGlow', new BABYLON.Vector3(-3.5, 3, -2.2), this.scene);
-    this.farmGlow.diffuse = new BABYLON.Color3(0.5, 1, 0.55);
-    this.farmGlow.intensity = 0.7;
-  }
-
-  _makeFencePost(x, z, material) {
-    const post = BABYLON.MeshBuilder.CreateBox(`post_${x}_${z}`, {
-      width: 0.12,
-      height: 0.9,
-      depth: 0.12
-    }, this.scene);
-    post.position = new BABYLON.Vector3(x, 0.45, z);
-    post.material = material;
+    this.farmGlow = new BABYLON.PointLight('cowGlow', new BABYLON.Vector3(0, 4.4, 0), this.scene);
+    this.farmGlow.diffuse = new BABYLON.Color3(0.45, 0.85, 0.48);
+    this.farmGlow.intensity = 0.45;
+    this.farmGlow.range = 14;
   }
 
   _buildCow() {
     this.cowRoot = new BABYLON.TransformNode('cowRoot', this.scene);
     this.cowRoot.position.copyFrom(this.baseCowPosition);
+    this.cowRoot.scaling.setAll(1.3);
 
     this.body = BABYLON.MeshBuilder.CreateBox('cowBody', {
       width: 1.5,
@@ -182,6 +131,7 @@ class CowCombat3D extends BaseMinigameScene {
       new BABYLON.Vector3(0.45, 0.45, -0.25),
       new BABYLON.Vector3(0.45, 0.45, 0.25)
     ];
+
     legPositions.forEach((position, index) => {
       const leg = BABYLON.MeshBuilder.CreateCylinder(`cowLeg${index}`, {
         diameter: 0.16,
@@ -226,48 +176,6 @@ class CowCombat3D extends BaseMinigameScene {
     });
   }
 
-  _buildPromptArrow() {
-    this.promptArrowRoot = new BABYLON.TransformNode('udderPromptArrow', this.scene);
-    this.promptArrowRoot.parent = this.cowRoot;
-    this.promptArrowRoot.position = new BABYLON.Vector3(0.1, 1.25, 0);
-
-    const arrowMaterial = this.materials.food(new BABYLON.Color3(0.3, 1, 0.45)).clone('udderPromptMat');
-    arrowMaterial.emissiveColor = new BABYLON.Color3(0.24, 0.8, 0.3);
-    arrowMaterial.alpha = 0.95;
-
-    const shaft = BABYLON.MeshBuilder.CreateCylinder('udderPromptShaft', {
-      diameter: 0.09,
-      height: 0.45,
-      tessellation: 16
-    }, this.scene);
-    shaft.position = new BABYLON.Vector3(0, 0.24, 0);
-    shaft.material = arrowMaterial;
-    shaft.parent = this.promptArrowRoot;
-
-    this.promptArrowAnchor = BABYLON.MeshBuilder.CreateCylinder('udderPromptCone', {
-      diameterTop: 0,
-      diameterBottom: 0.24,
-      height: 0.34,
-      tessellation: 16
-    }, this.scene);
-    this.promptArrowAnchor.position = new BABYLON.Vector3(0, -0.08, 0);
-    this.promptArrowAnchor.rotation.x = Math.PI;
-    this.promptArrowAnchor.material = arrowMaterial;
-    this.promptArrowAnchor.parent = this.promptArrowRoot;
-
-    this.promptArrowLabel = new BABYLON.GUI.TextBlock('udderPromptLabel', '🤚 SQUEEZE!');
-    this.promptArrowLabel.color = '#8dff96';
-    this.promptArrowLabel.fontSize = 28;
-    this.promptArrowLabel.fontWeight = 'bold';
-    this.promptArrowLabel.outlineWidth = 5;
-    this.promptArrowLabel.outlineColor = '#0b2d0f';
-    this.promptArrowLabel.shadowBlur = 12;
-    this.promptArrowLabel.shadowColor = '#65ff7d';
-    this.promptArrowLabel.linkOffsetY = -120;
-    this.hud.texture.addControl(this.promptArrowLabel);
-    this.promptArrowLabel.linkWithMesh(this.promptArrowAnchor);
-  }
-
   _buildBucket() {
     const bucketOuter = BABYLON.MeshBuilder.CreateCylinder('bucketOuter', {
       diameterTop: 0.9,
@@ -289,88 +197,61 @@ class CowCombat3D extends BaseMinigameScene {
   }
 
   _buildHud() {
-    const panel = new BABYLON.GUI.StackPanel('cowInfo');
-    panel.width = '320px';
-    panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-    panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
-    panel.left = '24px';
-    this.hud.texture.addControl(panel);
+    this.instructionText = new BABYLON.GUI.TextBlock('cowInstruction', 'Click the glowing udder!');
+    this.instructionText.width = '100%';
+    this.instructionText.height = '74px';
+    this.instructionText.color = '#ffffff';
+    this.instructionText.fontSize = 18;
+    this.instructionText.fontWeight = 'bold';
+    this.instructionText.textWrapping = true;
+    this.instructionText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    this.instructionText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    this.instructionText.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    this.instructionText.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+    this.instructionText.paddingBottom = '22px';
+    this.instructionText.outlineWidth = 4;
+    this.instructionText.outlineColor = '#000000';
+    this.instructionText.shadowBlur = 8;
+    this.instructionText.shadowColor = '#000000';
+    this.hud.texture.addControl(this.instructionText);
 
-    this.statusText = new BABYLON.GUI.TextBlock('cowStatus', 'Awaiting the rhythm…');
-    this.statusText.height = '78px';
-    this.statusText.color = '#ddffdd';
-    this.statusText.fontSize = 18;
-    this.statusText.textWrapping = true;
-    this.statusText.outlineWidth = 2;
-    this.statusText.outlineColor = '#000000';
-    panel.addControl(this.statusText);
-
-    this.beatText = new BABYLON.GUI.TextBlock('cowBeat', 'Press udder #--!');
-    this.beatText.height = '38px';
-    this.beatText.color = '#ffffff';
-    this.beatText.fontSize = 22;
-    this.beatText.fontWeight = 'bold';
-    this.beatText.outlineWidth = 3;
-    this.beatText.outlineColor = '#000000';
-    panel.addControl(this.beatText);
-
-    this.attackWarningText = new BABYLON.GUI.TextBlock('cowAttackWarning', '');
-    this.attackWarningText.width = '100%';
-    this.attackWarningText.height = '160px';
-    this.attackWarningText.color = '#ff4444';
-    this.attackWarningText.fontSize = 42;
-    this.attackWarningText.fontWeight = 'bold';
-    this.attackWarningText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
-    this.attackWarningText.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
-    this.attackWarningText.outlineWidth = 5;
-    this.attackWarningText.outlineColor = '#000000';
-    this.attackWarningText.shadowBlur = 12;
-    this.attackWarningText.shadowColor = '#000000';
-    this.attackWarningText.isVisible = false;
-    this.hud.texture.addControl(this.attackWarningText);
-
-    this.dodgeButton = BABYLON.GUI.Button.CreateSimpleButton('cowDodge', 'DODGE!');
-    this.dodgeButton.width = '180px';
-    this.dodgeButton.height = '54px';
-    this.dodgeButton.cornerRadius = 14;
+    this.dodgeButton = BABYLON.GUI.Button.CreateSimpleButton('cowDodge', 'DODGE');
+    this.dodgeButton.width = '160px';
+    this.dodgeButton.height = '50px';
+    this.dodgeButton.cornerRadius = 12;
     this.dodgeButton.thickness = 2;
     this.dodgeButton.color = '#ffffff';
-    this.dodgeButton.background = '#c0392b';
+    this.dodgeButton.background = '#c65a2e';
     this.dodgeButton.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
     this.dodgeButton.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-    this.dodgeButton.paddingBottom = '28px';
+    this.dodgeButton.paddingBottom = '86px';
     this.dodgeButton.isVisible = false;
     this.dodgeButton.onPointerClickObservable.add(() => this._tryDodge());
     this.hud.texture.addControl(this.dodgeButton);
+
     this.dodgeButtonText = this.dodgeButton.children[0] || null;
     if (this.dodgeButtonText) {
-      this.dodgeButtonText.fontSize = 24;
+      this.dodgeButtonText.fontSize = 22;
       this.dodgeButtonText.fontWeight = 'bold';
     }
   }
 
-  _buildUdderLabels() {
-    this.udderLabels = this.udders.map((udder, index) => {
-      const label = new BABYLON.GUI.TextBlock(`udderLabel_${index}`, String(index + 1));
-      label.color = '#ffffff';
-      label.fontSize = 24;
-      label.fontWeight = 'bold';
-      label.outlineWidth = 4;
-      label.outlineColor = '#000000';
-      label.linkOffsetY = -26;
-      this.hud.texture.addControl(label);
-      label.linkWithMesh(udder.mesh);
-      return label;
-    });
-  }
-
   _setupInput() {
     this.scene.onPointerDown = () => {
-      if (this.isComplete || this.elapsed < this.stunnedUntil || this.stampedeActive) {
+      if (this.isComplete || this.elapsed < this.stunnedUntil) {
         return;
       }
 
-      const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY, (mesh) => Boolean(mesh && mesh.metadata && typeof mesh.metadata.udderIndex === 'number'));
+      if (this.stampedeActive) {
+        this._tryDodge();
+        return;
+      }
+
+      const pick = this.scene.pick(
+        this.scene.pointerX,
+        this.scene.pointerY,
+        (mesh) => Boolean(mesh && mesh.metadata && typeof mesh.metadata.udderIndex === 'number')
+      );
       if (!pick.hit || !pick.pickedMesh) {
         return;
       }
@@ -382,7 +263,7 @@ class CowCombat3D extends BaseMinigameScene {
       }
 
       if (this.uddersInvalid || this.currentAttack === 'spin') {
-        this._applyPenalty('The udder rhythm is scrambled!');
+        this._applyPenalty();
         return;
       }
 
@@ -392,55 +273,177 @@ class CowCombat3D extends BaseMinigameScene {
         this.addScore(5);
         this.bucketFill = Math.min(1, this.bucketFill + 0.06);
         this._spawnMilkBurst(this.udders[udderIndex].mesh.getAbsolutePosition(), this.bucketFillMesh.position.clone());
-        this.statusText.text = 'Perfect squeeze. Keep milking!';
+        this._showNormalInstruction(true);
         if (this.sounds) {
           if (this.sounds.beatHit) this.sounds.beatHit();
           if (this.sounds.milkSquirt) this.sounds.milkSquirt();
         }
       } else {
         if (this.sounds && this.sounds.beatMiss) this.sounds.beatMiss();
-        this._applyPenalty('Wrong udder. The cow glares at you.');
+        this._applyPenalty();
       }
     };
   }
 
   _advanceBeat(force = false) {
     if (!force && !this.activeUdderHit && !this.uddersInvalid) {
-      this._applyPenalty('Missed the milking rhythm.');
+      this._applyPenalty();
     }
 
     this.beatIndex = (this.beatIndex + 1) % this.beatSequence.length;
     this.activeUdderIndex = this.beatSequence[this.beatIndex];
     this.activeUdderHit = false;
     this.beatElapsed = 0;
-    this.beatText.text = `Press udder #${this.activeUdderIndex + 1}!`;
     if (this.sounds && this.sounds.hoofStomp) this.sounds.hoofStomp();
   }
 
-  _applyPenalty(message) {
+  _applyPenalty() {
     if (this.clickPenaltyCooldown > 0) {
       return;
     }
     this.clickPenaltyCooldown = 0.25;
     this.addScore(-2);
-    this.statusText.text = message;
+    if (!this.currentAttack && !this.stampedeActive) {
+      this._showNormalInstruction(true);
+    }
   }
 
   _stunPlayer(message, penalty = -2) {
     this.stunnedUntil = this.elapsed + 2;
     this.stunCount += 1;
-    this.statusText.text = message;
     this.addScore(penalty);
+    this._setTemporaryInstruction({
+      key: 'stunned',
+      text: 'Stunned!',
+      color: '#ff4d4d',
+      fontSize: 28,
+      outlineWidth: 5,
+      outlineColor: '#2b0000',
+      fadeAfter: 0.5,
+      minAlpha: 0.7
+    }, 0.9);
+    if (message) {
+      this.hud.showMessage(message, 900);
+    }
     if (this.sounds && this.sounds.stunned) this.sounds.stunned();
   }
 
-  _setAttackWarning(text, color) {
-    this.attackWarningText.text = text || '';
-    this.attackWarningText.color = color || '#ff4444';
-    this.attackWarningText.isVisible = Boolean(text);
+  _applyInstruction(config, force = false) {
+    if (!this.instructionText) {
+      return;
+    }
+
+    if (!force && this._instructionStateKey === config.key) {
+      return;
+    }
+
+    this._instructionStateKey = config.key;
+    this.instructionText.text = config.text;
+    this.instructionText.color = config.color || '#ffffff';
+    this.instructionText.fontSize = config.fontSize || 18;
+    this.instructionText.outlineWidth = config.outlineWidth ?? 4;
+    this.instructionText.outlineColor = config.outlineColor || '#000000';
+    this.instructionText.alpha = 1;
+    this._instructionFadeAt = typeof config.fadeAfter === 'number' ? this.elapsed + config.fadeAfter : null;
+    this._instructionMinAlpha = config.minAlpha ?? 1;
   }
 
-  _showDodgeButton(text = 'DODGE!', background = '#c0392b', width = 180, height = 54) {
+  _showNormalInstruction(force = false) {
+    this._applyInstruction({
+      key: 'normal',
+      text: 'Click the glowing udder!',
+      color: '#ffffff',
+      fontSize: 18,
+      outlineWidth: 4,
+      outlineColor: '#000000',
+      fadeAfter: 3,
+      minAlpha: 0.5
+    }, force);
+  }
+
+  _setTemporaryInstruction(config, duration = 0.9) {
+    this._instructionOverride = {
+      until: this.elapsed + duration,
+      config
+    };
+    this._applyInstruction(config, true);
+  }
+
+  _syncInstructionState() {
+    if (this._instructionOverride) {
+      if (this.elapsed < this._instructionOverride.until) {
+        return;
+      }
+      this._instructionOverride = null;
+      this._instructionStateKey = '';
+    }
+
+    if (this.stampedeActive) {
+      this._applyInstruction({
+        key: 'stampede',
+        text: 'DODGE!',
+        color: '#ff9c2a',
+        fontSize: 32,
+        outlineWidth: 6,
+        outlineColor: '#3a1800'
+      });
+      return;
+    }
+
+    if (this.currentAttack === 'charge') {
+      this._applyInstruction({
+        key: 'attack-charge',
+        text: 'DODGE THE CHARGE!',
+        color: '#ff4d4d',
+        fontSize: 32,
+        outlineWidth: 6,
+        outlineColor: '#2b0000'
+      });
+      return;
+    }
+
+    if (this.currentAttack === 'kick') {
+      this._applyInstruction({
+        key: 'attack-kick',
+        text: '🦵 HANDS OFF!',
+        color: '#ff4d4d',
+        fontSize: 32,
+        outlineWidth: 6,
+        outlineColor: '#2b0000'
+      });
+      return;
+    }
+
+    if (this.currentAttack === 'spin') {
+      this._applyInstruction({
+        key: 'attack-spin',
+        text: '🌀 WAIT...',
+        color: '#ff4d4d',
+        fontSize: 32,
+        outlineWidth: 6,
+        outlineColor: '#2b0000'
+      });
+      return;
+    }
+
+    this._showNormalInstruction();
+  }
+
+  _updateInstructionAlpha() {
+    if (!this.instructionText) {
+      return;
+    }
+
+    if (this._instructionFadeAt === null || this.elapsed <= this._instructionFadeAt) {
+      this.instructionText.alpha = 1;
+      return;
+    }
+
+    const t = BABYLON.Scalar.Clamp((this.elapsed - this._instructionFadeAt) / 0.8, 0, 1);
+    this.instructionText.alpha = 1 - ((1 - this._instructionMinAlpha) * t);
+  }
+
+  _showDodgeButton(text = 'DODGE', background = '#c65a2e', width = 160, height = 50) {
     this.dodgeButton.width = `${width}px`;
     this.dodgeButton.height = `${height}px`;
     this.dodgeButton.background = background;
@@ -457,12 +460,12 @@ class CowCombat3D extends BaseMinigameScene {
     this.dodgeButton.isVisible = false;
     this.dodgeButton.scaleX = 1;
     this.dodgeButton.scaleY = 1;
-    this.dodgeButton.width = '180px';
-    this.dodgeButton.height = '54px';
-    this.dodgeButton.background = '#c0392b';
+    this.dodgeButton.width = '160px';
+    this.dodgeButton.height = '50px';
+    this.dodgeButton.background = '#c65a2e';
     if (this.dodgeButtonText) {
-      this.dodgeButtonText.text = 'DODGE!';
-      this.dodgeButtonText.fontSize = 24;
+      this.dodgeButtonText.text = 'DODGE';
+      this.dodgeButtonText.fontSize = 22;
     }
   }
 
@@ -473,20 +476,18 @@ class CowCombat3D extends BaseMinigameScene {
     this.attackDuration = type === 'kick' ? 1.2 : type === 'charge' ? 1.4 : 1.1;
     this.uddersInvalid = type === 'spin';
     this.attackLeg = type === 'kick' ? this.legs[2 + Math.floor(Math.random() * 2)] : null;
+    this._instructionOverride = null;
+    this._instructionStateKey = '';
 
     if (this.sounds && this.sounds.angryMoo) this.sounds.angryMoo();
 
-    if (type === 'kick') {
-      this.statusText.text = 'KICK! Keep your hands away.';
-      this._setAttackWarning('🦵 KICK! HANDS OFF!', '#ff4444');
-    } else if (type === 'charge') {
-      this.statusText.text = 'CHARGE! Hit DODGE!';
-      this._showDodgeButton('DODGE NOW!', '#d63031', 260, 78);
-      this._setAttackWarning('🐂 CHARGE! DODGE NOW!', '#ff4444');
+    if (type === 'charge') {
+      this._showDodgeButton('DODGE', '#c0392b', 180, 54);
     } else {
-      this.statusText.text = 'SPIN! The udders are all wrong.';
-      this._setAttackWarning('🌀 SPIN! WAIT IT OUT!', '#ffff44');
+      this._hideDodgeButton();
     }
+
+    this._syncInstructionState();
   }
 
   _finishAttack() {
@@ -499,7 +500,6 @@ class CowCombat3D extends BaseMinigameScene {
     this.attackDuration = 0;
     this.attackDodged = false;
     this.uddersInvalid = false;
-    this._setAttackWarning('', null);
     this._hideDodgeButton();
     this.cowRoot.position.copyFrom(this.baseCowPosition);
     this.cowRoot.rotation.y = 0;
@@ -508,6 +508,8 @@ class CowCombat3D extends BaseMinigameScene {
       leg.rotation.z = 0;
     });
     this.nextAttackAt = this.elapsed + 8 + (Math.random() * 2);
+    this._instructionStateKey = '';
+    this._syncInstructionState();
   }
 
   _tryDodge() {
@@ -521,7 +523,6 @@ class CowCombat3D extends BaseMinigameScene {
       target.dodged = true;
       this.dodgeCount += 1;
       this.addScore(5);
-      this.statusText.text = 'You sidestepped the mini cow!';
       if (this.sounds && this.sounds.dodge) this.sounds.dodge();
       return;
     }
@@ -529,9 +530,9 @@ class CowCombat3D extends BaseMinigameScene {
     if (this.currentAttack !== 'charge' || this.attackDodged) {
       return;
     }
+
     this.attackDodged = true;
     this.dodgeCount += 1;
-    this.statusText.text = 'You dodged the horned projectile oven-cow.';
     this._hideDodgeButton();
     if (this.sounds && this.sounds.dodge) this.sounds.dodge();
   }
@@ -540,9 +541,11 @@ class CowCombat3D extends BaseMinigameScene {
     this.stampedeActive = true;
     this.stampedeTriggered = true;
     this.stampedeCows = [];
+    this._instructionOverride = null;
+    this._instructionStateKey = '';
     this._hideDodgeButton();
+    this._syncInstructionState();
     this.hud.showMessage('🐄🐄🐄 STAMPEDE!', 2000);
-    this.statusText.text = 'Stampede incoming! Dodge the mini cows.';
     if (this.sounds) {
       if (this.sounds.stampede) this.sounds.stampede();
       if (this.sounds.moo) this.sounds.moo();
@@ -610,12 +613,13 @@ class CowCombat3D extends BaseMinigameScene {
   _finishStampede() {
     this.stampedeActive = false;
     this._hideDodgeButton();
-    this.statusText.text = 'Stampede over. Back to milking.';
     this.stampedeCows.forEach((cow) => {
       if (cow.root) cow.root.dispose(false, true);
     });
     this.stampedeCows = [];
     this.nextAttackAt = Math.max(this.nextAttackAt, this.elapsed + 5);
+    this._instructionStateKey = '';
+    this._syncInstructionState();
   }
 
   _spawnMilkBurst(start, end) {
@@ -675,9 +679,7 @@ class CowCombat3D extends BaseMinigameScene {
       }
     });
 
-    if (shouldShowDodge) {
-      this._showDodgeButton('DODGE!', '#d35400', 220, 68);
-    } else if (!this.currentAttack) {
+    if (!this.currentAttack) {
       this._hideDodgeButton();
     }
 
@@ -693,7 +695,6 @@ class CowCombat3D extends BaseMinigameScene {
 
     this.elapsed += dt;
     this.clickPenaltyCooldown = Math.max(0, this.clickPenaltyCooldown - dt);
-    this.promptArrowBob += dt * 4;
 
     if (this.sounds && this.sounds.moo && this.elapsed >= this._nextMooAt) {
       this.sounds.moo();
@@ -736,44 +737,29 @@ class CowCombat3D extends BaseMinigameScene {
     }
 
     if (this.dodgeButton.isVisible && (this.currentAttack === 'charge' || this.stampedeActive)) {
-      const pulse = 1 + (Math.sin(this.elapsed * 10) * 0.08);
+      const pulse = 1 + (Math.sin(this.elapsed * 10) * 0.05);
       this.dodgeButton.scaleX = pulse;
       this.dodgeButton.scaleY = pulse;
     }
 
+    this._syncInstructionState();
+    this._updateInstructionAlpha();
     this._updateUdders();
     this._updateBucket();
     this._updateMilkBursts(dt);
   }
 
   _updateUdders() {
-    const promptVisible = !this.currentAttack && !this.stampedeActive && this.elapsed >= this.stunnedUntil && !this.uddersInvalid && this.activeUdderIndex >= 0;
+    const uddersDisabled = Boolean(this.currentAttack) || this.stampedeActive;
     this.udders.forEach((udder, index) => {
-      const isActive = index === this.activeUdderIndex && !this.uddersInvalid && !this.stampedeActive;
-      const pulse = isActive ? 1.08 + (Math.sin(this.beatElapsed * 10) * 0.2) : 0.94;
-      udder.mesh.scaling.setAll(pulse);
-      udder.material.emissiveColor = isActive
-        ? new BABYLON.Color3(0.6, 0.95, 0.65)
-        : this.elapsed < this.stunnedUntil
-          ? new BABYLON.Color3(0.18, 0.04, 0.04)
-          : new BABYLON.Color3(0.01, 0.005, 0.01);
-      if (this.udderLabels[index]) {
-        this.udderLabels[index].color = isActive ? '#b8ffbf' : '#ffffff';
-      }
+      const isActive = !uddersDisabled && !this.uddersInvalid && index === this.activeUdderIndex;
+      udder.mesh.scaling.setAll(isActive ? 1.3 : 0.7);
+      udder.material.emissiveColor = uddersDisabled
+        ? new BABYLON.Color3(0, 0, 0)
+        : isActive
+          ? new BABYLON.Color3(0.8, 1.0, 0.8)
+          : new BABYLON.Color3(0.02, 0.01, 0.02);
     });
-
-    if (this.promptArrowRoot && this.promptArrowAnchor) {
-      if (promptVisible) {
-        const activeUdder = this.udders[this.activeUdderIndex];
-        this.promptArrowRoot.setEnabled(true);
-        this.promptArrowLabel.isVisible = true;
-        this.promptArrowRoot.position.copyFrom(activeUdder.mesh.position);
-        this.promptArrowRoot.position.y += 0.88 + (Math.sin(this.promptArrowBob) * 0.08);
-      } else {
-        this.promptArrowRoot.setEnabled(false);
-        this.promptArrowLabel.isVisible = false;
-      }
-    }
   }
 
   _updateBucket() {
@@ -821,9 +807,8 @@ class CowCombat3D extends BaseMinigameScene {
     this.stampedeCows.forEach((cow) => {
       if (cow.root) cow.root.dispose(false, true);
     });
-    this.udderLabels.forEach((label) => label.dispose());
-    if (this.promptArrowLabel) this.promptArrowLabel.dispose();
-    if (this.attackWarningText) this.attackWarningText.dispose();
+    if (this.instructionText) this.instructionText.dispose();
+    if (this.dodgeButton) this.dodgeButton.dispose();
     super.dispose();
   }
 }

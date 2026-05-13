@@ -64,3 +64,4 @@
   - 130 meshes loaded (both hands with full finger segments, knuckles, tips)
   - No visible clipping at partial curl — full curl needs manual real-time test
 - [x] Judging score display works correctly (0/100 was test invocation error — scores need taste+accuracy+creativity in one call)
+- [ ] Browser-test the CowCombat3D declutter pass in `v1.2/public/js/babylon-game/scenes-absurd/CowCombat3D.js`.
