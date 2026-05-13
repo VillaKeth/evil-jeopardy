@@ -88,6 +88,19 @@
       font-weight: 600;
     }
 
+    .screen-answer-reveal {
+      margin-top: var(--spacing-lg);
+      padding: var(--spacing-lg);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 215, 0, 0.55);
+      background: linear-gradient(135deg, rgba(35, 134, 54, 0.92), rgba(15, 82, 38, 0.96));
+      color: #ffe082;
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-align: center;
+      box-shadow: 0 18px 42px rgba(35, 134, 54, 0.3);
+    }
+
     .screen-trivia-scoreboard {
       grid-template-columns: 1fr;
       gap: var(--spacing-sm);
@@ -977,6 +990,7 @@
             <div id="screen-question-display" class="question-display screen-question-display">
               <p class="text-muted text-center">Waiting for host to reveal a question...</p>
             </div>
+            <div id="screen-answer-reveal" class="screen-answer-reveal hidden"></div>
             <div id="screen-media-area" class="media-area hidden"></div>
             <div id="screen-trivia-status" class="screen-status-banner">
               Waiting for host to reveal a question.

@@ -135,6 +135,21 @@ function createApp(options = {}) {
   
   // Baking timer interval
   let bakingTimerInterval = null;
+  let currentTriviaQuestion = null;
+
+  function setCurrentTriviaQuestion(question) {
+    currentTriviaQuestion = question || null;
+    db.setState('currentQuestionId', question?.id || '');
+  }
+
+  function getSafeTriviaQuestion(question) {
+    if (!question) {
+      return null;
+    }
+
+    const { answer, ...safeQuestion } = question;
+    return safeQuestion;
+  }
 
   function transformTeam(team) {
     return {
@@ -799,6 +814,7 @@ function createApp(options = {}) {
         db.setState('phase', 'TRIVIA');
         db.setState('currentSlideIndex', '-1');
         db.setState('triviaMode', 'SLIDE');
+        setCurrentTriviaQuestion(null);
         resetAnswered();
         console.log('Game started: LOBBY → TRIVIA');
         
@@ -834,6 +850,7 @@ function createApp(options = {}) {
         }
 
         db.setState('phase', 'SHOP');
+        setCurrentTriviaQuestion(null);
         db.logEvent('shop-opened', { from: currentPhase, to: 'SHOP' });
 
         io.emit('phase-changed', { phase: 'SHOP', previousPhase: currentPhase });
@@ -1451,13 +1468,13 @@ function createApp(options = {}) {
         
         // Update state
         db.setState('currentSlideIndex', nextIndex.toString());
-        db.setState('currentQuestionId', question.id);
+        setCurrentTriviaQuestion(question);
         
         console.log(`Slide advanced to index ${nextIndex}: ${question.id}`);
         
         // Broadcast question to all clients
         io.emit('trivia:question-shown', {
-          question,
+          question: getSafeTriviaQuestion(question),
           mode: 'SLIDE'
         });
         
@@ -1500,14 +1517,14 @@ function createApp(options = {}) {
         // Mark as answered
         markAnswered(question.id);
         
-        // Store current question ID
-        db.setState('currentQuestionId', question.id);
+        // Store current question
+        setCurrentTriviaQuestion(question);
         
         console.log(`Jeopardy question selected: ${category} - $${value}`);
         
         // Broadcast question to all clients
         io.emit('trivia:question-shown', {
-          question,
+          question: getSafeTriviaQuestion(question),
           mode: 'JEOPARDY'
         });
         
@@ -1549,11 +1566,16 @@ function createApp(options = {}) {
           return;
         }
         
+        const currentAnswer = currentTriviaQuestion && currentTriviaQuestion.id === questionId
+          ? currentTriviaQuestion.answer || null
+          : null;
+
         // Broadcast result
         io.emit('trivia:answer-result', {
           teamId,
           correct,
-          newBalance: team.money
+          newBalance: team.money,
+          answer: currentAnswer
         });
         
         // Broadcast updated scoreboard
@@ -1562,6 +1584,33 @@ function createApp(options = {}) {
       } catch (err) {
         console.error('Failed to score answer:', err);
         socket.emit('error', { message: err.message || 'Server error scoring answer.' });
+      }
+    });
+
+    socket.on('trivia:reveal-answer', () => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can reveal answers.' });
+          return;
+        }
+
+        if (db.getState('phase') !== 'TRIVIA') {
+          socket.emit('error', { message: 'Answers can only be revealed during TRIVIA phase.' });
+          return;
+        }
+
+        if (!currentTriviaQuestion || !currentTriviaQuestion.id) {
+          socket.emit('error', { message: 'No active question.' });
+          return;
+        }
+
+        io.emit('trivia:answer-revealed', {
+          questionId: currentTriviaQuestion.id,
+          answer: currentTriviaQuestion.answer || null
+        });
+      } catch (err) {
+        console.error('Failed to reveal answer:', err);
+        socket.emit('error', { message: err.message || 'Server error revealing answer.' });
       }
     });
     

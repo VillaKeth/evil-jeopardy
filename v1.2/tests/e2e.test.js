@@ -163,6 +163,19 @@ describe('End-to-End Show Flow', () => {
       assert.strictEqual(payload.mode, 'SLIDE');
       assert.strictEqual(payload.question.id, 's1');
       assert.strictEqual(payload.question.value, 500);
+      assert.strictEqual(payload.question.answer, undefined);
+    });
+
+    const slideRevealPayloads = await emitToAllAndCollect(
+      [hostSocket, screenSocket, playerOneSocket, playerTwoSocket],
+      'trivia:answer-revealed',
+      () => {
+        hostSocket.emit('trivia:reveal-answer');
+      }
+    );
+
+    slideRevealPayloads.forEach((payload) => {
+      assert.deepStrictEqual(payload, { questionId: 's1', answer: '2007' });
     });
 
     const buzzPayloads = await emitToAllAndCollect(
@@ -191,7 +204,8 @@ describe('End-to-End Show Flow', () => {
     assert.deepStrictEqual(slideAnswerResult, {
       teamId: alpha.id,
       correct: true,
-      newBalance: 500
+      newBalance: 500,
+      answer: '2007'
     });
     assert.strictEqual(slideScoreboard[0].id, alpha.id);
     assert.strictEqual(slideScoreboard[0].money, 500);
@@ -233,6 +247,19 @@ describe('End-to-End Show Flow', () => {
       assert.strictEqual(payload.mode, 'JEOPARDY');
       assert.strictEqual(payload.question.id, 'j2');
       assert.strictEqual(payload.question.value, 200);
+      assert.strictEqual(payload.question.answer, undefined);
+    });
+
+    const jeopardyRevealPayloads = await emitToAllAndCollect(
+      triviaAudience,
+      'trivia:answer-revealed',
+      () => {
+        hostSocket.emit('trivia:reveal-answer');
+      }
+    );
+
+    jeopardyRevealPayloads.forEach((payload) => {
+      assert.deepStrictEqual(payload, { questionId: 'j2', answer: 'Au' });
     });
     boardStatePayloads.forEach((board) => {
       const science = board.find((category) => category.name === 'Science');
@@ -254,7 +281,8 @@ describe('End-to-End Show Flow', () => {
     assert.deepStrictEqual(jeopardyAnswerResult, {
       teamId: virtual.id,
       correct: true,
-      newBalance: 200
+      newBalance: 200,
+      answer: 'Au'
     });
     assert.deepStrictEqual(
       jeopardyScoreboard.map((team) => ({ id: team.id, money: team.money })),
@@ -277,6 +305,12 @@ describe('End-to-End Show Flow', () => {
     shopOpenEvents[0].forEach((payload) => {
       assert.deepStrictEqual(payload, { phase: 'SHOP', previousPhase: 'TRIVIA' });
     });
+
+    const revealOutsideTriviaError = await onceEvent(hostSocket, 'error', () => {
+      hostSocket.emit('trivia:reveal-answer');
+    });
+    assert.strictEqual(revealOutsideTriviaError.message, 'Answers can only be revealed during TRIVIA phase.');
+
     shopOpenEvents[1].forEach((catalog) => {
       assert.ok(Array.isArray(catalog.categories));
       assert.ok(catalog.teams.some((team) => team.id === alpha.id));

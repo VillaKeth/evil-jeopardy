@@ -93,6 +93,19 @@
       font-weight: 700;
     }
 
+    .trivia-answer-reveal {
+      margin-top: var(--spacing-md);
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 215, 0, 0.55);
+      background: linear-gradient(135deg, rgba(35, 134, 54, 0.92), rgba(15, 82, 38, 0.96));
+      color: #ffe082;
+      font-size: 1.05rem;
+      font-weight: 800;
+      text-align: center;
+      box-shadow: 0 14px 34px rgba(35, 134, 54, 0.28);
+    }
+
     .player-team-label {
       margin: 0;
       color: var(--text-secondary);
@@ -717,6 +730,7 @@
             <div id="player-question-display" class="question-display player-question-display">
               <p class="text-muted text-center">Waiting for host to reveal a question...</p>
             </div>
+            <div id="trivia-answer-reveal" class="trivia-answer-reveal hidden"></div>
             <div id="player-media-area" class="media-area hidden"></div>
           </div>
         </div>

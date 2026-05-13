@@ -25,3 +25,5 @@
 - [x] Overhaul MixScene3D — kitchen counter, whisk animation, batter transitions, zone feedback, round progress, flour particles, dispose.
 - [ ] Browser-test PrepScene3D ingredient container labels, handles, foil, and egg-carton polish.
 - [ ] Browser-test PREP ingredient and DECORATE topping glow pulse indicators in Babylon scenes.
+- [ ] Browser-test player judging progress updates and reconnect state in the JUDGING phase.
+- [ ] Verify trivia answer reveal behavior across host, player, and screen views.

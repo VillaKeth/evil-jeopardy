@@ -16,6 +16,7 @@ const teamsList = document.getElementById('teams-list');
 const screenTriviaModeBadge = document.getElementById('screen-trivia-mode-badge');
 const screenTriviaCategory = document.getElementById('screen-trivia-category');
 const screenQuestionDisplay = document.getElementById('screen-question-display');
+const screenAnswerReveal = document.getElementById('screen-answer-reveal');
 const screenMediaArea = document.getElementById('screen-media-area');
 const screenTriviaStatus = document.getElementById('screen-trivia-status');
 const screenJeopardyPanel = document.getElementById('screen-jeopardy-panel');
@@ -157,6 +158,7 @@ socket.on('error', (error) => {
 
 socket.on('trivia:question-shown', (data) => {
   console.log('Question shown:', data);
+  hideScreenAnswerReveal();
   currentQuestion = data.question || null;
   currentQuestionId = currentQuestion ? currentQuestion.id : null;
   currentTriviaMode = data.mode || currentTriviaMode;
@@ -194,6 +196,15 @@ socket.on('trivia:answer-result', (data) => {
   renderTriviaScoreboard();
   renderStatusPanels();
   renderShopTeams();
+
+  if (data.answer) {
+    showScreenAnswerReveal(data.answer);
+  }
+});
+
+socket.on('trivia:answer-revealed', (data) => {
+  console.log('Answer revealed:', data);
+  showScreenAnswerReveal(data.answer);
 });
 
 socket.on('trivia:mode-changed', (data) => {
@@ -523,6 +534,24 @@ function renderTriviaScoreboard() {
       <div class="score-value">${formatMoney(team.money)}</div>
     </div>
   `).join('');
+}
+
+function hideScreenAnswerReveal() {
+  if (!screenAnswerReveal) {
+    return;
+  }
+
+  screenAnswerReveal.textContent = '';
+  screenAnswerReveal.classList.add('hidden');
+}
+
+function showScreenAnswerReveal(answer) {
+  if (!screenAnswerReveal || !answer) {
+    return;
+  }
+
+  screenAnswerReveal.textContent = `Answer: ${answer}`;
+  screenAnswerReveal.classList.remove('hidden');
 }
 
 function renderCurrentQuestion() {

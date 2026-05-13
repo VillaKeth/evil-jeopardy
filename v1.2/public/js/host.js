@@ -26,6 +26,7 @@ const jeopardyModeSection = document.getElementById('jeopardy-mode-section');
 
 // Slide mode elements
 const slideQuestionDisplay = document.getElementById('slide-question-display');
+const hostAnswerReveal = document.getElementById('host-answer-reveal');
 const slideMediaArea = document.getElementById('slide-media-area');
 const nextSlideBtn = document.getElementById('next-slide-btn');
 const slideTeamAnswers = document.getElementById('slide-team-answers');
@@ -215,6 +216,7 @@ socket.on('error', (error) => {
 
 socket.on('trivia:question-shown', (data) => {
   console.log('Question shown:', data);
+  hideHostAnswerReveal();
   currentQuestionId = data.question.id;
   answeredTeams.clear();
   forcedTeams.clear();
@@ -257,6 +259,15 @@ socket.on('trivia:answer-result', (data) => {
     `Team answered ${data.correct ? 'correctly' : 'incorrectly'}! New balance: ${formatMoney(data.newBalance)}`,
     data.correct ? 'success' : 'error'
   );
+
+  if (data.answer) {
+    showHostAnswerReveal(data.answer);
+  }
+});
+
+socket.on('trivia:answer-revealed', (data) => {
+  console.log('Answer revealed:', data);
+  showHostAnswerReveal(data.answer);
 });
 
 socket.on('trivia:force-answer-required', (data) => {
@@ -765,6 +776,24 @@ function updateTriviaMode(mode) {
     triviaModeToggle.textContent = 'Switch to Slide Mode';
     socket.emit('trivia:get-board');
   }
+}
+
+function hideHostAnswerReveal() {
+  if (!hostAnswerReveal) {
+    return;
+  }
+
+  hostAnswerReveal.textContent = '';
+  hostAnswerReveal.classList.add('hidden');
+}
+
+function showHostAnswerReveal(answer) {
+  if (!hostAnswerReveal || !answer) {
+    return;
+  }
+
+  hostAnswerReveal.textContent = `Answer: ${answer}`;
+  hostAnswerReveal.classList.remove('hidden');
 }
 
 function displaySlideQuestion(question) {
@@ -1625,6 +1654,15 @@ window.scoreTeamAnswer = function scoreTeamAnswer(teamId, correct) {
 
 window.selectJeopardyQuestion = function selectJeopardyQuestion(category, value) {
   socket.emit('trivia:select-jeopardy', { category, value });
+};
+
+window.revealAnswer = function revealAnswer() {
+  if (!currentQuestionId) {
+    showNotification('No active question', 'error');
+    return;
+  }
+
+  socket.emit('trivia:reveal-answer');
 };
 
 // ===== Event Listeners =====

@@ -22,6 +22,7 @@ const otherTeamsList = document.getElementById('other-teams-list');
 const playerTriviaModeBadge = document.getElementById('player-trivia-mode-badge');
 const playerTriviaCategory = document.getElementById('player-trivia-category');
 const playerQuestionDisplay = document.getElementById('player-question-display');
+const playerAnswerReveal = document.getElementById('trivia-answer-reveal');
 const playerMediaArea = document.getElementById('player-media-area');
 const playerBuzzBtn = document.getElementById('player-buzz-btn');
 const playerTriviaStatus = document.getElementById('player-trivia-status');
@@ -217,6 +218,7 @@ socket.on('error', (error) => {
 
 socket.on('trivia:question-shown', (data) => {
   console.log('Question shown:', data);
+  hidePlayerAnswerReveal();
   currentQuestion = data.question || null;
   currentQuestionId = currentQuestion ? currentQuestion.id : null;
   currentTriviaMode = data.mode || currentTriviaMode;
@@ -270,6 +272,15 @@ socket.on('trivia:answer-result', (data) => {
       data.correct ? 'success' : 'error'
     );
   }
+
+  if (data.answer) {
+    showPlayerAnswerReveal(data.answer);
+  }
+});
+
+socket.on('trivia:answer-revealed', (data) => {
+  console.log('Answer revealed:', data);
+  showPlayerAnswerReveal(data.answer);
 });
 
 socket.on('trivia:force-answer-required', (data) => {
@@ -625,6 +636,24 @@ function updateModeBadge() {
   renderCategoryBadge();
 }
 
+function hidePlayerAnswerReveal() {
+  if (!playerAnswerReveal) {
+    return;
+  }
+
+  playerAnswerReveal.textContent = '';
+  playerAnswerReveal.classList.add('hidden');
+}
+
+function showPlayerAnswerReveal(answer) {
+  if (!playerAnswerReveal || !answer) {
+    return;
+  }
+
+  playerAnswerReveal.textContent = `Answer: ${answer}`;
+  playerAnswerReveal.classList.remove('hidden');
+}
+
 function renderCurrentQuestion() {
   if (!playerQuestionDisplay) {
     return;
@@ -779,8 +808,8 @@ function renderPlayerShopStatus() {
 
   if (!playerShopStatusMessage) {
     playerShopStatusMessage = myTeam && myTeam.id
-      ? 'Host controls purchases for your team.'
-      : 'Join a team to track your purchases.';
+      ? 'Request purchases and wait for host approval.'
+      : 'Join a team to request purchases.';
   }
 
   playerShopStatus.textContent = playerShopStatusMessage;
