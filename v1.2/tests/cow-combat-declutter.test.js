@@ -20,11 +20,21 @@ test('CowCombat3D replaces cluttered prompts with one instruction text and simpl
   const source = read('public/js/babylon-game/scenes-absurd/CowCombat3D.js');
 
   assert.match(source, /this\.instructionText\s*=\s*new BABYLON\.GUI\.TextBlock/);
-  assert.match(source, /Click the glowing udder!/);
+  assert.match(source, /Squeeze the.*udder!/);
   assert.match(source, /udder\.mesh\.scaling\.setAll\(pulse\)/);
   assert.match(source, /udder\.material\.emissiveColor/);
   assert.match(source, /const uddersDisabled = Boolean\(this\.currentAttack\) \|\| this\.stampedeActive/);
   assert.match(source, /if \(this\.stampedeActive\) \{\s*this\._tryDodge\(\);\s*return;\s*\}/);
   assert.match(source, /text: '🌀 WAIT\.\.\.'/);
-  assert.doesNotMatch(source, /statusText|beatText|attackWarningText|promptArrow|udderLabels/);
+  assert.doesNotMatch(source, /statusText|beatText|attackWarningText|udderLabels/);
+});
+
+test('CowCombat3D has color-coded udders with arrow and glow ring', () => {
+  const source = read('public/js/babylon-game/scenes-absurd/CowCombat3D.js');
+
+  assert.match(source, /UDDER_COLORS/);
+  assert.match(source, /_buildPromptArrow\(\)/);
+  assert.match(source, /_buildGlowRing\(\)/);
+  assert.match(source, /this\.promptArrow\.setEnabled\(true\)/);
+  assert.match(source, /this\.glowRing\.setEnabled\(true\)/);
 });
