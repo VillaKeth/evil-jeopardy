@@ -71,9 +71,11 @@ class HandController3D {
       depth: 0.3
     }, this.scene);
     palm.parent = hand.root;
-    palm.material = this.skinMaterial;
-    hand.palm = palm;
-    hand.meshes.push(palm);
+    hand.palm = this._registerHandMesh(hand, palm);
+    this._addPalmEdgeSphere(hand, 'wristEdge', -0.09, -0.12, 0.11);
+    this._addPalmEdgeSphere(hand, 'wristEdgeRight', 0.09, -0.12, 0.11);
+    this._addPalmEdgeSphere(hand, 'knuckleEdge', -0.09, 0.12, 0.11);
+    this._addPalmEdgeSphere(hand, 'knuckleEdgeRight', 0.09, 0.12, 0.11);
 
     const fingerXs = [0.11, 0.04, -0.04, -0.11].map((value) => value * sideSign);
     const fingerLengths = [
@@ -110,6 +112,23 @@ class HandController3D {
     return hand;
   }
 
+  _registerHandMesh(hand, mesh) {
+    mesh.material = this.skinMaterial;
+    mesh.isPickable = false;
+    hand.meshes.push(mesh);
+    return mesh;
+  }
+
+  _addPalmEdgeSphere(hand, name, x, z, diameter) {
+    const edge = BABYLON.MeshBuilder.CreateSphere(`handController_${hand.side}_${name}`, {
+      diameter,
+      segments: 8
+    }, this.scene);
+    edge.parent = hand.root;
+    edge.position = new BABYLON.Vector3(x, 0, z);
+    return this._registerHandMesh(hand, edge);
+  }
+
   _buildFinger(hand, index, config) {
     const anchor = new BABYLON.TransformNode(`handController_${hand.side}_${config.name}_anchor`, this.scene);
     anchor.parent = hand.root;
@@ -119,29 +138,55 @@ class HandController3D {
     const proximalPivot = new BABYLON.TransformNode(`handController_${hand.side}_${config.name}_proximalPivot`, this.scene);
     proximalPivot.parent = anchor;
 
-    const proximal = BABYLON.MeshBuilder.CreateBox(`handController_${hand.side}_${config.name}_proximal`, {
-      width: config.width,
-      height: config.height,
-      depth: config.proximalLength
+    const baseKnuckle = BABYLON.MeshBuilder.CreateSphere(`handController_${hand.side}_${config.name}_baseKnuckle`, {
+      diameter: config.width * 1.1,
+      segments: 8
+    }, this.scene);
+    baseKnuckle.parent = proximalPivot;
+    baseKnuckle.position.z = 0;
+    this._registerHandMesh(hand, baseKnuckle);
+
+    const proximal = BABYLON.MeshBuilder.CreateCylinder(`handController_${hand.side}_${config.name}_proximal`, {
+      diameterTop: config.width * 0.85,
+      diameterBottom: config.width,
+      height: config.proximalLength,
+      tessellation: 12
     }, this.scene);
     proximal.parent = proximalPivot;
+    proximal.rotation.x = Math.PI / 2;
     proximal.position.z = config.proximalLength * 0.5;
-    proximal.material = this.skinMaterial;
+    this._registerHandMesh(hand, proximal);
 
     const distalPivot = new BABYLON.TransformNode(`handController_${hand.side}_${config.name}_distalPivot`, this.scene);
     distalPivot.parent = proximalPivot;
     distalPivot.position.z = config.proximalLength;
 
-    const distal = BABYLON.MeshBuilder.CreateBox(`handController_${hand.side}_${config.name}_distal`, {
-      width: config.width * 0.92,
-      height: config.height * 0.92,
-      depth: config.distalLength
+    const middleKnuckle = BABYLON.MeshBuilder.CreateSphere(`handController_${hand.side}_${config.name}_middleKnuckle`, {
+      diameter: config.width,
+      segments: 8
+    }, this.scene);
+    middleKnuckle.parent = distalPivot;
+    middleKnuckle.position.z = 0;
+    this._registerHandMesh(hand, middleKnuckle);
+
+    const distal = BABYLON.MeshBuilder.CreateCylinder(`handController_${hand.side}_${config.name}_distal`, {
+      diameterTop: config.width * 0.7,
+      diameterBottom: config.width * 0.85,
+      height: config.distalLength,
+      tessellation: 12
     }, this.scene);
     distal.parent = distalPivot;
+    distal.rotation.x = Math.PI / 2;
     distal.position.z = config.distalLength * 0.5;
-    distal.material = this.skinMaterial;
+    this._registerHandMesh(hand, distal);
 
-    hand.meshes.push(proximal, distal);
+    const tip = BABYLON.MeshBuilder.CreateSphere(`handController_${hand.side}_${config.name}_tip`, {
+      diameter: config.width * 0.7,
+      segments: 8
+    }, this.scene);
+    tip.parent = distalPivot;
+    tip.position.z = config.distalLength;
+    this._registerHandMesh(hand, tip);
 
     return {
       index,
@@ -152,6 +197,9 @@ class HandController3D {
       distalPivot,
       proximal,
       distal,
+      baseKnuckle,
+      middleKnuckle,
+      tip,
       curlAngle: 0
     };
   }
