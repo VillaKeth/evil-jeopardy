@@ -280,7 +280,9 @@ class BaseMinigameScene {
     if (this.hud) this.hud.dispose();
     if (this._interactiveGlowMaterials) {
       this._interactiveGlowMaterials.forEach((material) => {
-        if (material && !material.isDisposed()) material.dispose();
+        try {
+          if (material && !material.isDisposed()) material.dispose();
+        } catch (_) { /* material already disposed by scene */ }
       });
       this._interactiveGlowMaterials = null;
     }
