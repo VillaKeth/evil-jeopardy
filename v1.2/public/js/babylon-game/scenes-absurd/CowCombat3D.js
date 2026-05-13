@@ -24,6 +24,7 @@ class CowCombat3D extends BaseMinigameScene {
     this.legs = [];
     this.bucketFillMesh = null;
     this.farmGlow = null;
+    this.udderLight = null;
 
     this.currentAttack = null;
     this.attackElapsed = 0;
@@ -62,8 +63,8 @@ class CowCombat3D extends BaseMinigameScene {
 
     CameraRigs.isometric(this.scene, this.canvas, {
       distance: 18,
-      orthoSize: 5.5,
-      target: new BABYLON.Vector3(0, 1.5, 0)
+      orthoSize: 5,
+      target: new BABYLON.Vector3(0, 1.2, 0)
     });
 
     this._buildFarm();
@@ -83,9 +84,9 @@ class CowCombat3D extends BaseMinigameScene {
     ground.material = this.materials.food(new BABYLON.Color3(0.16, 0.24, 0.14));
 
     this.farmGlow = new BABYLON.PointLight('cowGlow', new BABYLON.Vector3(0, 4.4, 0), this.scene);
-    this.farmGlow.diffuse = new BABYLON.Color3(0.45, 0.85, 0.48);
-    this.farmGlow.intensity = 0.45;
-    this.farmGlow.range = 14;
+    this.farmGlow.diffuse = new BABYLON.Color3(0.5, 0.9, 0.55);
+    this.farmGlow.intensity = 0.6;
+    this.farmGlow.range = 16;
   }
 
   _buildCow() {
@@ -99,8 +100,25 @@ class CowCombat3D extends BaseMinigameScene {
       depth: 0.8
     }, this.scene);
     this.body.position = new BABYLON.Vector3(0, 1.15, 0);
-    this.body.material = this.materials.food(new BABYLON.Color3(0.92, 0.92, 0.88));
+    this.body.material = this.materials.food(new BABYLON.Color3(0.98, 0.98, 0.95));
+    this.body.material.emissiveColor = new BABYLON.Color3(0.08, 0.08, 0.06);
     this.body.parent = this.cowRoot;
+
+    // Add cow spots for character
+    const spotMat = this.materials.food(new BABYLON.Color3(0.12, 0.1, 0.08));
+    const spotPositions = [
+      { x: -0.25, y: 1.45, z: 0.38, sx: 0.3, sy: 0.25, sz: 0.06 },
+      { x: 0.2, y: 1.35, z: -0.38, sx: 0.4, sy: 0.2, sz: 0.06 },
+      { x: -0.1, y: 1.52, z: -0.38, sx: 0.2, sy: 0.18, sz: 0.06 },
+    ];
+    spotPositions.forEach((sp, i) => {
+      const spot = BABYLON.MeshBuilder.CreateDisc(`cowSpot${i}`, { radius: 0.15, tessellation: 12 }, this.scene);
+      spot.position = new BABYLON.Vector3(sp.x, sp.y, sp.z);
+      spot.scaling = new BABYLON.Vector3(sp.sx / 0.15, sp.sy / 0.15, 1);
+      spot.rotation.y = sp.z > 0 ? 0 : Math.PI;
+      spot.material = spotMat;
+      spot.parent = this.cowRoot;
+    });
 
     const head = BABYLON.MeshBuilder.CreateBox('cowHead', {
       width: 0.58,
@@ -145,22 +163,29 @@ class CowCombat3D extends BaseMinigameScene {
     });
 
     const udderBase = BABYLON.MeshBuilder.CreateSphere('udderBase', {
-      diameter: 0.44,
+      diameter: 0.52,
       segments: 16
     }, this.scene);
     udderBase.position = new BABYLON.Vector3(0.1, 0.72, 0);
     udderBase.scaling.y = 0.7;
     udderBase.material = this.materials.food(new BABYLON.Color3(1, 0.74, 0.82));
+    udderBase.material.emissiveColor = new BABYLON.Color3(0.1, 0.04, 0.06);
     udderBase.parent = this.cowRoot;
 
+    // Udder glow light (follows active udder)
+    this.udderLight = new BABYLON.PointLight('udderGlow', new BABYLON.Vector3(0, 0.4, 0), this.scene);
+    this.udderLight.diffuse = new BABYLON.Color3(0.3, 1.0, 0.3);
+    this.udderLight.intensity = 0;
+    this.udderLight.range = 3;
+
     [
-      new BABYLON.Vector3(-0.12, 0.4, -0.1),
-      new BABYLON.Vector3(-0.12, 0.4, 0.1),
-      new BABYLON.Vector3(0.12, 0.4, -0.1),
-      new BABYLON.Vector3(0.12, 0.4, 0.1)
+      new BABYLON.Vector3(-0.14, 0.35, -0.12),
+      new BABYLON.Vector3(-0.14, 0.35, 0.12),
+      new BABYLON.Vector3(0.14, 0.35, -0.12),
+      new BABYLON.Vector3(0.14, 0.35, 0.12)
     ].forEach((offset, index) => {
       const udder = BABYLON.MeshBuilder.CreateSphere(`udder_${index}`, {
-        diameter: 0.12,
+        diameter: 0.2,
         segments: 12
       }, this.scene);
       udder.position = offset;
@@ -753,13 +778,30 @@ class CowCombat3D extends BaseMinigameScene {
     const uddersDisabled = Boolean(this.currentAttack) || this.stampedeActive;
     this.udders.forEach((udder, index) => {
       const isActive = !uddersDisabled && !this.uddersInvalid && index === this.activeUdderIndex;
-      udder.mesh.scaling.setAll(isActive ? 1.3 : 0.7);
-      udder.material.emissiveColor = uddersDisabled
-        ? new BABYLON.Color3(0, 0, 0)
-        : isActive
-          ? new BABYLON.Color3(0.8, 1.0, 0.8)
-          : new BABYLON.Color3(0.02, 0.01, 0.02);
+      const pulse = isActive ? 1.4 + Math.sin(this.elapsed * 8) * 0.15 : 0.65;
+      udder.mesh.scaling.setAll(pulse);
+      if (uddersDisabled) {
+        udder.material.emissiveColor = new BABYLON.Color3(0.05, 0, 0);
+        udder.material.diffuseColor = new BABYLON.Color3(0.4, 0.2, 0.25);
+      } else if (isActive) {
+        const glow = 0.7 + Math.sin(this.elapsed * 6) * 0.3;
+        udder.material.emissiveColor = new BABYLON.Color3(0.2 * glow, 1.0 * glow, 0.2 * glow);
+        udder.material.diffuseColor = new BABYLON.Color3(0.4, 1.0, 0.4);
+        // Move point light to active udder
+        if (this.udderLight) {
+          const worldPos = udder.mesh.getAbsolutePosition();
+          this.udderLight.position.copyFrom(worldPos);
+          this.udderLight.position.y -= 0.3;
+          this.udderLight.intensity = 0.8 + Math.sin(this.elapsed * 6) * 0.3;
+        }
+      } else {
+        udder.material.emissiveColor = new BABYLON.Color3(0.02, 0.01, 0.02);
+        udder.material.diffuseColor = new BABYLON.Color3(1, 0.72, 0.82);
+      }
     });
+    if (uddersDisabled && this.udderLight) {
+      this.udderLight.intensity = 0;
+    }
   }
 
   _updateBucket() {
