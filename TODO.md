@@ -46,13 +46,10 @@
 - [x] CowCombat3D clarity — SQUEEZE prompt, udder numbers, attack warnings, stampede mechanic
 - [x] Enhanced sounds — milk squirt, hoof stomp, angry moo, stampede rumble
 - [x] Browser-tested all 6 baking phases: PREP → MIX → BAKE → COOL → DECORATE → PRESENT ✅
-- [ ] Browser-test PrepScene3D ingredient container labels, handles, foil, and egg-carton polish.
-- [ ] Daily Double support (wager before answering)
-- [ ] Custom board editor (host creates categories/values in advance)
-- [ ] Sound effects library (buzzers, correct/wrong, dramatic reveals)
-- [ ] Player statistics dashboard (win rate, avg score, streaks)
-- [ ] Mobile-optimized host view for tablet hosting
-- [ ] Tournament mode (multi-game brackets)
-- [ ] Theme customization (colors, fonts, board style)
+- [x] Browser-test PrepScene3D ingredient container labels, handles, foil, and egg-carton polish.
+- [x] Hand controller polish — rounded fingers, knuckle spheres, fingertips
+- [x] Glow pulse indicators on interactive/pickable objects
+- [x] Full E2E playthrough — LOBBY → TRIVIA → SHOP → BAKING (all 6 phases) → Completion ✅
+- [x] Fix glow material dispose crash during scene transitions
 - [ ] Browser-test the rounded HandController3D fingers and palm silhouette in PrepScene3D.
 - [ ] Verify the new fingertip and knuckle spheres do not clip the thumb at maximum curl in PrepScene3D.
