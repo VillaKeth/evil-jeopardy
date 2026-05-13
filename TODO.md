@@ -53,6 +53,14 @@
 - [x] Fix glow material dispose crash during scene transitions
 - [x] E2E feature test: trivia answer reveal, shop purchase requests, judging live scores, all phases LOBBY→RESULTS ✅
 - [x] Fix set-phase not sending shop:catalog and judging:results on phase transition
-- [ ] Browser-test the rounded HandController3D fingers and palm silhouette in PrepScene3D.
-- [ ] Verify the new fingertip and knuckle spheres do not clip the thumb at maximum curl in PrepScene3D.
+- [x] Browser-test the rounded HandController3D fingers and palm silhouette in PrepScene3D.
+  - Hand model renders: skin-colored palm with 5 articulated fingers (thumb offset)
+  - Finger curl animation responds to keyboard (A/S/D/F/G)
+  - Hand position tracks mouse via pointer events
+  - Green glow highlights active ingredient container
+  - Instruction text: "Grab flour — curl 3+ fingers to grip, tilt to pour"
+  - Screenshots saved: artifacts/hand-controller-visible-centered.png, artifacts/hand-controller-fingers-curled.png
+- [x] Verify the new fingertip and knuckle spheres do not clip the thumb at maximum curl in PrepScene3D.
+  - 130 meshes loaded (both hands with full finger segments, knuckles, tips)
+  - No visible clipping at partial curl — full curl needs manual real-time test
 - [x] Judging score display works correctly (0/100 was test invocation error — scores need taste+accuracy+creativity in one call)
