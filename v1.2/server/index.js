@@ -673,15 +673,20 @@ function createApp(options = {}) {
           emitBakingSnapshot(socket);
         }
 
-        if (phase === 'JUDGING' || phase === 'RESULTS') {
-          socket.emit('judging:scores-updated', {
-            results: buildJudgingResults(),
-            allTeamsScored: areAllTeamsJudged()
-          });
+        const judgingResults = phase === 'JUDGING' || phase === 'RESULTS'
+          ? buildJudgingResults()
+          : null;
+
+        if (phase === 'JUDGING') {
+          socket.emit('judging:results', judgingResults);
         }
 
         if (phase === 'RESULTS') {
-          socket.emit('results:reveal', buildJudgingResults());
+          socket.emit('judging:scores-updated', {
+            results: judgingResults,
+            allTeamsScored: areAllTeamsJudged()
+          });
+          socket.emit('results:reveal', judgingResults);
         }
       } catch (err) {
         console.error('Failed to get state:', err);
@@ -1229,7 +1234,7 @@ function createApp(options = {}) {
         const allTeamsScored = areAllTeamsJudged();
 
         db.logEvent('judging-score-submitted', { teamId, taste: scores.taste, accuracy: scores.accuracy, creativity: scores.creativity });
-        io.to('host').emit('judging:scores-updated', { teamId, scores, results, allTeamsScored });
+        io.emit('judging:scores-updated', { teamId, scores, results, allTeamsScored });
       } catch (err) {
         console.error('Failed to score judging team:', err);
         socket.emit('error', { message: err.message || 'Server error submitting judging scores.' });

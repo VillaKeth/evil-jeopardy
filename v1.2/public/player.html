@@ -828,16 +828,43 @@
       <div id="phaser-container" class="player-phaser-container" style="display: none;"></div>
     </section>
 
-    <!-- JUDGING PHASE (placeholder) -->
+    <!-- JUDGING PHASE -->
     <section id="judging-section" class="phase-section">
       <div class="card">
         <div class="card-header text-center">
-          <h2>Judging Phase</h2>
+          <h2>🎂 Judging Phase</h2>
+          <p class="text-muted">The host is evaluating each team's cake!</p>
         </div>
         <div class="card-body">
-          <p class="text-muted text-center">
-            Judging interface will be added in later tasks...
-          </p>
+          <div id="judging-status" class="text-center judging-status-block">
+            <p class="text-muted">Waiting for the host to begin judging...</p>
+          </div>
+
+          <div id="judging-progress" class="judging-progress hidden">
+            <h3>Judging Progress</h3>
+            <div id="judging-team-cards" class="judging-team-grid"></div>
+          </div>
+
+          <div id="judging-dimensions" class="judging-dimensions hidden">
+            <h3>Scoring Dimensions</h3>
+            <div class="judging-dimension-list">
+              <div class="judging-dimension">
+                <span class="judging-dim-icon">👅</span>
+                <span class="judging-dim-label">Taste</span>
+                <span class="text-muted">How delicious is the cake?</span>
+              </div>
+              <div class="judging-dimension">
+                <span class="judging-dim-icon">🎯</span>
+                <span class="judging-dim-label">Accuracy</span>
+                <span class="text-muted">How close to the target design?</span>
+              </div>
+              <div class="judging-dimension">
+                <span class="judging-dim-icon">🎨</span>
+                <span class="judging-dim-label">Creativity</span>
+                <span class="text-muted">How original and inventive?</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

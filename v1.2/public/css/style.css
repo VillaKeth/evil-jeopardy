@@ -479,6 +479,125 @@ body.player-view .player-phaser-container {
   margin: 0 auto;
 }
 
+/* ===== JUDGING UI ===== */
+.judging-status-block,
+.judging-progress,
+.judging-dimensions {
+  margin-bottom: var(--spacing-lg);
+}
+
+.judging-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.judging-team-card {
+  display: grid;
+  gap: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-default);
+  border-radius: 16px;
+  padding: var(--spacing-md);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.judging-team-card.pending {
+  border-style: dashed;
+}
+
+.judging-team-card.judged {
+  border-color: var(--success);
+}
+
+.judging-team-card.my-team {
+  border-color: var(--color-judging);
+  box-shadow: 0 0 0 1px rgba(121, 192, 255, 0.35), 0 0 18px rgba(121, 192, 255, 0.18);
+}
+
+.judging-team-media {
+  margin-bottom: calc(var(--spacing-sm) * -1);
+}
+
+.judging-team-cake {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 246, 252, 0.08);
+  background: rgba(13, 17, 23, 0.88);
+}
+
+.judging-team-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.judging-scores {
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.judging-score-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
+  border-bottom: 1px solid rgba(240, 246, 252, 0.06);
+}
+
+.judging-score-value {
+  font-weight: 700;
+  color: var(--color-judging);
+  white-space: nowrap;
+}
+
+.judging-score-total {
+  border-bottom: none;
+  border-top: 2px solid rgba(240, 246, 252, 0.1);
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-sm);
+  font-size: 1.05rem;
+}
+
+.judging-dimension-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.judging-dimension {
+  text-align: center;
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+}
+
+.judging-dim-icon {
+  display: block;
+  font-size: 2rem;
+  margin-bottom: var(--spacing-xs);
+}
+
+.judging-dim-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: var(--spacing-xs);
+}
+
+.judging-pending {
+  padding: var(--spacing-md) 0 var(--spacing-sm);
+  text-align: center;
+}
+
+.judging-status-complete {
+  color: var(--success);
+  font-weight: 700;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .container {
@@ -532,7 +651,8 @@ body.player-view .player-phaser-container {
   }
 
   body.player-view .player-shop-items,
-  body.player-view .player-results-score-grid {
+  body.player-view .player-results-score-grid,
+  body.player-view .judging-dimension-list {
     grid-template-columns: 1fr;
   }
 

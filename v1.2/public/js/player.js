@@ -366,6 +366,18 @@ socket.on('baking:time-up', () => {
   showNotification('Time is up! Baking complete.', 'success');
 });
 
+// ===== JUDGING EVENT HANDLERS =====
+
+socket.on('judging:scores-updated', (data) => {
+  console.log('Judging scores updated:', data);
+  renderJudgingProgress(data || {});
+});
+
+socket.on('judging:results', (results) => {
+  console.log('Judging results:', results);
+  renderJudgingProgress({ results });
+});
+
 socket.on('results:cake-reveal', (payload) => {
   showCakeReveal(payload);
 });
@@ -1004,6 +1016,99 @@ function renderPlayerResultsPlaceholder() {
       </div>
     </div>
   `;
+}
+
+function renderJudgingProgress(data = {}) {
+  const container = document.getElementById('judging-team-cards');
+  const progress = document.getElementById('judging-progress');
+  const dimensions = document.getElementById('judging-dimensions');
+  const status = document.getElementById('judging-status');
+
+  if (!container || !progress || !status) {
+    return;
+  }
+
+  progress.classList.remove('hidden');
+  if (dimensions) {
+    dimensions.classList.remove('hidden');
+  }
+
+  const results = Array.isArray(data.results)
+    ? data.results
+    : Array.isArray(data.results?.teams)
+      ? data.results.teams
+      : [];
+
+  if (!results.length) {
+    container.innerHTML = '';
+    status.innerHTML = '<p class="text-muted">Waiting for the host to begin judging...</p>';
+    return;
+  }
+
+  const scoredCount = results.filter((team) => team?.hasPhysicalScores || team?.scored).length;
+  const allTeamsScored = typeof data.allTeamsScored === 'boolean'
+    ? data.allTeamsScored
+    : scoredCount === results.length;
+
+  status.innerHTML = `
+    <p><strong>${scoredCount} of ${results.length}</strong> teams judged</p>
+    ${allTeamsScored ? '<p class="judging-status-complete">All teams have been judged! Waiting for the host to reveal results...</p>' : ''}
+  `;
+
+  container.innerHTML = results.map((team) => {
+    const teamId = Number(team.teamId ?? team.id) || 0;
+    const teamName = team.teamName || team.name || `Team ${teamId || '?'}`;
+    const scores = team.scores || team;
+    const scored = Boolean(team.hasPhysicalScores || team.scored);
+    const taste = Number(scores.taste) || 0;
+    const accuracy = Number(scores.accuracy) || 0;
+    const creativity = Number(scores.creativity) || 0;
+    const average = typeof scores.physicalAverage === 'number'
+      ? scores.physicalAverage
+      : Math.round(((taste + accuracy + creativity) / 3) * 100) / 100;
+    const isMyTeam = Boolean(
+      myTeam && (
+        (myTeam.id && teamId === myTeam.id) ||
+        (!myTeam.id && teamName === myTeam.name)
+      )
+    );
+    const cakeImagePath = team.cakeImagePath || '';
+
+    return `
+      <article class="judging-team-card ${scored ? 'judged' : 'pending'} ${isMyTeam ? 'my-team' : ''}">
+        ${cakeImagePath ? `
+          <div class="judging-team-media">
+            <img class="judging-team-cake" src="${escapeHtml(cakeImagePath)}" alt="${escapeHtml(teamName)} cake preview">
+          </div>
+        ` : ''}
+        <div class="judging-team-name">${escapeHtml(teamName)}</div>
+        ${scored ? `
+          <div class="judging-scores">
+            <div class="judging-score-row">
+              <span>👅 Taste</span>
+              <span class="judging-score-value">${formatRevealScore(taste)}/100</span>
+            </div>
+            <div class="judging-score-row">
+              <span>🎯 Accuracy</span>
+              <span class="judging-score-value">${formatRevealScore(accuracy)}/100</span>
+            </div>
+            <div class="judging-score-row">
+              <span>🎨 Creativity</span>
+              <span class="judging-score-value">${formatRevealScore(creativity)}/100</span>
+            </div>
+            <div class="judging-score-row judging-score-total">
+              <span>Average</span>
+              <span class="judging-score-value">${formatRevealScore(average)}/100</span>
+            </div>
+          </div>
+        ` : `
+          <div class="judging-pending">
+            <span class="text-muted">⏳ Awaiting judgment...</span>
+          </div>
+        `}
+      </article>
+    `;
+  }).join('');
 }
 
 function formatRevealScore(value) {
