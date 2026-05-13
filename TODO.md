@@ -20,11 +20,11 @@
 - [x] Task 2: SQLite database with teams, purchases, scores, events tables
 - [x] Task 2: Socket.io rooms (host, screen, player) and phase validation
 - [x] Task 2: Comprehensive integration tests (6 tests, all passing)
-- [ ] Task 3: Trivia phase - WebSocket protocol for host/screen/player
-- [ ] Task 4: Shopping phase - catalog, cart, approval flow
-- [ ] Task 5: Baking phase - timer, real-time updates
-- [ ] Task 6: Judging phase - dimension scoring (taste, appearance, creativity)
-- [ ] Task 7: Results phase - final scores, winner announcement
+- [x] Task 3: Trivia phase - WebSocket protocol for host/screen/player + answer reveal system
+- [x] Task 4: Shopping phase - catalog, cart, approval flow + player purchase requests
+- [x] Task 5: Baking phase - timer, real-time updates, 6 Babylon 3D minigames
+- [x] Task 6: Judging phase - dimension scoring (taste, appearance, creativity) + player display
+- [x] Task 7: Results phase - final scores, winner announcement, cake gallery
 - [ ] Hardware: Order iPad Air 11" + motorized robot base (Sheldon MVP)
 - [ ] Hardware: Assemble hardware and configure for remote presence
 
