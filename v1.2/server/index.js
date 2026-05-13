@@ -657,6 +657,16 @@ function createApp(options = {}) {
         
         // Broadcast to all clients
         io.emit('phase-changed', { phase: newPhase, previousPhase: currentPhase });
+
+        // Send shop catalog when entering SHOP phase
+        if (newPhase === 'SHOP' && shopData) {
+          io.emit('shop:catalog', buildShopCatalogPayload());
+        }
+
+        // Send judging results when entering JUDGING phase
+        if (newPhase === 'JUDGING') {
+          io.emit('judging:results', buildJudgingResults());
+        }
       } catch (err) {
         console.error('Failed to change phase:', err);
         socket.emit('error', { message: 'Server error. Please try again.' });
