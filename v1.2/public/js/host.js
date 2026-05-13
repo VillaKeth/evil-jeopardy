@@ -44,6 +44,7 @@ const forceAnswerJeopardyBtn = document.getElementById('force-answer-jeopardy-bt
 const shopTeamSelect = document.getElementById('shop-team-select');
 const shopTeamBalance = document.getElementById('shop-team-balance');
 const shopCatalogContainer = document.getElementById('shop-catalog');
+let shopPurchaseRequests = document.getElementById('shop-purchase-requests');
 const shopSelectedTeamName = document.getElementById('shop-selected-team-name');
 const shopTeamInventory = document.getElementById('shop-team-inventory');
 const shopTeamHistory = document.getElementById('shop-team-history');
@@ -359,6 +360,11 @@ socket.on('shop:warning', (teamId, message) => {
   }
 
   showNotification(`${getTeamName(teamId)}: ${message}`, 'info');
+});
+
+socket.on('shop:purchase-request', (data) => {
+  console.log('Purchase request from player:', data);
+  showPurchaseRequestNotification(data);
 });
 
 // ===== BAKING EVENT HANDLERS =====
@@ -993,6 +999,8 @@ function renderShopCatalog() {
     return;
   }
 
+  updatePurchaseRequestPlaceholder();
+
   if (!shopCatalog || !Array.isArray(shopCatalog.categories) || shopCatalog.categories.length === 0) {
     shopCatalogContainer.innerHTML = `
       <div class="card">
@@ -1086,6 +1094,116 @@ function renderShopTeamSummary() {
       `;
     }).join('')
     : '<div class="text-muted">No purchases recorded yet.</div>';
+}
+
+function getPurchaseRequestContainer() {
+  if (shopPurchaseRequests) {
+    return shopPurchaseRequests;
+  }
+
+  shopPurchaseRequests = createPurchaseRequestContainer();
+  return shopPurchaseRequests;
+}
+
+function updatePurchaseRequestPlaceholder() {
+  const container = getPurchaseRequestContainer();
+  if (!container) {
+    return;
+  }
+
+  const hasCards = Boolean(container.querySelector('.purchase-request-card'));
+  let placeholder = container.querySelector('.purchase-request-empty');
+
+  if (hasCards) {
+    if (placeholder) {
+      placeholder.remove();
+    }
+    return;
+  }
+
+  if (!placeholder) {
+    placeholder = document.createElement('p');
+    placeholder.className = 'text-muted text-small purchase-request-empty';
+    placeholder.textContent = 'Player requests will appear here';
+    container.appendChild(placeholder);
+  }
+}
+
+function showPurchaseRequestNotification(request) {
+  const container = getPurchaseRequestContainer();
+  if (!container) {
+    return;
+  }
+
+  const placeholder = container.querySelector('.purchase-request-empty');
+  if (placeholder) {
+    placeholder.remove();
+  }
+
+  const requestEl = document.createElement('div');
+  requestEl.className = 'purchase-request-card';
+  requestEl.dataset.teamId = String(request.teamId);
+  requestEl.dataset.itemKey = request.itemKey;
+  requestEl.dataset.itemName = request.itemName;
+
+  const info = document.createElement('div');
+  info.className = 'purchase-request-info';
+  info.innerHTML = `
+    <strong>${escapeHtml(request.teamName)}</strong> wants to buy
+    <strong>${escapeHtml(request.itemName)}</strong> (${formatMoney(request.price)})
+    <span class="text-muted">(Balance: ${formatMoney(request.currentBalance)})</span>
+    ${!request.canAfford ? '<span class="text-warning">⚠️ Can\'t afford!</span>' : ''}
+  `;
+
+  const actions = document.createElement('div');
+  actions.className = 'purchase-request-actions';
+
+  const approveBtn = document.createElement('button');
+  approveBtn.className = 'btn btn-sm btn-primary';
+  approveBtn.textContent = '✓ Approve';
+  approveBtn.addEventListener('click', () => {
+    approvePurchaseRequest(Number(request.teamId), request.itemKey, approveBtn);
+  });
+
+  const denyBtn = document.createElement('button');
+  denyBtn.className = 'btn btn-sm btn-danger';
+  denyBtn.textContent = '✗ Deny';
+  denyBtn.addEventListener('click', () => {
+    denyPurchaseRequest(denyBtn);
+  });
+
+  actions.appendChild(approveBtn);
+  actions.appendChild(denyBtn);
+  requestEl.appendChild(info);
+  requestEl.appendChild(actions);
+
+  const firstCard = container.querySelector('.purchase-request-card');
+  if (firstCard) {
+    container.insertBefore(requestEl, firstCard);
+  } else {
+    container.appendChild(requestEl);
+  }
+}
+
+function createPurchaseRequestContainer() {
+  const shopSection = document.getElementById('shop-section') || document.querySelector('.shop-section');
+  if (!shopSection) {
+    return null;
+  }
+
+  const container = document.createElement('div');
+  container.id = 'shop-purchase-requests';
+  container.className = 'purchase-request-container';
+  container.style.marginBottom = 'var(--spacing-md)';
+
+  const header = document.createElement('h4');
+  header.textContent = '📋 Player Purchase Requests';
+  container.appendChild(header);
+
+  shopSection.insertBefore(container, shopSection.firstChild);
+  shopPurchaseRequests = container;
+  updatePurchaseRequestPlaceholder();
+  return container;
 }
 
 function openShopWarningModal() {
@@ -1472,6 +1590,26 @@ function initializeResultsUI() {
 }
 
 // Global functions for onclick handlers
+window.approvePurchaseRequest = function approvePurchaseRequest(teamId, itemKey, btn) {
+  socket.emit('shop:purchase', { teamId, itemKey });
+  const card = btn.closest('.purchase-request-card');
+  if (card) {
+    card.remove();
+  }
+  updatePurchaseRequestPlaceholder();
+};
+
+window.denyPurchaseRequest = function denyPurchaseRequest(btn) {
+  const card = btn.closest('.purchase-request-card');
+  if (card) {
+    const teamId = Number(card.dataset.teamId);
+    const itemKey = card.dataset.itemKey;
+    socket.emit('shop:deny-purchase-request', { teamId, itemKey });
+    card.remove();
+  }
+  updatePurchaseRequestPlaceholder();
+};
+
 window.scoreTeamAnswer = function scoreTeamAnswer(teamId, correct) {
   if (!currentQuestionId) {
     showNotification('No active question', 'error');

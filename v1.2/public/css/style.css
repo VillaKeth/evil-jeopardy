@@ -102,6 +102,10 @@ h3 { font-size: 1.25rem; }
   font-size: 0.875rem;
 }
 
+.text-warning {
+  color: #ffd2a8;
+}
+
 .text-mono {
   font-family: var(--font-mono);
 }
@@ -189,6 +193,11 @@ textarea:focus-visible,
 .btn-large {
   padding: var(--spacing-md) var(--spacing-xl);
   font-size: 1.125rem;
+}
+
+.btn-sm {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: 0.8125rem;
 }
 
 /* ===== PHASE INDICATOR ===== */
@@ -679,6 +688,53 @@ body.player-view .player-phaser-container {
   }
 }
 
+.purchase-request-container {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.purchase-request-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--color-primary, #6366f1);
+  border-radius: 4px;
+  animation: slideIn 0.3s ease;
+}
+
+.purchase-request-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.purchase-request-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.player-buy-btn {
+  margin-top: auto;
+  align-self: flex-end;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (max-width: 480px) {
   body.player-view {
     padding: var(--spacing-sm);
@@ -703,6 +759,17 @@ body.player-view .player-phaser-container {
   body.player-view .player-shop-host-note,
   body.player-view .player-shop-purchase-meta {
     font-size: 0.85rem;
+  }
+
+  .purchase-request-card,
+  .purchase-request-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .player-buy-btn {
+    width: 100%;
+    align-self: stretch;
   }
 }
 

@@ -919,6 +919,104 @@ function createApp(options = {}) {
       }
     });
 
+    socket.on('shop:request-purchase', (data) => {
+      try {
+        if (!socket.rooms.has('player')) {
+          socket.emit('error', { message: 'Only players can request purchases.' });
+          return;
+        }
+
+        if (db.getState('phase') !== 'SHOP') {
+          socket.emit('error', { message: 'Purchases only available during SHOP phase.' });
+          return;
+        }
+
+        if (!shopData) {
+          socket.emit('error', { message: 'Shop data is unavailable.' });
+          return;
+        }
+
+        const { teamId, itemKey } = data || {};
+        if (typeof teamId !== 'number' || Number.isNaN(teamId) || !itemKey || typeof itemKey !== 'string') {
+          socket.emit('error', { message: 'Invalid purchase request.' });
+          return;
+        }
+
+        const item = getShopItem(itemKey);
+        if (!item) {
+          socket.emit('error', { message: 'Item not found.' });
+          return;
+        }
+
+        const team = db.db.prepare('SELECT id, name, money FROM teams WHERE id = ?').get(teamId);
+        if (!team) {
+          socket.emit('error', { message: 'Team not found.' });
+          return;
+        }
+
+        const canAfford = team.money >= item.price;
+
+        console.log(`Purchase request: Team ${teamId} (${team.name}) wants ${item.name} ($${item.price}), balance: $${team.money}`);
+
+        io.to('host').emit('shop:purchase-request', {
+          teamId,
+          teamName: team.name,
+          itemKey,
+          itemName: item.name,
+          category: item.category,
+          price: item.price,
+          currentBalance: team.money,
+          canAfford
+        });
+
+        socket.emit('shop:request-acknowledged', {
+          itemKey,
+          itemName: item.name,
+          price: item.price,
+          status: 'pending'
+        });
+      } catch (err) {
+        console.error('Failed to process purchase request:', err);
+        socket.emit('error', { message: err.message || 'Server error processing request.' });
+      }
+    });
+
+    socket.on('shop:deny-purchase-request', (data) => {
+      try {
+        if (!socket.rooms.has('host')) {
+          socket.emit('error', { message: 'Only host can deny purchase requests.' });
+          return;
+        }
+
+        if (db.getState('phase') !== 'SHOP') {
+          socket.emit('error', { message: 'Purchase requests can only be denied during SHOP phase.' });
+          return;
+        }
+
+        const { teamId, itemKey } = data || {};
+        if (typeof teamId !== 'number' || Number.isNaN(teamId) || !itemKey || typeof itemKey !== 'string') {
+          socket.emit('error', { message: 'Invalid purchase denial request.' });
+          return;
+        }
+
+        const item = getShopItem(itemKey);
+        if (!item) {
+          socket.emit('error', { message: 'Item not found.' });
+          return;
+        }
+
+        io.to('player').emit('shop:purchase-denied', {
+          teamId,
+          itemKey,
+          itemName: item.name,
+          status: 'denied'
+        });
+      } catch (err) {
+        console.error('Failed to deny purchase request:', err);
+        socket.emit('error', { message: err.message || 'Server error denying request.' });
+      }
+    });
+
     socket.on('shop:force-approve', (data) => {
       try {
         if (!socket.rooms.has('host')) {

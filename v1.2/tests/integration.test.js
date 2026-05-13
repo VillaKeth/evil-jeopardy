@@ -269,6 +269,60 @@ describe('Server Integration', () => {
     assert.ok(inventory.some((item) => item.item_key === 'flour-basic'));
   });
 
+  it('should forward player purchase requests to the host and acknowledge the player', async () => {
+    const team = ensureTeam(app, 'Request Team', 500);
+    await ensureShopPhase(app, hostSocket, screenSocket);
+
+    const requestedItem = shopData.categories
+      .flatMap((category) => category.items)
+      .find((item) => item.key === 'flour-basic');
+
+    assert.ok(requestedItem, 'Expected flour-basic item in shop data');
+
+    const hostRequestPromise = onceEventOrTimeout(hostSocket, 'shop:purchase-request', null, 1500);
+    const playerAckPromise = onceEventOrTimeout(playerSocket, 'shop:request-acknowledged', () => {
+      playerSocket.emit('shop:request-purchase', { teamId: team.id, itemKey: 'flour-basic' });
+    }, 1500);
+
+    const [hostRequest, playerAck] = await Promise.all([hostRequestPromise, playerAckPromise]);
+    const purchaseCount = app.db.db.prepare('SELECT COUNT(*) AS count FROM purchases WHERE team_id = ? AND item_key = ?').get(team.id, 'flour-basic');
+
+    assert.strictEqual(hostRequest.teamId, team.id);
+    assert.strictEqual(hostRequest.teamName, 'Request Team');
+    assert.strictEqual(hostRequest.itemKey, 'flour-basic');
+    assert.strictEqual(hostRequest.itemName, requestedItem.name);
+    assert.strictEqual(hostRequest.price, requestedItem.price);
+    assert.strictEqual(hostRequest.currentBalance, 500);
+    assert.strictEqual(hostRequest.canAfford, true);
+
+    assert.strictEqual(playerAck.itemKey, 'flour-basic');
+    assert.strictEqual(playerAck.itemName, requestedItem.name);
+    assert.strictEqual(playerAck.price, requestedItem.price);
+    assert.strictEqual(playerAck.status, 'pending');
+    assert.strictEqual(purchaseCount.count, 0, 'Requesting approval should not immediately buy the item');
+  });
+
+  it('should let the host deny a player purchase request without creating a purchase', async () => {
+    const team = ensureTeam(app, 'Denied Team', 500);
+    await ensureShopPhase(app, hostSocket, screenSocket);
+
+    await onceEventOrTimeout(playerSocket, 'shop:request-acknowledged', () => {
+      playerSocket.emit('shop:request-purchase', { teamId: team.id, itemKey: 'flour-basic' });
+    }, 1500);
+
+    const deniedPromise = onceEventOrTimeout(playerSocket, 'shop:purchase-denied', () => {
+      hostSocket.emit('shop:deny-purchase-request', { teamId: team.id, itemKey: 'flour-basic' });
+    }, 1500);
+
+    const denied = await deniedPromise;
+    const purchaseCount = app.db.db.prepare('SELECT COUNT(*) AS count FROM purchases WHERE team_id = ? AND item_key = ?').get(team.id, 'flour-basic');
+
+    assert.strictEqual(denied.teamId, team.id);
+    assert.strictEqual(denied.itemKey, 'flour-basic');
+    assert.ok(denied.itemName);
+    assert.strictEqual(purchaseCount.count, 0, 'Denied requests must not create purchases');
+  });
+
   it('should warn when a team cannot afford a shop item and allow force approval', async () => {
     const team = ensureTeam(app, 'Shop Team', 100);
     await ensureShopPhase(app, hostSocket, screenSocket);

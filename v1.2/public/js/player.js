@@ -61,6 +61,8 @@ let shopCatalog = { categories: [], defaultKit: [] };
 let shopItemsByKey = new Map();
 let shopInventories = {};
 let shopPurchaseHistories = {};
+let pendingShopRequests = new Set();
+let outgoingShopRequests = new Set();
 let playerShopStatusMessage = '';
 let playerShopStatusVariant = 'info';
 let babylonEngine = null;
@@ -118,6 +120,10 @@ socket.on('room-joined', (data) => {
 socket.on('phase-changed', (data) => {
   console.log('Phase changed:', data.phase);
   currentPhase = data.phase;
+  if (data.phase !== 'SHOP') {
+    pendingShopRequests.clear();
+    outgoingShopRequests.clear();
+  }
   updatePhaseUI(data.phase);
 });
 
@@ -125,6 +131,10 @@ socket.on('state', (data) => {
   console.log('Received state:', data);
   hideLoadingOverlay();
   currentPhase = data.phase;
+  if (data.phase !== 'SHOP') {
+    pendingShopRequests.clear();
+    outgoingShopRequests.clear();
+  }
   allTeams = normalizeTeams(data.teams || []);
 
   if (data.baking) {
@@ -195,6 +205,10 @@ socket.on('error', (error) => {
   hideLoadingOverlay();
   if (!myTeam || !myTeam.id) {
     resetJoinButton();
+  }
+  if (outgoingShopRequests.size) {
+    outgoingShopRequests.clear();
+    renderShopDisplay();
   }
   showNotification(error.message || 'An error occurred', 'error');
 });
@@ -312,6 +326,11 @@ socket.on('shop:purchase-result', (teamId, result) => {
   if (myTeam && teamId === myTeam.id) {
     const itemName = result.itemName || result.itemKey || 'item';
 
+    if (result.itemKey) {
+      outgoingShopRequests.delete(result.itemKey);
+      pendingShopRequests.delete(result.itemKey);
+    }
+
     if (result.success) {
       const overrideText = result.approvedByOverride ? ' with host override' : '';
       showNotification(`Your team bought ${itemName}${overrideText}.`, 'success');
@@ -330,6 +349,29 @@ socket.on('shop:purchase-result', (teamId, result) => {
 socket.on('shop:team-inventory-updated', (teamId, inventory) => {
   console.log('Team inventory updated:', teamId, inventory);
   shopInventories[String(teamId)] = Array.isArray(inventory) ? inventory : [];
+  renderShopDisplay();
+});
+
+socket.on('shop:request-acknowledged', (data) => {
+  console.log('Purchase request acknowledged:', data);
+  outgoingShopRequests.delete(data.itemKey);
+  pendingShopRequests.add(data.itemKey);
+  setPlayerShopStatus(`Request sent: ${data.itemName}. Waiting for host approval...`, 'info');
+  showNotification(`Request for ${data.itemName} sent to host! Waiting for approval...`, 'info');
+  renderShopDisplay();
+});
+
+socket.on('shop:purchase-denied', (data) => {
+  console.log('Purchase request denied:', data);
+
+  if (!myTeam || data.teamId !== myTeam.id) {
+    return;
+  }
+
+  outgoingShopRequests.delete(data.itemKey);
+  pendingShopRequests.delete(data.itemKey);
+  setPlayerShopStatus(`Request denied: ${data.itemName}.`, 'warning');
+  showNotification(`Host denied ${data.itemName}.`, 'warning');
   renderShopDisplay();
 });
 
@@ -777,6 +819,17 @@ function renderPlayerShopCatalog() {
         ${(category.items || []).map((item) => {
           const ownedCount = inventory.filter((entry) => entry.item_key === item.key).length;
           const meta = buildShopItemMeta(item);
+          const canAfford = Boolean(myTeam && myTeam.id) && Number(myTeam.money) >= Number(item.price);
+          const isPending = pendingShopRequests.has(item.key);
+          const isRequesting = outgoingShopRequests.has(item.key);
+          const canRequest = canAfford && !isPending && !isRequesting;
+          const hostNote = !myTeam || !myTeam.id
+            ? 'Join a team to request this item.'
+            : (isPending
+              ? 'Request pending host approval.'
+              : (isRequesting
+                ? 'Sending request to the host...'
+                : (canAfford ? 'Send a purchase request to the host.' : 'Not enough cash yet.')));
           return `
             <article class="player-shop-item ${ownedCount > 0 ? 'owned' : ''}">
               <div class="player-shop-item-header">
@@ -787,14 +840,23 @@ function renderPlayerShopCatalog() {
                 <span class="player-shop-item-price">${formatMoney(item.price)}</span>
               </div>
               ${meta ? `<div class="player-shop-meta">${escapeHtml(meta)}</div>` : ''}
-              <div class="player-shop-owned ${ownedCount > 0 ? 'is-owned' : ''}">${ownedCount > 0 ? `✓ Bought ×${ownedCount}` : 'Available via host'}</div>
-              <div class="player-shop-host-note">Host controls purchases.</div>
+              <div class="player-shop-owned ${ownedCount > 0 ? 'is-owned' : ''}">${ownedCount > 0 ? `✓ Bought ×${ownedCount}` : 'Available to request'}</div>
+              <div class="player-shop-host-note">${escapeHtml(hostNote)}</div>
+              <button class="btn btn-sm btn-primary player-buy-btn" data-item-key="${escapeHtml(item.key)}" ${canRequest ? '' : 'disabled'}>
+                ${isPending ? 'Pending...' : (isRequesting ? 'Sending...' : `Request ($${item.price})`)}
+              </button>
             </article>
           `;
         }).join('')}
       </div>
     </section>
   `).join('');
+
+  playerShopCatalog.querySelectorAll('.player-buy-btn[data-item-key]').forEach((button) => {
+    button.addEventListener('click', () => {
+      requestPurchase(button.dataset.itemKey);
+    });
+  });
 }
 
 function renderPlayerShopInventory() {
@@ -1546,11 +1608,31 @@ function resetJoinButton() {
   joinTeamBtn.textContent = 'Join Game';
 }
 
+function requestPurchase(itemKey) {
+  if (!myTeam || !myTeam.id) {
+    showNotification('Join a team first!', 'error');
+    return;
+  }
+
+  if (pendingShopRequests.has(itemKey) || outgoingShopRequests.has(itemKey)) {
+    showNotification('That request is already pending.', 'warning');
+    return;
+  }
+
+  outgoingShopRequests.add(itemKey);
+  socket.emit('shop:request-purchase', { teamId: myTeam.id, itemKey });
+  setPlayerShopStatus('Purchase request sent to host for approval.', 'info');
+  showNotification('Purchase request sent to host!', 'info');
+  renderShopDisplay();
+}
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
+
+window.requestPurchase = requestPurchase;
 
 // ===== Event Listeners =====
 
