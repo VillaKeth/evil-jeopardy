@@ -48,6 +48,9 @@ class CowCombat3D extends BaseMinigameScene {
     this.dodgeButtonText = null;
     this.promptArrow = null;
     this.glowRing = null;
+    this.warningOverlay = null;
+    this.warningText = null;
+    this.tutorialOverlay = null;
     this._instructionStateKey = '';
     this._instructionFadeAt = null;
     this._instructionMinAlpha = 1;
@@ -319,6 +322,126 @@ class CowCombat3D extends BaseMinigameScene {
       this.dodgeButtonText.fontSize = 22;
       this.dodgeButtonText.fontWeight = 'bold';
     }
+
+    this._buildWarningOverlay();
+    this._buildTutorialOverlay();
+  }
+
+  _buildWarningOverlay() {
+    this.warningOverlay = new BABYLON.GUI.Rectangle('warningOverlay');
+    this.warningOverlay.width = '100%';
+    this.warningOverlay.height = '100%';
+    this.warningOverlay.thickness = 0;
+    this.warningOverlay.background = 'transparent';
+    this.warningOverlay.isVisible = false;
+    this.warningOverlay.isPointerBlocker = false;
+    this.hud.texture.addControl(this.warningOverlay);
+
+    this.warningText = new BABYLON.GUI.TextBlock('warningText', '');
+    this.warningText.fontSize = 42;
+    this.warningText.fontWeight = 'bold';
+    this.warningText.color = '#ff4d4d';
+    this.warningText.outlineWidth = 5;
+    this.warningText.outlineColor = '#000000';
+    this.warningText.shadowBlur = 12;
+    this.warningText.shadowColor = '#000000';
+    this.warningText.textWrapping = true;
+    this.warningOverlay.addControl(this.warningText);
+
+    this._warningBorder = new BABYLON.GUI.Rectangle('warningBorder');
+    this._warningBorder.width = '100%';
+    this._warningBorder.height = '100%';
+    this._warningBorder.thickness = 8;
+    this._warningBorder.color = '#ff0000';
+    this._warningBorder.background = 'transparent';
+    this._warningBorder.alpha = 0;
+    this._warningBorder.isPointerBlocker = false;
+    this.hud.texture.addControl(this._warningBorder);
+  }
+
+  _showAttackWarning(type) {
+    if (!this.warningOverlay) return;
+    this.warningOverlay.isVisible = true;
+
+    switch (type) {
+      case 'kick':
+        this.warningText.text = '🦵 KICK!\nHANDS OFF!';
+        this.warningText.color = '#ff4d4d';
+        this._warningBorder.color = '#ff0000';
+        break;
+      case 'charge':
+        this.warningText.text = '🐂 CHARGE!\nDODGE NOW!';
+        this.warningText.color = '#ff6633';
+        this._warningBorder.color = '#ff4400';
+        break;
+      case 'spin':
+        this.warningText.text = '🌀 SPIN!\nWAIT IT OUT!';
+        this.warningText.color = '#ffcc00';
+        this._warningBorder.color = '#ffaa00';
+        break;
+      case 'stampede':
+        this.warningText.text = '🐄🐄🐄\nSTAMPEDE!';
+        this.warningText.color = '#ff9c2a';
+        this._warningBorder.color = '#ff6600';
+        break;
+    }
+
+    this._warningBorder.alpha = 0.8;
+    this._warningFadeStart = this.elapsed + 1.5;
+  }
+
+  _hideAttackWarning() {
+    if (!this.warningOverlay) return;
+    this.warningOverlay.isVisible = false;
+    this._warningBorder.alpha = 0;
+  }
+
+  _updateWarningBorder() {
+    if (!this._warningBorder || !this._warningFadeStart) return;
+    if (this.elapsed < this._warningFadeStart) {
+      const pulse = 0.5 + Math.sin(this.elapsed * 12) * 0.3;
+      this._warningBorder.alpha = pulse;
+    } else if (this.warningOverlay?.isVisible) {
+      this._warningBorder.alpha *= 0.95;
+      if (this._warningBorder.alpha < 0.05) this._warningBorder.alpha = 0;
+    }
+  }
+
+  _buildTutorialOverlay() {
+    this.tutorialOverlay = new BABYLON.GUI.Rectangle('tutorialOverlay');
+    this.tutorialOverlay.width = '420px';
+    this.tutorialOverlay.height = '180px';
+    this.tutorialOverlay.cornerRadius = 16;
+    this.tutorialOverlay.thickness = 3;
+    this.tutorialOverlay.color = '#44ff44';
+    this.tutorialOverlay.background = 'rgba(0, 0, 0, 0.85)';
+    this.tutorialOverlay.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+    this.tutorialOverlay.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+    this.tutorialOverlay.isPointerBlocker = false;
+    this.hud.texture.addControl(this.tutorialOverlay);
+
+    const tutorialText = new BABYLON.GUI.TextBlock('tutorialText',
+      '🐄 COW COMBAT!\n\nClick the GLOWING udder when prompted!\nAvoid attacks — DODGE charges!\nFill the bucket with milk!');
+    tutorialText.color = '#ffffff';
+    tutorialText.fontSize = 16;
+    tutorialText.fontWeight = 'bold';
+    tutorialText.textWrapping = true;
+    tutorialText.lineSpacing = '4px';
+    tutorialText.outlineWidth = 2;
+    tutorialText.outlineColor = '#000000';
+    this.tutorialOverlay.addControl(tutorialText);
+
+    setTimeout(() => {
+      if (this._disposed || !this.tutorialOverlay) return;
+      const fade = setInterval(() => {
+        if (this._disposed || !this.tutorialOverlay) { clearInterval(fade); return; }
+        this.tutorialOverlay.alpha -= 0.04;
+        if (this.tutorialOverlay.alpha <= 0) {
+          clearInterval(fade);
+          this.tutorialOverlay.isVisible = false;
+        }
+      }, 50);
+    }, 4000);
   }
 
   _setupInput() {
@@ -567,6 +690,8 @@ class CowCombat3D extends BaseMinigameScene {
 
     if (this.sounds && this.sounds.angryMoo) this.sounds.angryMoo();
 
+    this._showAttackWarning(type);
+
     if (type === 'charge') {
       this._showDodgeButton('DODGE', '#c0392b', 180, 54);
     } else {
@@ -587,6 +712,7 @@ class CowCombat3D extends BaseMinigameScene {
     this.attackDodged = false;
     this.uddersInvalid = false;
     this._hideDodgeButton();
+    this._hideAttackWarning();
     this.cowRoot.position.copyFrom(this.baseCowPosition);
     this.cowRoot.rotation.y = 0;
     this.legs.forEach((leg) => {
@@ -631,6 +757,7 @@ class CowCombat3D extends BaseMinigameScene {
     this._instructionStateKey = '';
     this._hideDodgeButton();
     this._syncInstructionState();
+    this._showAttackWarning('stampede');
     this.hud.showMessage('🐄🐄🐄 STAMPEDE!', 2000);
     if (this.sounds) {
       if (this.sounds.stampede) this.sounds.stampede();
@@ -699,6 +826,7 @@ class CowCombat3D extends BaseMinigameScene {
   _finishStampede() {
     this.stampedeActive = false;
     this._hideDodgeButton();
+    this._hideAttackWarning();
     this.stampedeCows.forEach((cow) => {
       if (cow.root) cow.root.dispose(false, true);
     });
@@ -830,6 +958,7 @@ class CowCombat3D extends BaseMinigameScene {
 
     this._syncInstructionState();
     this._updateInstructionAlpha();
+    this._updateWarningBorder();
     this._updateUdders();
     this._updateBucket();
     this._updateMilkBursts(dt);
@@ -946,6 +1075,9 @@ class CowCombat3D extends BaseMinigameScene {
     });
     if (this.promptArrow) this.promptArrow.dispose(false, true);
     if (this.glowRing) this.glowRing.dispose();
+    if (this.warningOverlay) this.warningOverlay.dispose();
+    if (this._warningBorder) this._warningBorder.dispose();
+    if (this.tutorialOverlay) this.tutorialOverlay.dispose();
     if (this.instructionText) this.instructionText.dispose();
     if (this.dodgeButton) this.dodgeButton.dispose();
     super.dispose();

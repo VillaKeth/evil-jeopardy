@@ -38,3 +38,17 @@ test('CowCombat3D has color-coded udders with arrow and glow ring', () => {
   assert.match(source, /this\.promptArrow\.setEnabled\(true\)/);
   assert.match(source, /this\.glowRing\.setEnabled\(true\)/);
 });
+
+test('CowCombat3D has attack warning overlays and tutorial', () => {
+  const source = read('public/js/babylon-game/scenes-absurd/CowCombat3D.js');
+
+  assert.match(source, /_buildWarningOverlay\(\)/);
+  assert.match(source, /_showAttackWarning\(/);
+  assert.match(source, /_hideAttackWarning\(\)/);
+  assert.match(source, /KICK.*HANDS OFF/);
+  assert.match(source, /CHARGE.*DODGE NOW/);
+  assert.match(source, /SPIN.*WAIT IT OUT/);
+  assert.match(source, /STAMPEDE/);
+  assert.match(source, /_buildTutorialOverlay\(\)/);
+  assert.match(source, /COW COMBAT/);
+});
