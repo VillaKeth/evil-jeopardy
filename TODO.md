@@ -51,5 +51,8 @@
 - [x] Glow pulse indicators on interactive/pickable objects
 - [x] Full E2E playthrough — LOBBY → TRIVIA → SHOP → BAKING (all 6 phases) → Completion ✅
 - [x] Fix glow material dispose crash during scene transitions
+- [x] E2E feature test: trivia answer reveal, shop purchase requests, judging live scores, all phases LOBBY→RESULTS ✅
+- [x] Fix set-phase not sending shop:catalog and judging:results on phase transition
 - [ ] Browser-test the rounded HandController3D fingers and palm silhouette in PrepScene3D.
 - [ ] Verify the new fingertip and knuckle spheres do not clip the thumb at maximum curl in PrepScene3D.
+- [ ] Fix judging player display showing 0/100 for scored dimensions (score format mismatch)
