@@ -55,4 +55,4 @@
 - [x] Fix set-phase not sending shop:catalog and judging:results on phase transition
 - [ ] Browser-test the rounded HandController3D fingers and palm silhouette in PrepScene3D.
 - [ ] Verify the new fingertip and knuckle spheres do not clip the thumb at maximum curl in PrepScene3D.
-- [ ] Fix judging player display showing 0/100 for scored dimensions (score format mismatch)
+- [x] Judging score display works correctly (0/100 was test invocation error — scores need taste+accuracy+creativity in one call)
