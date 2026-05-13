@@ -203,7 +203,12 @@ class DecorateScene3D extends BaseMinigameScene {
     types.forEach((type, index) => {
       const sample = this._createToppingMesh(`sample_${type}`, type, true);
       sample.position = new BABYLON.Vector3(start + (index * 1.2), 0.34, -2.35);
-      sample.metadata = { sample: true, toppingType: type };
+      sample.metadata = { ...(sample.metadata || {}), sample: true, toppingType: type };
+      if (sample.metadata.glowTarget) {
+        sample.metadata.glowTarget.metadata = { sample: true, toppingType: type };
+      }
+      const highlightTarget = sample.metadata && sample.metadata.glowTarget ? sample.metadata.glowTarget : sample;
+      this.highlightInteractive(highlightTarget, new BABYLON.Color3(1, 0.85, 0.4));
       sample.isPickable = true;
       this.sampleMeshes.push(sample);
     });
@@ -381,6 +386,7 @@ class DecorateScene3D extends BaseMinigameScene {
           hitbox.visibility = 0;
           hitbox.isPickable = true;
           hitbox.parent = root;
+          root.metadata = { glowTarget: hitbox };
         }
         return mesh;
       }

@@ -20,6 +20,8 @@ class BaseMinigameScene {
     this.sounds = window.gameSounds || null;
     this._timerWarnPlayed = false;
     this._timerCritPlayed = false;
+    this._glowPulses = [];
+    this._interactiveGlowMaterials = [];
   }
 
   async init() {
@@ -64,6 +66,53 @@ class BaseMinigameScene {
   async create() {}
   update(deltaTime) {}
   onTimeUp() { this.completePhase(); }
+
+  /**
+   * Make a mesh pulse with glow to indicate it's interactive.
+   * @param {BABYLON.Mesh} mesh - The mesh to highlight
+   * @param {BABYLON.Color3} color - The glow color (default: soft gold)
+   * @param {number} speed - Pulse speed (default: 2.0)
+   */
+  highlightInteractive(mesh, color, speed) {
+    if (!mesh || !this._glowLayer) return;
+    const glowColor = color || new BABYLON.Color3(1, 0.85, 0.4);
+    const pulseSpeed = speed || 2.0;
+
+    if (!this._glowPulses) this._glowPulses = [];
+    const existingPulse = this._glowPulses.find((pulse) => pulse.mesh === mesh);
+    if (existingPulse) {
+      existingPulse.color = glowColor;
+      existingPulse.speed = pulseSpeed;
+      return;
+    }
+
+    if (!this._interactiveGlowMaterials) this._interactiveGlowMaterials = [];
+
+    if (!mesh.material) {
+      const overlayMaterial = new BABYLON.StandardMaterial(
+        `${mesh.name || 'interactive'}_glow_${this._interactiveGlowMaterials.length}`,
+        this.scene
+      );
+      overlayMaterial.diffuseColor = BABYLON.Color3.Black();
+      overlayMaterial.specularColor = BABYLON.Color3.Black();
+      overlayMaterial.alpha = 0.05;
+      mesh.material = overlayMaterial;
+      if (mesh.visibility === 0) mesh.visibility = 0.08;
+      this._interactiveGlowMaterials.push(overlayMaterial);
+    } else if (typeof mesh.material.clone === 'function') {
+      mesh.material = mesh.material.clone(
+        `${mesh.material.name || mesh.name || 'interactive'}_glow_${this._interactiveGlowMaterials.length}`
+      );
+      this._interactiveGlowMaterials.push(mesh.material);
+    }
+
+    if (mesh.material) {
+      mesh.material.emissiveColor = glowColor.scale(0.3);
+    }
+
+    this._glowPulses.push({ mesh, color: glowColor, speed: pulseSpeed, time: 0 });
+  }
+
   onChaosEvent(event) {
     if (this.sounds) this.sounds.chaosEvent();
     this.hud.showMessage(`⚡ ${event.name || 'Chaos!'}`, 1500);
@@ -179,6 +228,17 @@ class BaseMinigameScene {
       }
       if (this._earthquakeShake <= 0) this._earthquakeShake = 0;
     }
+
+    if (this._glowPulses) {
+      for (const pulse of this._glowPulses) {
+        if (!pulse.mesh || pulse.mesh.isDisposed()) continue;
+        pulse.time += dt || 0.016;
+        const intensity = 0.15 + 0.25 * Math.sin(pulse.time * pulse.speed * Math.PI);
+        if (pulse.mesh.material && pulse.mesh.material.emissiveColor) {
+          pulse.mesh.material.emissiveColor = pulse.color.scale(intensity);
+        }
+      }
+    }
   }
 
   addScore(points) {
@@ -218,7 +278,14 @@ class BaseMinigameScene {
     if (this._chaosUnsub) this._chaosUnsub();
     if (this.sounds) this.sounds.stopAmbient();
     if (this.hud) this.hud.dispose();
+    if (this._interactiveGlowMaterials) {
+      this._interactiveGlowMaterials.forEach((material) => {
+        if (material && !material.isDisposed()) material.dispose();
+      });
+      this._interactiveGlowMaterials = null;
+    }
     if (this.materials) this.materials.dispose();
+    this._glowPulses = null;
     if (this.scene) this.scene.dispose();
   }
 }

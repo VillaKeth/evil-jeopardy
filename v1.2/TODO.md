@@ -23,3 +23,5 @@
 - [x] Add dispose() to DecorateScene3D (sample meshes, decoration points, tool status GUI).
 - [x] Improve GravityFlip3D dispose (furniture meshes, cake mesh, all GUI controls).
 - [x] Overhaul MixScene3D — kitchen counter, whisk animation, batter transitions, zone feedback, round progress, flour particles, dispose.
+- [ ] Browser-test PrepScene3D ingredient container labels, handles, foil, and egg-carton polish.
+- [ ] Browser-test PREP ingredient and DECORATE topping glow pulse indicators in Babylon scenes.

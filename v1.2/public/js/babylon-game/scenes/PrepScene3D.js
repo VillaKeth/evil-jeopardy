@@ -28,6 +28,7 @@ class PrepScene3D extends BaseMinigameScene {
     this.ambientLight = null;
     this.recipeCardTexture = null;
     this.recipeCardMaterial = null;
+    this._containerDecorResources = [];
 
     // UI
     this.fillGauge = null;
@@ -70,6 +71,79 @@ class PrepScene3D extends BaseMinigameScene {
     if (!mesh) return mesh;
     mesh.isPickable = false;
     return mesh;
+  }
+
+  _trackContainerDecorResource(resource) {
+    if (resource && typeof resource.dispose === 'function') {
+      this._containerDecorResources.push(resource);
+    }
+    return resource;
+  }
+
+  _disposeContainerDecorResources() {
+    while (this._containerDecorResources.length) {
+      const resource = this._containerDecorResources.pop();
+      if (resource && typeof resource.dispose === 'function') {
+        resource.dispose();
+      }
+    }
+  }
+
+  _createIngredientLabelMaterial(name, text, options = {}) {
+    const {
+      background = '#f5f0e0',
+      foreground = '#3a2a1a',
+      emissiveColor = new BABYLON.Color3(0.1, 0.08, 0.05)
+    } = options;
+
+    const labelTexture = this._trackContainerDecorResource(new BABYLON.DynamicTexture(
+      `${name}Tex`,
+      { width: 256, height: 128 },
+      this.scene
+    ));
+    const ctx = labelTexture.getContext();
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, 256, 128);
+    ctx.font = 'bold 42px Arial';
+    ctx.fillStyle = foreground;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 78);
+    labelTexture.update();
+
+    const labelMat = this._trackContainerDecorResource(new BABYLON.StandardMaterial(`${name}Mat`, this.scene));
+    labelMat.diffuseTexture = labelTexture;
+    labelMat.emissiveColor = emissiveColor;
+    labelMat.specularColor = new BABYLON.Color3(0.05, 0.04, 0.03);
+    return labelMat;
+  }
+
+  _createTrackedPBRMaterial(name, configure) {
+    const material = this._trackContainerDecorResource(new BABYLON.PBRMaterial(name, this.scene));
+    configure(material);
+    return material;
+  }
+
+  _createTrackedFoodMaterial(name, color, options = {}) {
+    const {
+      metallic = 0,
+      roughness = 0.7,
+      alpha = 1,
+      emissiveColor = null,
+      translucencyIntensity = 0.3
+    } = options;
+
+    return this._createTrackedPBRMaterial(name, (material) => {
+      material.albedoColor = color;
+      material.metallic = metallic;
+      material.roughness = roughness;
+      material.alpha = alpha;
+      material.subSurface.isTranslucencyEnabled = translucencyIntensity > 0;
+      material.subSurface.translucencyIntensity = translucencyIntensity;
+      if (emissiveColor) {
+        material.emissiveColor = emissiveColor;
+      }
+    });
   }
 
   async _buildKitchenCounter() {
@@ -573,7 +647,9 @@ class PrepScene3D extends BaseMinigameScene {
     }
     if (this.currentContainer) {
       this.currentContainer.dispose();
+      this.currentContainer = null;
     }
+    this._disposeContainerDecorResources();
     if (this.pourParticles) {
       this.pourParticles.stop();
       this.pourParticles.dispose();
@@ -635,6 +711,7 @@ class PrepScene3D extends BaseMinigameScene {
       : this.materials.food(color);
 
     this._styleIngredientContainer(ingredient, color);
+    this.highlightInteractive(this.currentContainer, new BABYLON.Color3(0.4, 1, 0.5));
 
     this.fillMesh.material = this.materials.food(color);
 
@@ -656,95 +733,216 @@ class PrepScene3D extends BaseMinigameScene {
   }
 
   _styleIngredientContainer(ingredient, color) {
-    const detailColor = this.materials.food(new BABYLON.Color3(
+    const detailColor = this._createTrackedFoodMaterial('ingredientDetailMat', new BABYLON.Color3(
       Math.max(0, color.r - 0.08),
       Math.max(0, color.g - 0.08),
       Math.max(0, color.b - 0.08)
     ));
+    const attachDecoration = (mesh) => {
+      mesh.parent = this.currentContainer;
+      return mesh;
+    };
+    const createLabel = (name, text, position, options = {}) => {
+      const label = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox(name, {
+        width: 0.28, height: 0.18, depth: 0.02
+      }, this.scene)));
+      label.position = position;
+      label.material = this._createIngredientLabelMaterial(name, text, options);
+      return label;
+    };
 
     switch (ingredient) {
       case 'flour': {
-        const fold = this._markDecoration(BABYLON.MeshBuilder.CreateBox('flourFold', {
-          width: 0.42, height: 0.14, depth: 0.2
-        }, this.scene));
-        fold.parent = this.currentContainer;
-        fold.position.y = 0.34;
-        fold.material = this.materials.food(new BABYLON.Color3(0.88, 0.83, 0.72));
+        const fold = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('flourFold', {
+          width: 0.42, height: 0.11, depth: 0.2
+        }, this.scene)));
+        fold.position = new BABYLON.Vector3(0.02, 0.36, 0.01);
+        fold.rotation.x = 0.18;
+        fold.rotation.z = 0.08;
+        fold.material = this._createTrackedFoodMaterial(
+          'flourFoldMat',
+          new BABYLON.Color3(0.88, 0.83, 0.72)
+        );
 
-        const label = this._markDecoration(BABYLON.MeshBuilder.CreateBox('flourLabel', {
-          width: 0.28, height: 0.22, depth: 0.02
-        }, this.scene));
-        label.parent = this.currentContainer;
-        label.position = new BABYLON.Vector3(0, 0.02, -0.18);
-        label.material = this.materials.food(new BABYLON.Color3(0.96, 0.95, 0.9));
+        const flourOpening = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('flourOpening', {
+          width: 0.34, height: 0.02, depth: 0.08
+        }, this.scene)));
+        flourOpening.position = new BABYLON.Vector3(0.03, 0.3, -0.03);
+        flourOpening.rotation.x = 0.12;
+        flourOpening.material = detailColor;
+
+        [
+          { name: 'flourCreaseLeft', position: new BABYLON.Vector3(-0.14, 0.03, -0.175), rotationZ: -0.16, height: 0.54 },
+          { name: 'flourCreaseCenter', position: new BABYLON.Vector3(0, -0.05, -0.176), rotationZ: 0.08, height: 0.62 },
+          { name: 'flourCreaseRight', position: new BABYLON.Vector3(0.14, 0.03, -0.175), rotationZ: 0.15, height: 0.54 }
+        ].forEach(({ name, position, rotationZ, height }) => {
+          const crease = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox(name, {
+            width: 0.015, height, depth: 0.012
+          }, this.scene)));
+          crease.position = position;
+          crease.rotation.z = rotationZ;
+          crease.material = detailColor;
+        });
+
+        const label = createLabel('flourLabel', 'FLOUR', new BABYLON.Vector3(0, 0.01, -0.18));
+        label.scaling.y = 1.15;
         break;
       }
       case 'sugar': {
-        const sugarFill = this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('sugarFill', {
+        const sugarFill = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('sugarFill', {
           diameter: 0.3, height: 0.38, tessellation: 20
-        }, this.scene));
-        sugarFill.parent = this.currentContainer;
+        }, this.scene)));
         sugarFill.position.y = -0.15;
         sugarFill.material = this.materials.food(color);
 
-        const lid = this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('sugarLid', {
+        const lid = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('sugarLid', {
           diameter: 0.46, height: 0.1, tessellation: 20
-        }, this.scene));
-        lid.parent = this.currentContainer;
+        }, this.scene)));
         lid.position.y = 0.4;
         lid.material = this.materials.metal();
-        break;
-      }
-      case 'eggs': {
-        const lid = this._markDecoration(BABYLON.MeshBuilder.CreateBox('eggCartonLid', {
-          width: 0.74, height: 0.12, depth: 0.46
-        }, this.scene));
-        lid.parent = this.currentContainer;
-        lid.position.y = 0.08;
-        lid.material = detailColor;
 
-        [-0.22, 0, 0.22].forEach((x, index) => {
-          const bump = this._markDecoration(BABYLON.MeshBuilder.CreateSphere(`eggBump_${index}`, {
-            diameter: 0.12,
-            segments: 10
-          }, this.scene));
-          bump.parent = this.currentContainer;
-          bump.position = new BABYLON.Vector3(x, 0.12, 0);
-          bump.scaling.y = 0.65;
-          bump.material = this.materials.food(new BABYLON.Color3(0.96, 0.9, 0.74));
+        const sugarHandle = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateTorus('sugarHandle', {
+          diameter: 0.12, thickness: 0.03, tessellation: 18
+        }, this.scene)));
+        sugarHandle.position.y = 0.47;
+        sugarHandle.rotation.x = Math.PI / 2;
+        sugarHandle.material = this.materials.metal();
+
+        createLabel('sugarLabel', 'SUGAR', new BABYLON.Vector3(0, -0.02, -0.19), {
+          background: '#fcfbf4',
+          emissiveColor: new BABYLON.Color3(0.08, 0.08, 0.05)
         });
         break;
       }
-      case 'butter': {
-        const wrapper = this._markDecoration(BABYLON.MeshBuilder.CreateBox('butterWrapper', {
-          width: 0.46, height: 0.1, depth: 0.24
-        }, this.scene));
-        wrapper.parent = this.currentContainer;
-        wrapper.position.y = 0.03;
-        wrapper.material = this.materials.food(new BABYLON.Color3(0.95, 0.9, 0.72));
+      case 'eggs': {
+        const lid = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('eggCartonLid', {
+          width: 0.74, height: 0.12, depth: 0.46
+        }, this.scene)));
+        lid.position.y = 0.08;
+        lid.rotation.x = -0.08;
+        lid.material = detailColor;
 
-        const wrapperBand = this._markDecoration(BABYLON.MeshBuilder.CreateBox('butterWrapperBand', {
+        const eggPositions = [
+          new BABYLON.Vector3(-0.22, 0.12, -0.1),
+          new BABYLON.Vector3(0, 0.12, -0.1),
+          new BABYLON.Vector3(0.22, 0.12, -0.1),
+          new BABYLON.Vector3(-0.22, 0.12, 0.1),
+          new BABYLON.Vector3(0, 0.12, 0.1),
+          new BABYLON.Vector3(0.22, 0.12, 0.1)
+        ];
+        const eggColors = [
+          this._createTrackedFoodMaterial('eggShellMat0', new BABYLON.Color3(0.98, 0.96, 0.9)),
+          this._createTrackedFoodMaterial('eggShellMat1', new BABYLON.Color3(0.94, 0.89, 0.78)),
+          this._createTrackedFoodMaterial('eggShellMat2', new BABYLON.Color3(0.96, 0.92, 0.84))
+        ];
+
+        eggPositions.forEach((position, index) => {
+          const bump = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateSphere(`eggBump_${index}`, {
+            diameter: 0.12,
+            segments: 10
+          }, this.scene)));
+          bump.position = position;
+          bump.scaling.y = 0.68;
+          bump.material = eggColors[index % eggColors.length];
+        });
+
+        [-0.11, 0.11].forEach((x, index) => {
+          const eggDivider = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox(`eggDividerCol_${index}`, {
+            width: 0.025, height: 0.05, depth: 0.34
+          }, this.scene)));
+          eggDivider.position = new BABYLON.Vector3(x, 0.06, 0);
+          eggDivider.material = detailColor;
+        });
+
+        const eggDividerRow = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('eggDividerRow', {
+          width: 0.66, height: 0.05, depth: 0.025
+        }, this.scene)));
+        eggDividerRow.position = new BABYLON.Vector3(0, 0.06, 0);
+        eggDividerRow.material = detailColor;
+        break;
+      }
+      case 'butter': {
+        const butterFoilMat = this._createTrackedPBRMaterial('butterFoilMat', (material) => {
+          material.albedoColor = new BABYLON.Color3(0.95, 0.82, 0.26);
+          material.metallic = 1;
+          material.roughness = 0.08;
+          material.emissiveColor = new BABYLON.Color3(0.08, 0.05, 0.0);
+        });
+        const butterBandMat = this._createTrackedPBRMaterial('butterBandMat', (material) => {
+          material.albedoColor = new BABYLON.Color3(0.76, 0.56, 0.14);
+          material.metallic = 0.98;
+          material.roughness = 0.12;
+        });
+
+        const wrapper = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('butterWrapper', {
+          width: 0.46, height: 0.1, depth: 0.24
+        }, this.scene)));
+        wrapper.position.y = 0.03;
+        wrapper.material = butterFoilMat;
+
+        const wrapperBand = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('butterWrapperBand', {
           width: 0.08, height: 0.12, depth: 0.25
-        }, this.scene));
-        wrapperBand.parent = this.currentContainer;
+        }, this.scene)));
         wrapperBand.position.y = 0.03;
-        wrapperBand.material = detailColor;
+        wrapperBand.material = butterBandMat;
+
+        ['Left', 'Right'].forEach((side, index) => {
+          const wrapperFold = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox(`butterWrapperFold${side}`, {
+            width: 0.05, height: 0.08, depth: 0.2
+          }, this.scene)));
+          wrapperFold.position = new BABYLON.Vector3(index === 0 ? -0.2 : 0.2, 0.03, 0);
+          wrapperFold.rotation.z = index === 0 ? -0.18 : 0.18;
+          wrapperFold.material = butterFoilMat;
+        });
+
+        const butterSlice = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateBox('butterSlice', {
+          width: 0.24, height: 0.014, depth: 0.03
+        }, this.scene)));
+        butterSlice.position = new BABYLON.Vector3(0.03, 0.093, -0.02);
+        butterSlice.rotation.z = 0.22;
+        butterSlice.material = detailColor;
         break;
       }
       case 'milk': {
-        const neck = this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('milkNeck', {
-          diameter: 0.14, height: 0.18, tessellation: 20
-        }, this.scene));
-        neck.parent = this.currentContainer;
-        neck.position.y = 0.49;
-        neck.material = this.materials.food(color);
+        const milkJugBodyMat = this._createTrackedPBRMaterial('milkJugBodyMat', (material) => {
+          material.albedoColor = new BABYLON.Color3(0.97, 0.97, 0.99);
+          material.metallic = 0;
+          material.roughness = 0.38;
+          material.alpha = 0.96;
+          material.subSurface.isTranslucencyEnabled = true;
+          material.subSurface.translucencyIntensity = 0.12;
+        });
+        this.currentContainer.material = milkJugBodyMat;
 
-        const cap = this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('milkCap', {
+        const neck = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('milkNeck', {
+          diameter: 0.14, height: 0.18, tessellation: 20
+        }, this.scene)));
+        neck.position.y = 0.49;
+        neck.material = milkJugBodyMat;
+
+        const cap = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateCylinder('milkCap', {
           diameter: 0.16, height: 0.08, tessellation: 20
-        }, this.scene));
-        cap.parent = this.currentContainer;
+        }, this.scene)));
         cap.position.y = 0.62;
-        cap.material = this.materials.food(new BABYLON.Color3(0.42, 0.62, 0.9));
+        cap.material = this._createTrackedFoodMaterial(
+          'milkCapMat',
+          new BABYLON.Color3(0.42, 0.62, 0.9),
+          { roughness: 0.45, translucencyIntensity: 0.2 }
+        );
+
+        const milkHandle = attachDecoration(this._markDecoration(BABYLON.MeshBuilder.CreateTorus('milkHandle', {
+          diameter: 0.28, thickness: 0.05, tessellation: 20
+        }, this.scene)));
+        milkHandle.position = new BABYLON.Vector3(0.23, 0.08, 0);
+        milkHandle.rotation.z = Math.PI / 2;
+        milkHandle.scaling.x = 0.72;
+        milkHandle.material = milkJugBodyMat;
+
+        createLabel('milkLabel', 'MILK', new BABYLON.Vector3(0, 0.08, -0.2), {
+          background: '#f4fbff',
+          foreground: '#28405a',
+          emissiveColor: new BABYLON.Color3(0.05, 0.08, 0.1)
+        });
         break;
       }
     }
@@ -937,6 +1135,7 @@ class PrepScene3D extends BaseMinigameScene {
       this.controlsHint.dispose();
       this.controlsHint = null;
     }
+    this._disposeContainerDecorResources();
     if (this.recipeCardMaterial) {
       this.recipeCardMaterial.dispose();
       this.recipeCardMaterial = null;
